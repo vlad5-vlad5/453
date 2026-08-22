@@ -18,6 +18,15 @@ import os
 import glob
 import xml.etree.ElementTree as ET
 
+_LINES = []
+
+
+def out(*parts):
+    """Печатает и одновременно копит текст для буфера обмена."""
+    text = " ".join(str(p) for p in parts)
+    print(text)
+    _LINES.append(text)
+
 SCENE_NODES = {"TransformGroup", "Shape", "Camera", "Light", "Audio",
                "NurbsCurve", "Skinned", "Mesh"}
 
@@ -46,14 +55,14 @@ def find_i3d():
 
 
 def dump(path):
-    print("=" * 70)
-    print("ДЕРЕВО:", path)
-    print("=" * 70)
+    out("=" * 70)
+    out("ДЕРЕВО:", path)
+    out("=" * 70)
 
     root = ET.parse(path).getroot()
     scene = root.find("Scene")
     if scene is None:
-        print("нет секции <Scene>")
+        out("нет секции <Scene>")
         return
 
     def walk(elem, prefix):
@@ -70,12 +79,12 @@ def dump(path):
 
             attrs = " ".join("%s=%s" % (k, child.get(k))
                              for k in INTERESTING if child.get(k) is not None)
-            print("  %-12s %-16s %-22s %s" % (cur, child.tag,
+            out("  %-12s %-16s %-22s %s" % (cur, child.tag,
                                               child.get("name", "?"), attrs))
             walk(child, cur)
             idx += 1
 
-    print("  %-12s %-16s %-22s %s" % ("ПУТЬ", "ТИП", "ИМЯ", "АТРИБУТЫ"))
+    out("  %-12s %-16s %-22s %s" % ("ПУТЬ", "ТИП", "ИМЯ", "АТРИБУТЫ"))
     walk(scene, None)
 
 
@@ -99,26 +108,41 @@ def check_installed():
 
     xml_path = os.path.join(mods, "FS19_AlphaMoped", "alphaMoped.xml")
     if not os.path.isfile(xml_path):
-        print("\n(распакованной папки мода в mods нет — игра читает zip)")
+        out("\n(распакованной папки мода в mods нет — игра читает zip)")
         return
 
     with open(xml_path, encoding="utf-8", errors="replace") as f:
         t = f.read()
 
-    print("\n" + "=" * 70)
-    print("УСТАНОВЛЕННЫЙ alphaMoped.xml")
-    print("=" * 70)
+    out("\n" + "=" * 70)
+    out("УСТАНОВЛЕННЫЙ alphaMoped.xml")
+    out("=" * 70)
     for needle, label in (("<differentials>", "дифференциалы"),
                           ("<physics repr=", "новый синтаксис колёс"),
                           ("<forwardGear", "передачи"),
                           ('type="alphaMoped"', "тип техники")):
-        print("  [%s] %s" % ("+" if needle in t else "!", label))
+        out("  [%s] %s" % ("+" if needle in t else "!", label))
+
+
+def to_clipboard():
+    text = "\n".join(_LINES)
+    try:
+        import bpy
+        bpy.context.window_manager.clipboard = text
+        print("")
+        print("*" * 70)
+        print("*  ВЫВОД СКОПИРОВАН В БУФЕР ОБМЕНА (%d строк)." % len(_LINES))
+        print("*  Просто нажмите Ctrl+V в чате.")
+        print("*" * 70)
+    except Exception as exc:
+        print("не удалось скопировать в буфер:", exc)
 
 
 if __name__ == "__main__":
     p = find_i3d()
     if not p:
-        print("Не нашёл .i3d")
+        out("Не нашёл .i3d")
     else:
         dump(p)
         check_installed()
+    to_clipboard()
