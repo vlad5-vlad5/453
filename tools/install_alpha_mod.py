@@ -49,35 +49,97 @@ def log(msg):
 
 # ---------------------------------------------------------------- поиск i3d
 
+def _home_candidates():
+    """Внутри Blender expanduser('~') может указывать не туда — собираем варианты."""
+    homes = []
+    for env in ("USERPROFILE", "HOME"):
+        v = os.environ.get(env)
+        if v:
+            homes.append(v)
+    hd, hp = os.environ.get("HOMEDRIVE"), os.environ.get("HOMEPATH")
+    if hd and hp:
+        homes.append(hd + hp)
+    homes.append(os.path.expanduser("~"))
+
+    out = []
+    for h in homes:
+        h = os.path.normpath(h)
+        if os.path.isdir(h) and h not in out:
+            out.append(h)
+    return out
+
+
+def _search_roots():
+    roots = []
+
+    def add(p):
+        p = os.path.normpath(p)
+        if os.path.isdir(p) and p not in roots:
+            roots.append(p)
+
+    # папка текущего .blend — самый надёжный ориентир
+    try:
+        import bpy
+        if bpy.data.filepath:
+            add(os.path.dirname(bpy.data.filepath))
+    except Exception:
+        pass
+
+    doc_names = ["Documents", "Документы", "Desktop", "Рабочий стол", "Downloads",
+                 "Загрузки"]
+
+    for home in _home_candidates():
+        add(home)
+        for d in doc_names:
+            add(os.path.join(home, d))
+        # OneDrive может называться "OneDrive", "OneDrive - Personal" и т.п.
+        try:
+            for entry in os.listdir(home):
+                if entry.lower().startswith("onedrive"):
+                    od = os.path.join(home, entry)
+                    add(od)
+                    for d in doc_names:
+                        add(os.path.join(od, d))
+        except Exception:
+            pass
+
+    return roots
+
+
 def find_i3d(explicit=None):
+    # приоритет: аргумент -> переменная окружения -> автопоиск
+    if not explicit:
+        explicit = os.environ.get("ALPHA_I3D")
+
     if explicit:
+        explicit = explicit.strip().strip('"')
         if not os.path.isfile(explicit):
             raise SystemExit("Файл не найден: %s" % explicit)
+        log("использую указанный файл: %s" % explicit)
         return explicit
 
-    home = os.path.expanduser("~")
-    roots = [
-        os.path.join(home, "Documents"),
-        os.path.join(home, "OneDrive", "Documents"),
-        os.path.join(home, "OneDrive", "Документы"),
-        os.path.join(home, "Документы"),
-        os.path.join(home, "Desktop"),
-        os.path.join(home, "Downloads"),
-    ]
-
+    roots = _search_roots()
     found = []
     for r in roots:
-        if os.path.isdir(r):
-            found += glob.glob(os.path.join(r, "*.i3d"))
-            found += glob.glob(os.path.join(r, "*", "*.i3d"))
+        for pattern in ("*.i3d", os.path.join("*", "*.i3d"),
+                        os.path.join("*", "*", "*.i3d")):
+            found += glob.glob(os.path.join(r, pattern))
+
+    found = [f for f in set(found) if os.path.isfile(f)]
 
     if not found:
-        raise SystemExit(
-            "Не нашёл ни одного .i3d в Документах, на Рабочем столе и в Загрузках.\n"
-            "Укажите путь явно: python install_alpha_mod.py C:\\путь\\файл.i3d")
+        msg = ["Не нашёл ни одного .i3d. Искал в:"]
+        msg += ["   " + r for r in roots]
+        msg.append("")
+        msg.append("Укажите файл явно — выполните ДВЕ строки:")
+        msg.append('   import os; os.environ["ALPHA_I3D"] = r"C:\\путь\\к\\файлу.i3d"')
+        msg.append("   (затем снова строку с exec)")
+        raise SystemExit("\n".join(msg))
 
     found.sort(key=os.path.getmtime, reverse=True)
     log("нашёл модель: %s" % found[0])
+    if len(found) > 1:
+        log("(всего найдено %d, взял самый свежий)" % len(found))
     return found[0]
 
 
