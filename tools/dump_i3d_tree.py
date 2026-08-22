@@ -158,46 +158,87 @@ def one_line_summary(path):
                                           ",".join(cams) if cams else "НЕТ")
 
 
-def deliver(path):
+def _desktop_dirs():
+    home = os.path.expanduser("~")
+    dirs = []
+    bases = [home]
+    try:
+        for e in os.listdir(home):
+            if e.lower().startswith("onedrive"):
+                bases.append(os.path.join(home, e))
+    except Exception:
+        pass
+    for b in bases:
+        for name in ("Desktop", "Рабочий стол"):
+            dirs.append(os.path.join(b, name))
+    dirs.append(home)
+    return [d for d in dirs if os.path.isdir(d)]
+
+
+def deliver(filename="alpha_report.txt", textblock="ALPHA_TREE"):
     text = "\n".join(_LINES)
 
-    # 1) буфер обмена
+    # 1) буфер обмена Blender
     try:
         import bpy
         bpy.context.window_manager.clipboard = text
     except Exception:
         pass
 
-    # 2) файл на Рабочем столе + открыть в Блокноте
+    # 2) текстовый блок внутри Blender — самый надёжный способ скопировать
+    shown_in_blender = False
+    try:
+        import bpy
+        tb = bpy.data.texts.get(textblock) or bpy.data.texts.new(textblock)
+        tb.clear()
+        tb.write(text)
+        shown_in_blender = True
+    except Exception:
+        pass
+
+    # 3) файл на диск
     saved = None
-    for d in (os.path.join(os.path.expanduser("~"), "Desktop"),
-              os.path.join(os.path.expanduser("~"), "Рабочий стол"),
-              os.path.expanduser("~")):
-        if os.path.isdir(d):
-            saved = os.path.join(d, "alpha_report.txt")
-            try:
-                with open(saved, "w", encoding="utf-8") as f:
-                    f.write(text)
-            except Exception:
-                saved = None
-                continue
+    for d in _desktop_dirs():
+        cand = os.path.join(d, filename)
+        try:
+            with open(cand, "w", encoding="utf-8") as f:
+                f.write(text)
+            saved = cand
             break
+        except Exception:
+            continue
+
+    # 4) попытки открыть его
+    opened = False
+    if saved:
+        for opener in ("startfile", "notepad", "cmd"):
+            try:
+                if opener == "startfile":
+                    os.startfile(saved)
+                elif opener == "notepad":
+                    import subprocess
+                    subprocess.Popen(["notepad.exe", saved])
+                else:
+                    import subprocess
+                    subprocess.Popen(["cmd", "/c", "start", "", saved], shell=False)
+                opened = True
+                break
+            except Exception:
+                continue
 
     print("")
     print("*" * 70)
-    print("*  ГЛАВНОЕ (можно просто перепечатать эту строку):")
-    print("*  " + one_line_summary(path))
-    print("*" * 70)
+    if shown_in_blender:
+        print("*  СПОСОБ 1 (надёжный): в Blender вверху выберите вкладку Scripting,")
+        print("*  в текстовом редакторе нажмите на выпадающий список файлов и")
+        print("*  выберите '%s'. Затем Ctrl+A, Ctrl+C." % textblock)
     if saved:
-        print("*  Полный отчёт сохранён: %s" % saved)
-        try:
-            os.startfile(saved)          # откроется в Блокноте
-            print("*  Файл открыт — там Ctrl+A, затем Ctrl+C.")
-        except Exception:
-            print("*  Откройте его вручную и скопируйте.")
-        print("*" * 70)
-
-
+        print("*  СПОСОБ 2: файл лежит здесь —")
+        print("*     %s" % saved)
+        print("*  %s" % ("он должен был открыться сам." if opened
+                          else "откройте его двойным щелчком."))
+    print("*  СПОСОБ 3: текст уже в буфере обмена — попробуйте просто Ctrl+V.")
+    print("*" * 70)
 if __name__ == "__main__":
     p = find_i3d()
     if not p:
@@ -206,4 +247,6 @@ if __name__ == "__main__":
         dump(p)
         check_installed()
     if p:
-        deliver(p)
+        out("")
+        out("ИТОГ: " + one_line_summary(p))
+        deliver()

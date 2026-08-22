@@ -24,42 +24,87 @@ def out(*parts):
     _LINES.append(text)
 
 
-def deliver():
+def _desktop_dirs():
+    home = os.path.expanduser("~")
+    dirs = []
+    bases = [home]
+    try:
+        for e in os.listdir(home):
+            if e.lower().startswith("onedrive"):
+                bases.append(os.path.join(home, e))
+    except Exception:
+        pass
+    for b in bases:
+        for name in ("Desktop", "Рабочий стол"):
+            dirs.append(os.path.join(b, name))
+    dirs.append(home)
+    return [d for d in dirs if os.path.isdir(d)]
+
+
+def deliver(filename="alpha_log.txt", textblock="ALPHA_LOG"):
     text = "\n".join(_LINES)
 
+    # 1) буфер обмена Blender
     try:
         import bpy
         bpy.context.window_manager.clipboard = text
     except Exception:
         pass
 
+    # 2) текстовый блок внутри Blender — самый надёжный способ скопировать
+    shown_in_blender = False
+    try:
+        import bpy
+        tb = bpy.data.texts.get(textblock) or bpy.data.texts.new(textblock)
+        tb.clear()
+        tb.write(text)
+        shown_in_blender = True
+    except Exception:
+        pass
+
+    # 3) файл на диск
     saved = None
-    for d in (os.path.join(os.path.expanduser("~"), "Desktop"),
-              os.path.join(os.path.expanduser("~"), "Рабочий стол"),
-              os.path.expanduser("~")):
-        if os.path.isdir(d):
-            cand = os.path.join(d, "alpha_log.txt")
+    for d in _desktop_dirs():
+        cand = os.path.join(d, filename)
+        try:
+            with open(cand, "w", encoding="utf-8") as f:
+                f.write(text)
+            saved = cand
+            break
+        except Exception:
+            continue
+
+    # 4) попытки открыть его
+    opened = False
+    if saved:
+        for opener in ("startfile", "notepad", "cmd"):
             try:
-                with open(cand, "w", encoding="utf-8") as f:
-                    f.write(text)
-                saved = cand
+                if opener == "startfile":
+                    os.startfile(saved)
+                elif opener == "notepad":
+                    import subprocess
+                    subprocess.Popen(["notepad.exe", saved])
+                else:
+                    import subprocess
+                    subprocess.Popen(["cmd", "/c", "start", "", saved], shell=False)
+                opened = True
                 break
             except Exception:
                 continue
 
     print("")
     print("*" * 70)
+    if shown_in_blender:
+        print("*  СПОСОБ 1 (надёжный): в Blender вверху выберите вкладку Scripting,")
+        print("*  в текстовом редакторе нажмите на выпадающий список файлов и")
+        print("*  выберите '%s'. Затем Ctrl+A, Ctrl+C." % textblock)
     if saved:
-        print("*  Отчёт сохранён: %s" % saved)
-        try:
-            os.startfile(saved)
-            print("*  Файл открыт в Блокноте — там Ctrl+A, затем Ctrl+C.")
-        except Exception:
-            print("*  Откройте его вручную и скопируйте.")
-    print("*  Он же скопирован в буфер обмена — попробуйте Ctrl+V.")
+        print("*  СПОСОБ 2: файл лежит здесь —")
+        print("*     %s" % saved)
+        print("*  %s" % ("он должен был открыться сам." if opened
+                          else "откройте его двойным щелчком."))
+    print("*  СПОСОБ 3: текст уже в буфере обмена — попробуйте просто Ctrl+V.")
     print("*" * 70)
-
-
 def find_log():
     homes = []
     for env in ("USERPROFILE", "HOME"):
