@@ -99,14 +99,18 @@ print("  готово: %s (%d КБ)" % (i3d_path, size_kb))
 with open(i3d_path, "r", encoding="utf-8", errors="replace") as f:
     text = f.read()
 
+import re
+
 checks = [
-    ("<Camera",      "камеры"),
-    ("rigidBodyType", "физическое тело"),
-    ('name="alphaMoped"', "корневой узел"),
+    (lambda t: "<Camera" in t, "камеры"),
+    (lambda t: bool(re.search(r'\b(dynamic|static|kinematic)="(1|true)"', t)),
+     "физическое тело"),
+    (lambda t: 'name="alphaMoped"' in t, "корневой узел"),
+    (lambda t: 'compound="true"' in t or 'compound="1"' in t, "compound на корне"),
 ]
 ok = True
-for needle, label in checks:
-    if needle in text:
+for test, label in checks:
+    if test(text):
         print("  [+] %s — есть" % label)
     else:
         print("  [!] %s — ОТСУТСТВУЕТ" % label)

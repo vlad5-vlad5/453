@@ -237,6 +237,14 @@ def apply_safe_mode(modx):
 
 # -------------------------------------------------- разбор i3d и маппинги
 
+def has_physics(i3d_text):
+    """Экспортёр пишет физику как dynamic="true"/static="true"/kinematic="true",
+    а НЕ как rigidBodyType. Ключ 'rigid_body_type' в аддоне объявлен без 'name',
+    поэтому именем атрибута становится само значение enum."""
+    import re
+    return bool(re.search(r'\b(dynamic|static|kinematic|compoundChild)="(1|true)"', i3d_text))
+
+
 def build_node_index(i3d_path):
     """{имя узла: индексный путь вида '0>0|13|2'}"""
     tree = ET.parse(i3d_path)
@@ -403,11 +411,10 @@ def main():
     else:
         log("камеры в модели найдены — ок")
 
-    if "rigidBodyType" not in i3d_text:
+    if not has_physics(i3d_text):
         log("!" * 60)
-        log("В МОДЕЛИ НЕТ ФИЗИЧЕСКОГО ТЕЛА (rigidBodyType отсутствует).")
+        log("В МОДЕЛИ НЕТ ФИЗИЧЕСКОГО ТЕЛА (нет dynamic=\"true\" на корне).")
         log("В игре будет: 'сначала уберите купленную технику'.")
-        log("Перестройте модель свежим blender_build_alpha.py и переэкспортируйте.")
         log("!" * 60)
     else:
         log("физическое тело в модели найдено — ок")
