@@ -316,6 +316,12 @@ def main():
     index = build_node_index(os.path.join(modx, "alphaMoped.i3d"))
     log("узлов в модели: %d" % len(index))
 
+    # проверка задвоения имени мода в type=
+    with open(os.path.join(modx, "alphaMoped.xml"), "r", encoding="utf-8") as f:
+        veh = f.read()
+    if 'type="%s.' % MOD in veh:
+        log("!! в alphaMoped.xml тип техники содержит имя мода — будет задвоение")
+
     # проверка физики: без rigidBodyType техника не ставится в магазине
     with open(os.path.join(modx, "alphaMoped.i3d"), "r",
               encoding="utf-8", errors="replace") as f:

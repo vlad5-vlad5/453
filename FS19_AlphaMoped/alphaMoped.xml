@@ -12,7 +12,13 @@
     Имена узлов берутся из i3dMappings в самом низу файла и должны совпадать
     с именами объектов в alphaMoped.i3d (их создаёт tools/blender_build_alpha.py).
 -->
-<vehicle type="FS19_AlphaMoped.alphaMoped">
+<!--
+    ВНИМАНИЕ: в type= пишется ИМЯ ТИПА БЕЗ имени мода.
+    Игра сама подставляет префикс: alphaMoped -> FS19_AlphaMoped.alphaMoped.
+    Если написать "FS19_AlphaMoped.alphaMoped", получится задвоение
+    "FS19_AlphaMoped.FS19_AlphaMoped.alphaMoped" и техника не загрузится.
+-->
+<vehicle type="alphaMoped">
 
     <annotation>Alpha 110 moped</annotation>
 
