@@ -147,6 +147,20 @@ def cylinder(name, parent, loc, radius, depth, axis="X", rot_extra=(0, 0, 0),
     return attach(obj, parent)
 
 
+def camera(name, parent, loc, size=0.12):
+    """Настоящая камера. FS19 ругается 'Must be a camera type!' на Empty."""
+    cam_data = bpy.data.cameras.new(name)
+    cam_data.lens = 24.0
+    cam_data.clip_start = 0.05
+    cam_data.clip_end = 2000.0
+    obj = bpy.data.objects.new(name, cam_data)
+    obj.location = loc
+    # камера Blender смотрит вдоль -Z, разворачиваем её "вперёд" по мопеду
+    obj.rotation_euler = (math.radians(90.0 * FWD), 0.0, 0.0)
+    bpy.context.collection.objects.link(obj)
+    return attach(obj, parent)
+
+
 def box_origin_zero(name, parent, center, size, mat=None):
     """Коробка с геометрией в center, но с origin объекта в (0,0,0).
 
@@ -316,9 +330,9 @@ def build():
     empty("playerSeatNode", player, (0, -FWD * 0.16, SEAT_H + 0.08),
           rot=(0, 0, math.radians(0 if FWD < 0 else 180)), size=0.12)
     # камера от третьего лица
-    empty("cameraOutside", player, (0, -FWD * 0.10, SEAT_H + 0.35), size=0.12)
+    camera("cameraOutside", player, (0, -FWD * 0.10, SEAT_H + 0.35))
     # камера с седла
-    empty("cameraInside", player, (0, -FWD * 0.02, SEAT_H + 0.42), size=0.12)
+    camera("cameraInside", player, (0, -FWD * 0.02, SEAT_H + 0.42))
 
     return root
 
@@ -362,7 +376,12 @@ def main():
     print("Модель собрана.")
     print("Корень alphaMoped: Rigid Body = Dynamic + Compound (иначе техника")
     print("не ставится и не убирается в магазине).")
-    print("Дальше: File -> Export -> I3D, обязательно Include Children.")
+    print("Камеры cameraOutside/cameraInside созданы как настоящие Camera.")
+    print("")
+    print("ЭКСПОРТ: File -> Export -> I3D")
+    print("  Export Scope  = Everything")
+    print("  Keep Collections = ВЫКЛЮЧИТЬ (иначе корнем техники станет Collection")
+    print("                     и физика мопеда будет проигнорирована)")
 
 
 if __name__ == "__main__":

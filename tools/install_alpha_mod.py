@@ -375,6 +375,19 @@ def main():
     if 'type="%s.' % MOD in veh:
         log("!! в alphaMoped.xml тип техники содержит имя мода — будет задвоение")
 
+    # проверка: корневой узел должен быть alphaMoped, а не обёртка Collection
+    _tree = ET.parse(os.path.join(modx, "alphaMoped.i3d"))
+    _scene = _tree.getroot().find("Scene")
+    _roots = [c.get("name") for c in list(_scene) if c.tag in SCENE_NODES]
+    if _roots and _roots[0] != "alphaMoped":
+        log("!" * 60)
+        log("КОРНЕВОЙ УЗЕЛ МОДЕЛИ: '%s', а должен быть 'alphaMoped'." % _roots[0])
+        log("FS19 считает техникой первый корневой узел — физика будет потеряна.")
+        log("При экспорте ВЫКЛЮЧИТЕ галочку 'Keep Collections'.")
+        log("!" * 60)
+    else:
+        log("корневой узел модели: alphaMoped — ок")
+
     # проверка физики: без rigidBodyType техника не ставится в магазине
     with open(os.path.join(modx, "alphaMoped.i3d"), "r",
               encoding="utf-8", errors="replace") as f:

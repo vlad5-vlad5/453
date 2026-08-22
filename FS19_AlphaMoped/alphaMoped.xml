@@ -55,7 +55,7 @@
         <size width="0.72" length="1.95" lengthOffset="0"/>
         <!-- центр масс низко и чуть назад: мопед меньше клюёт носом -->
         <components>
-            <component node="alphaMoped" centerOfMass="0 0.18 -0.10"
+            <component centerOfMass="0 0.18 -0.10"
                        solverIterationCount="10" mass="98"/>
         </components>
         <schemaOverlay name="DEFAULT"/>
@@ -70,42 +70,46 @@
                 <wheels autoRotateBackSpeed="3.5">
 
                     <!-- 1: переднее левое (видимое, рулевое) -->
-                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0"
-                           repr="wheelFrontLeft" driveNode="wheelFrontMesh"
-                           radius="0.335" width="0.075" mass="0.006"
-                           rotSpeed="55" rotMax="34" rotMin="-34"
-                           suspTravel="0.10" spring="22" damper="42"
-                           restLoad="0.30" forcePointRatio="0.35"
-                           maxLongStiffness="25" maxLatStiffness="35"
-                           maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
+                        <physics repr="wheelFrontLeft" driveNode="wheelFrontMesh"
+                                 radius="0.335" width="0.075" mass="0.006"
+                                 rotSpeed="55" rotMax="34" rotMin="-34"
+                                 suspTravel="0.10" spring="22" damper="42"
+                                 restLoad="0.30" forcePointRatio="0.35"
+                                 maxLongStiffness="25" maxLatStiffness="35"
+                                 maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                    </wheel>
 
                     <!-- 2: переднее правое (невидимый стабилизатор) -->
-                    <wheel isLeft="false" hasTireTracks="false"
-                           repr="wheelFrontRight"
-                           radius="0.335" width="0.075" mass="0.006"
-                           rotSpeed="55" rotMax="34" rotMin="-34"
-                           suspTravel="0.10" spring="22" damper="42"
-                           restLoad="0.30" forcePointRatio="0.35"
-                           maxLongStiffness="25" maxLatStiffness="35"
-                           maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                    <wheel isLeft="false" hasTireTracks="false">
+                        <physics repr="wheelFrontRight"
+                                 radius="0.335" width="0.075" mass="0.006"
+                                 rotSpeed="55" rotMax="34" rotMin="-34"
+                                 suspTravel="0.10" spring="22" damper="42"
+                                 restLoad="0.30" forcePointRatio="0.35"
+                                 maxLongStiffness="25" maxLatStiffness="35"
+                                 maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                    </wheel>
 
                     <!-- 3: заднее левое (видимое, ведущее) -->
-                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0"
-                           repr="wheelRearLeft" driveNode="wheelRearMesh"
-                           radius="0.335" width="0.085" mass="0.008"
-                           suspTravel="0.12" spring="26" damper="45"
-                           restLoad="0.45" forcePointRatio="0.35"
-                           maxLongStiffness="28" maxLatStiffness="38"
-                           maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
+                        <physics repr="wheelRearLeft" driveNode="wheelRearMesh"
+                                 radius="0.335" width="0.085" mass="0.008"
+                                 suspTravel="0.12" spring="26" damper="45"
+                                 restLoad="0.45" forcePointRatio="0.35"
+                                 maxLongStiffness="28" maxLatStiffness="38"
+                                 maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                    </wheel>
 
                     <!-- 4: заднее правое (невидимый стабилизатор, ведущее) -->
-                    <wheel isLeft="false" hasTireTracks="false"
-                           repr="wheelRearRight"
-                           radius="0.335" width="0.085" mass="0.008"
-                           suspTravel="0.12" spring="26" damper="45"
-                           restLoad="0.45" forcePointRatio="0.35"
-                           maxLongStiffness="28" maxLatStiffness="38"
-                           maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                    <wheel isLeft="false" hasTireTracks="false">
+                        <physics repr="wheelRearRight"
+                                 radius="0.335" width="0.085" mass="0.008"
+                                 suspTravel="0.12" spring="26" damper="45"
+                                 restLoad="0.45" forcePointRatio="0.35"
+                                 maxLongStiffness="28" maxLatStiffness="38"
+                                 maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                    </wheel>
                 </wheels>
             </wheelConfiguration>
         </wheelConfigurations>
@@ -124,7 +128,13 @@
                        accelerationLimit="6" brakeForce="4.5"
                        lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
                        ptoMotorRpmRatio="1"/>
-                <transmission name="4-speed" minForwardGearRatio="9.5" axleRatio="2.9"/>
+                <transmission name="4-speed" axleRatio="2.9">
+                    <forwardGear gearRatio="9.5"/>
+                    <forwardGear gearRatio="6.2"/>
+                    <forwardGear gearRatio="4.4"/>
+                    <forwardGear gearRatio="3.3"/>
+                    <backwardGear gearRatio="9.5"/>
+                </transmission>
             </motorConfiguration>
         </motorConfigurations>
 
