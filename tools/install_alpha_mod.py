@@ -122,17 +122,20 @@ def find_i3d(explicit=None):
     try:
         import bpy
         if bpy.data.filepath:
-            guess = os.path.splitext(bpy.data.filepath)[0] + ".i3d"
-            if os.path.isfile(guess):
-                log("нашёл модель рядом с .blend: %s" % guess)
-                return guess
+            base = os.path.splitext(bpy.data.filepath)[0]
+            for ext in (".i3d", ".i3d.txt"):
+                guess = base + ext
+                if os.path.isfile(guess):
+                    log("нашёл модель рядом с .blend: %s" % guess)
+                    return guess
     except Exception:
         pass
 
     roots = _search_roots()
     found = []
     for r in roots:
-        for pattern in ("*.i3d", os.path.join("*", "*.i3d"),
+        for pattern in ("*.i3d", "*.i3d.txt",
+                        os.path.join("*", "*.i3d"), os.path.join("*", "*.i3d.txt"),
                         os.path.join("*", "*", "*.i3d")):
             found += glob.glob(os.path.join(r, pattern))
 
