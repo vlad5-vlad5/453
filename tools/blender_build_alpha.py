@@ -338,32 +338,12 @@ def build():
 
 
 EXPECTED_MAPPINGS = """
-Ожидаемые пути узлов для <i3dMappings> в alphaMoped.xml
-(сверьте с GIANTS Editor после экспорта — порядок детей должен совпасть):
+ВНИМАНИЕ: экспортёр GIANTS сортирует детей узла ПО АЛФАВИТУ, поэтому
+реальные индексные пути НЕ совпадают с порядком создания объектов здесь.
+Не выписывайте их руками — install_alpha_mod.py читает готовый .i3d и
+пересчитывает <i3dMappings> автоматически.
 
-  alphaMoped          0>
-  bodyLean            0>0
-    frameMesh         0>0|0        tankMesh            0>0|1
-    seatMesh          0>0|2        engineMesh          0>0|3
-    exhaustMesh       0>0|4        rearRackMesh        0>0|5
-    fenderRearMesh    0>0|6        chainSprocket       0>0|7
-    engineNode        0>0|8        exhaustEffectNode   0>0|9
-    brakeLightNode    0>0|10       turnLightRearLeft   0>0|11
-    turnLightRearRight 0>0|12
-    handlebarNode     0>0|13
-      forkMesh        0>0|13|0     handlebarMesh       0>0|13|1
-      fenderFrontMesh 0>0|13|2     headlightGlass      0>0|13|3
-      headlightLow    0>0|13|4     headlightHigh       0>0|13|5
-      turnLightFrontLeft 0>0|13|6  turnLightFrontRight 0>0|13|7
-  wheels              0>1
-    wheelFrontLeft    0>1|0        (wheelFrontMesh     0>1|0|0)
-    wheelFrontRight   0>1|1
-    wheelRearLeft     0>1|2        (wheelRearMesh      0>1|2|0)
-    wheelRearRight    0>1|3
-  player              0>2
-    enterNode         0>2|0        exitNode            0>2|1
-    playerSeatNode    0>2|2        cameraOutside       0>2|3
-    cameraInside      0>2|4
+Посмотреть реальное дерево: tools/dump_i3d_tree.py
 """
 
 
