@@ -315,6 +315,12 @@ def main():
     log("разбираю структуру модели...")
     index = build_node_index(os.path.join(modx, "alphaMoped.i3d"))
     log("узлов в модели: %d" % len(index))
+    if len(index) < 10:
+        log("!" * 60)
+        log("В МОДЕЛИ ВСЕГО %d УЗЕЛ(ЛА) — экспортировался только корень." % len(index))
+        log("При экспорте включите Include Children,")
+        log("либо поставьте Export Scope = Scene. Затем экспортируйте заново.")
+        log("!" * 60)
 
     # проверка задвоения имени мода в type=
     with open(os.path.join(modx, "alphaMoped.xml"), "r", encoding="utf-8") as f:

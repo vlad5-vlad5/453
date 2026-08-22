@@ -23,6 +23,12 @@ AlphaMopedLean = {}
 AlphaMopedLean.MOD_NAME  = g_currentModName
 AlphaMopedLean.SPEC_NAME = string.format("spec_%s.alphaMopedLean", g_currentModName)
 
+--- Имя spec-таблицы зависит от того, как игра зарегистрировала специализацию.
+--  Проверяем оба варианта, чтобы не гадать.
+function AlphaMopedLean.getSpec(self)
+    return self[AlphaMopedLean.SPEC_NAME] or self["spec_alphaMopedLean"]
+end
+
 function AlphaMopedLean.prerequisitesPresent(specializations)
     return SpecializationUtil.hasSpecialization(Drivable, specializations)
         and SpecializationUtil.hasSpecialization(Wheels, specializations)
@@ -35,8 +41,12 @@ function AlphaMopedLean.registerEventListeners(vehicleType)
 end
 
 function AlphaMopedLean:onLoad(savegame)
-    local spec = self[AlphaMopedLean.SPEC_NAME]
+    local spec = AlphaMopedLean.getSpec(self)
     local key  = "vehicle.alphaMopedLean"
+    if spec == nil then
+        print("[AlphaMoped] spec-таблица не найдена, наклон отключён")
+        return
+    end
 
     spec.node = nil
     spec.currentAngle = 0
@@ -61,7 +71,7 @@ function AlphaMopedLean:onLoad(savegame)
 end
 
 function AlphaMopedLean:onDelete()
-    local spec = self[AlphaMopedLean.SPEC_NAME]
+    local spec = AlphaMopedLean.getSpec(self)
 
     if spec ~= nil and spec.node ~= nil and entityExists(spec.node) and spec.baseRotation ~= nil then
         setRotation(spec.node, spec.baseRotation[1], spec.baseRotation[2], spec.baseRotation[3])
@@ -69,7 +79,7 @@ function AlphaMopedLean:onDelete()
 end
 
 function AlphaMopedLean:onUpdateTick(dt, isActiveForInput, isActiveForInputIgnoreSelection, isSelected)
-    local spec = self[AlphaMopedLean.SPEC_NAME]
+    local spec = AlphaMopedLean.getSpec(self)
     if spec == nil or spec.node == nil then
         return
     end
