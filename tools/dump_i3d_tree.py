@@ -124,18 +124,78 @@ def check_installed():
         out("  [%s] %s" % ("+" if needle in t else "!", label))
 
 
-def to_clipboard():
+def one_line_summary(path):
+    """Короткий итог — его можно просто перепечатать руками."""
+    try:
+        root = ET.parse(path).getroot()
+        scene = root.find("Scene")
+    except Exception as exc:
+        return "PARSE-ERROR %s" % exc
+
+    cams, first, phys = [], None, "-"
+
+    def walk(elem, prefix):
+        nonlocal first, phys
+        idx = 0
+        for child in elem:
+            if child.tag not in SCENE_NODES:
+                continue
+            cur = ("%d>" % idx) if prefix is None else (
+                "%s%d" % (prefix, idx) if prefix.endswith(">")
+                else "%s|%d" % (prefix, idx))
+            if first is None:
+                first = "%s=%s" % (cur, child.get("name"))
+                flags = [k for k in ("dynamic", "static", "compound")
+                         if child.get(k) in ("true", "1")]
+                phys = "+".join(flags) if flags else "НЕТ"
+            if child.tag == "Camera":
+                cams.append(cur)
+            walk(child, cur)
+            idx += 1
+
+    walk(scene, None)
+    return "ROOT[%s] PHYS[%s] CAM[%s]" % (first, phys,
+                                          ",".join(cams) if cams else "НЕТ")
+
+
+def deliver(path):
     text = "\n".join(_LINES)
+
+    # 1) буфер обмена
     try:
         import bpy
         bpy.context.window_manager.clipboard = text
-        print("")
+    except Exception:
+        pass
+
+    # 2) файл на Рабочем столе + открыть в Блокноте
+    saved = None
+    for d in (os.path.join(os.path.expanduser("~"), "Desktop"),
+              os.path.join(os.path.expanduser("~"), "Рабочий стол"),
+              os.path.expanduser("~")):
+        if os.path.isdir(d):
+            saved = os.path.join(d, "alpha_report.txt")
+            try:
+                with open(saved, "w", encoding="utf-8") as f:
+                    f.write(text)
+            except Exception:
+                saved = None
+                continue
+            break
+
+    print("")
+    print("*" * 70)
+    print("*  ГЛАВНОЕ (можно просто перепечатать эту строку):")
+    print("*  " + one_line_summary(path))
+    print("*" * 70)
+    if saved:
+        print("*  Полный отчёт сохранён: %s" % saved)
+        try:
+            os.startfile(saved)          # откроется в Блокноте
+            print("*  Файл открыт — там Ctrl+A, затем Ctrl+C.")
+        except Exception:
+            print("*  Откройте его вручную и скопируйте.")
         print("*" * 70)
-        print("*  ВЫВОД СКОПИРОВАН В БУФЕР ОБМЕНА (%d строк)." % len(_LINES))
-        print("*  Просто нажмите Ctrl+V в чате.")
-        print("*" * 70)
-    except Exception as exc:
-        print("не удалось скопировать в буфер:", exc)
 
 
 if __name__ == "__main__":
@@ -145,4 +205,5 @@ if __name__ == "__main__":
     else:
         dump(p)
         check_installed()
-    to_clipboard()
+    if p:
+        deliver(p)
