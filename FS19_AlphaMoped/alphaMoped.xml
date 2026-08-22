@@ -138,6 +138,11 @@
             </motorConfiguration>
         </motorConfigurations>
 
+        <!-- привод только на задние колёса (3 и 4), индексы с единицы -->
+        <differentials>
+            <differential torqueRatio="1" maxSpeedRatio="1" wheelIndex1="3" wheelIndex2="4"/>
+        </differentials>
+
         <consumerConfigurations>
             <consumerConfiguration>
                 <consumer fillUnitIndex="1" fillType="DIESEL" capacity="4" usage="0.35"

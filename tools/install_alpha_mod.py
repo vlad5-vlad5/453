@@ -390,10 +390,19 @@ def main():
     else:
         log("корневой узел модели: alphaMoped — ок")
 
-    # проверка физики: без rigidBodyType техника не ставится в магазине
     with open(os.path.join(modx, "alphaMoped.i3d"), "r",
-              encoding="utf-8", errors="replace") as f:
+               encoding="utf-8", errors="replace") as f:
         i3d_text = f.read()
+
+    # проверка камер: FS19 требует настоящие узлы <Camera>
+    if "<Camera" not in i3d_text:
+        log("!" * 60)
+        log("В МОДЕЛИ НЕТ УЗЛОВ <Camera> — игра выдаст 'No cameras defined!'")
+        log("и покупка зависнет. Модель устарела: пересоберите и переэкспортируйте.")
+        log("!" * 60)
+    else:
+        log("камеры в модели найдены — ок")
+
     if "rigidBodyType" not in i3d_text:
         log("!" * 60)
         log("В МОДЕЛИ НЕТ ФИЗИЧЕСКОГО ТЕЛА (rigidBodyType отсутствует).")
