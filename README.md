@@ -87,10 +87,13 @@ blender --background --python tools/blender_build_alpha.py
 в `alphaMoped.xml`: рама, бак, седло, двигатель, глушитель, багажник, крылья,
 вилка, руль, фара, поворотники, четыре колеса, точки посадки и две камеры.
 
+📘 **Полная инструкция по установке Blender и экспортёра: [docs/BLENDER_SETUP.md](docs/BLENDER_SETUP.md)**
+(там же разобраны типовые грабли — начиная с того, что свежий Blender ломает экспортёр).
+
 Дальше:
 
-1. `File → Export → GIANTS I3D` → сохранить как `FS19_AlphaMoped/alphaMoped.i3d`
-   (нужен [GIANTS I3D Exporter для Blender](https://gdn.giants-software.com/downloads.php)).
+1. `Панель N → GIANTS I3D → Export` → сохранить как `FS19_AlphaMoped/alphaMoped.i3d`
+   (рядом появится `alphaMoped.i3d.shapes` — его тоже в мод).
 2. Открыть `.i3d` в **GIANTS Editor** и сверить индексы узлов с `<i3dMappings>` —
    скрипт печатает ожидаемые пути (`0>0|13|2` и т.д.) в конце работы.
    Порядок детей при экспорте может отличаться, тогда поправьте пути в XML.
