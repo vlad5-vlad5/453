@@ -67,7 +67,7 @@
     <wheels>
         <wheelConfigurations>
             <wheelConfiguration name="$l10n_configuration_valueDefault" price="0">
-                <wheels autoRotateBackSpeed="3.5">
+                <wheels autoRotateBackSpeed="3.5" differentialIndex="1">
 
                     <!-- 1: переднее левое (видимое, рулевое) -->
                     <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
@@ -141,10 +141,20 @@
             </motorConfiguration>
         </motorConfigurations>
 
-        <!-- привод только на задние колёса (3 и 4), индексы с единицы -->
-        <differentials>
-            <differential torqueRatio="1" maxSpeedRatio="1" wheelIndex1="3" wheelIndex2="4"/>
-        </differentials>
+        <!--
+            Привод на задние колёса. FS19 читает дифференциалы ТОЛЬКО из
+            <differentialConfigurations>; голый <differentials> игнорируется
+            ("No differentials defined"), после чего VehicleMotor.lua падает
+            на nil. Выбор конфигурации — через differentialIndex у <wheels>.
+        -->
+        <differentialConfigurations>
+            <differentialConfiguration>
+                <differentials>
+                    <differential torqueRatio="1" maxSpeedRatio="1"
+                                  wheelIndex1="3" wheelIndex2="4"/>
+                </differentials>
+            </differentialConfiguration>
+        </differentialConfigurations>
 
         <consumerConfigurations>
             <consumerConfiguration>
@@ -186,17 +196,23 @@
         <enterReferenceNode node="enterNode" upperHeight="1.6" lowerHeight="0.05"/>
         <exitPoint node="exitNode"/>
 
-        <cameras>
-            <!-- вид от третьего лица -->
-            <camera rotateNode="cameraOutside" isRotatable="true"
-                    rotMinX="-1.05" rotMaxX="0.45"
-                    transMin="1.8" transMax="6.0"
-                    limit="true" useMirrors="false"/>
-            <!-- вид с седла -->
-            <camera rotateNode="cameraInside" isRotatable="true" isInside="true"
-                    rotMinX="-0.85" rotMaxX="0.55"
-                    limit="true" useMirrors="false"/>
-        </cameras>
+        <!--
+                Камера указывается атрибутом node= и ДОЛЖНА быть узлом Camera.
+                rotateNode= — это отдельная группа вращения, не сама камера.
+                Ошибка "Invalid camera node ... Must be a camera type!" —
+                как раз про то, что в node= попало что-то другое.
+            -->
+            <cameras>
+                <!-- вид от третьего лица -->
+                <camera node="cameraOutside" rotatable="true" limit="true"
+                        rotMinX="-1.05" rotMaxX="0.45"
+                        transMin="1.8" transMax="6.0"/>
+                <!-- вид с седла -->
+                <camera node="cameraInside" rotatable="true" limit="true"
+                        isInside="true"
+                        rotMinX="-0.85" rotMaxX="0.55"
+                        transMin="0" transMax="0"/>
+            </cameras>
 
         <characterNode node="playerSeatNode"
                        cameraMinDistance="0.35"

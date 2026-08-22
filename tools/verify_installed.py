@@ -44,16 +44,18 @@ def mods_dirs():
 
 # что должно быть в АКТУАЛЬНОЙ сборке
 MARKERS = [
-    ('rotateNode="0>',        "камеры: прямой путь (а не имя узла)"),
-    ('repr="0>',              "колёса: прямой путь"),
-    ("maxForwardGearRatio",   "трансмиссия: бесступенчатая"),
-    ("<differentials>",       "дифференциалы"),
+    ('<camera node="0>',            "камеры: node= с прямым путём"),
+    ('rotatable="true"',            "камеры: атрибут rotatable"),
+    ('repr="0>',                    "колёса: прямой путь"),
+    ("maxForwardGearRatio",         "трансмиссия: бесступенчатая"),
+    ("<differentialConfigurations>", "дифференциалы в обёртке"),
+    ('differentialIndex="1"',       "колёса ссылаются на дифференциалы"),
 ]
 
-# чего быть НЕ должно
+# чего быть НЕ должно (ищем в реальных тегах, не в комментариях)
 ANTI_MARKERS = [
-    ("<forwardGear",          "СТАРЫЕ явные передачи (роняют VehicleMotor)"),
-    ('rotateNode="camera',    "СТАРЫЕ имена узлов вместо путей"),
+    ("<forwardGear ",               "СТАРЫЕ явные передачи"),
+    ('<camera rotateNode=',         "СТАРЫЙ формат камер"),
 ]
 
 
@@ -65,7 +67,7 @@ def show_xml(label, text):
         if needle in text:
             out("       [X] %s" % name)
     for line in text.splitlines():
-        if "rotateNode" in line:
+        if "<camera " in line:
             out("       " + line.strip()[:70])
 
 
