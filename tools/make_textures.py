@@ -3,48 +3,87 @@
 """
 make_textures.py — подготовка иконок и store-картинок для модов FS19.
 
-FS19 ждёт .dds:
-    иконка мода    icon_*.dds    256x256
-    картинка в магазин store_*.dds 1024x1024 (или 512x512)
+FS19 хочет сжатые DDS:
+    иконка мода          icon_*.dds    256x256  DXT5
+    картинка в магазине  store_*.dds   512x512  DXT5
 
-Скрипт берёт PNG рядом и пересохраняет в DDS нужного размера.
+Несжатый (raw) DDS игра тоже читает, но пишет в log.txt:
+    Warning (performance): Texture ... raw format.
+и держит текстуру в памяти в 4 раза больше. Поэтому жмём в DXT5.
+
+Нужен ImageMagick (`convert`) — он умеет писать сжатые DDS,
+в отличие от Pillow.
 
     python3 tools/make_textures.py
 """
 
 import os
+import shutil
+import subprocess
+import struct
 import sys
-
-try:
-    from PIL import Image
-except ImportError:
-    print("Нужен Pillow:  pip install pillow")
-    sys.exit(1)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# (путь к png, размер)
+# (png относительно корня репозитория, сторона в пикселях)
 TARGETS = [
-    ("FS19_FarmHelper/icon_FarmHelper.png",    256),
-    ("FS19_AlphaMoped/icon_alphaMoped.png",    256),
-    ("FS19_AlphaMoped/store_alphaMoped.png",   512),
+    ("FS19_FarmHelper/icon_FarmHelper.png",   256),
+    ("FS19_AlphaMoped/icon_alphaMoped.png",   256),
+    ("FS19_AlphaMoped/store_alphaMoped.png",  512),
 ]
 
 
-def convert(rel_png, size):
+def find_magick():
+    for exe in ("magick", "convert"):
+        path = shutil.which(exe)
+        if path:
+            return path
+    return None
+
+
+def describe(dds_path):
+    with open(dds_path, "rb") as f:
+        head = f.read(128)
+    if len(head) < 88 or head[:4] != b"DDS ":
+        return "не похоже на DDS"
+    h = struct.unpack("<7I", head[4:32])
+    fourcc = head[84:88].decode("ascii", "replace").strip("\x00") or "raw"
+    size_kb = os.path.getsize(dds_path) // 1024
+    return "%dx%d %s %d KB" % (h[3], h[2], fourcc, size_kb)
+
+
+def convert(magick, rel_png, size):
     src = os.path.join(ROOT, rel_png)
     if not os.path.exists(src):
         print("пропуск (нет файла):", rel_png)
         return
 
     dst = os.path.splitext(src)[0] + ".dds"
-    img = Image.open(src).convert("RGBA").resize((size, size), Image.LANCZOS)
-    img.save(dst)
-    print("ok  %s -> %s  (%dx%d)" % (rel_png, os.path.basename(dst), size, size))
+
+    cmd = [magick]
+    if os.path.basename(magick).startswith("magick"):
+        cmd.append("convert")
+    cmd += [
+        src,
+        "-resize", "%dx%d!" % (size, size),
+        "-alpha", "set",                      # без альфы ImageMagick уйдёт в DXT1
+        "-define", "dds:compression=dxt5",
+        "-define", "dds:mipmaps=0",
+        dst,
+    ]
+
+    subprocess.run(cmd, check=True)
+    print("ok  %-38s -> %s" % (rel_png, describe(dst)))
 
 
 if __name__ == "__main__":
+    magick = find_magick()
+    if magick is None:
+        print("Не найден ImageMagick.")
+        print("  Windows: winget install ImageMagick.ImageMagick")
+        print("  Linux:   sudo apt install imagemagick")
+        print("Альтернатива от Microsoft: texconv -f BC3_UNORM <файл>.png")
+        sys.exit(1)
+
     for rel, size in TARGETS:
-        convert(rel, size)
-    print("\nПримечание: Pillow пишет несжатый RGBA DDS — игра его читает.")
-    print("Для магазина каноничнее BC3/DXT5: texconv -f BC3_UNORM <файл>.png")
+        convert(magick, rel, size)
