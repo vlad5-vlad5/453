@@ -189,6 +189,50 @@ def download_mod(dest):
     walk(MOD)
 
 
+
+SAFE_STRIP_SECTIONS = ("exhaustEffects", "sounds", "speedRotatingParts",
+                       "lights", "honk", "washable", "wearable")
+
+
+def strip_section(text, tag):
+    """Удаляет <tag>...</tag> целиком (или одиночный <tag .../>)."""
+    import re
+    text = re.sub(r"[ \t]*<%s>.*?</%s>\s*" % (tag, tag), "", text, flags=re.S)
+    text = re.sub(r"[ \t]*<%s\b[^>]*/>\s*" % tag, "", text)
+    return text
+
+
+def apply_safe_mode(modx):
+    """Минимальная версия мода: без звука, света, выхлопа и своей специализации.
+
+    Нужна, чтобы понять, едет ли техника в принципе. Потом возвращаем по одному.
+    """
+    log("=== БЕЗОПАСНЫЙ РЕЖИМ: убираю всё необязательное ===")
+
+    veh_path = os.path.join(modx, "alphaMoped.xml")
+    with open(veh_path, "r", encoding="utf-8") as f:
+        veh = f.read()
+
+    for tag in SAFE_STRIP_SECTIONS:
+        veh = strip_section(veh, tag)
+    veh = strip_section(veh, "alphaMopedLean")
+
+    with open(veh_path, "w", encoding="utf-8") as f:
+        f.write(veh)
+    log("  из alphaMoped.xml убрано: %s" % ", ".join(SAFE_STRIP_SECTIONS))
+
+    md_path = os.path.join(modx, "modDesc.xml")
+    with open(md_path, "r", encoding="utf-8") as f:
+        md = f.read()
+    md = strip_section(md, "specializations")
+    md = md.replace('            <specialization name="alphaMopedLean"/>\n', "")
+    md = md.replace('            <specialization name="lights"/>\n', "")
+    md = md.replace('            <specialization name="honk"/>\n', "")
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(md)
+    log("  из modDesc.xml убрана специализация наклона, свет и сигнал")
+
+
 # -------------------------------------------------- разбор i3d и маппинги
 
 def build_node_index(i3d_path):
@@ -301,6 +345,9 @@ def main():
     os.makedirs(modx, exist_ok=True)
 
     download_mod(modx)
+
+    if os.environ.get("ALPHA_SAFE"):
+        apply_safe_mode(modx)
 
     # модель
     shutil.copy2(i3d, os.path.join(modx, "alphaMoped.i3d"))
