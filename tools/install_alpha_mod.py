@@ -191,7 +191,9 @@ def download_mod(dest):
 
 
 SAFE_STRIP_SECTIONS = ("exhaustEffects", "sounds", "speedRotatingParts",
-                       "lights", "honk", "washable", "wearable")
+                       "lights", "honk", "washable", "wearable",
+                       "characterNode", "cruiseControl", "steering",
+                       "schemaOverlay")
 
 
 def strip_section(text, tag):
