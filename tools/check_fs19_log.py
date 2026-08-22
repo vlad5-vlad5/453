@@ -14,6 +14,51 @@ check_fs19_log.py — вытаскивает из log.txt игры всё, чт�
 import os
 import glob
 
+_LINES = []
+
+
+def out(*parts):
+    """Печатает и копит текст, чтобы потом отдать файлом и в буфер."""
+    text = " ".join(str(p) for p in parts)
+    print(text)
+    _LINES.append(text)
+
+
+def deliver():
+    text = "\n".join(_LINES)
+
+    try:
+        import bpy
+        bpy.context.window_manager.clipboard = text
+    except Exception:
+        pass
+
+    saved = None
+    for d in (os.path.join(os.path.expanduser("~"), "Desktop"),
+              os.path.join(os.path.expanduser("~"), "Рабочий стол"),
+              os.path.expanduser("~")):
+        if os.path.isdir(d):
+            cand = os.path.join(d, "alpha_log.txt")
+            try:
+                with open(cand, "w", encoding="utf-8") as f:
+                    f.write(text)
+                saved = cand
+                break
+            except Exception:
+                continue
+
+    print("")
+    print("*" * 70)
+    if saved:
+        print("*  Отчёт сохранён: %s" % saved)
+        try:
+            os.startfile(saved)
+            print("*  Файл открыт в Блокноте — там Ctrl+A, затем Ctrl+C.")
+        except Exception:
+            print("*  Откройте его вручную и скопируйте.")
+    print("*  Он же скопирован в буфер обмена — попробуйте Ctrl+V.")
+    print("*" * 70)
+
 
 def find_log():
     homes = []
@@ -57,9 +102,9 @@ def main():
         print(r"  Документы\My Games\FarmingSimulator2019\log.txt")
         return
 
-    print("=" * 70)
-    print("ЛОГ:", log)
-    print("=" * 70)
+    out("=" * 70)
+    out("ЛОГ:", log)
+    out("=" * 70)
 
     with open(log, "r", encoding="utf-8", errors="replace") as f:
         lines = f.read().splitlines()
@@ -71,33 +116,35 @@ def main():
             start = i
     body = lines[start:]
 
-    print("\n--- СТРОКИ ПРО МОПЕД ---")
+    out("\n--- СТРОКИ ПРО МОПЕД ---")
     found = False
     for ln in body:
         low = ln.lower()
         if "alphamoped" in low or "alpha_moped" in low:
-            print(ln)
+            out(ln)
             found = True
     if not found:
-        print("(ни одного упоминания — мод вообще не загружался)")
+        out("(ни одного упоминания — мод вообще не загружался)")
 
-    print("\n--- ОШИБКИ ПОСЛЕДНЕГО ЗАПУСКА ---")
-    errs = [ln for ln in body if ln.strip().startswith(("Error", "  Error"))
-            or "Error:" in ln]
+    # чужие моды не нужны — оставляем только наши строки и общие сбои Lua
+    def ours(ln):
+        low = ln.lower()
+        if "alphamoped" in low:
+            return True
+        return "running lua method" in low
+
+    out("\n--- ОШИБКИ (только наши) ---")
+    errs = [ln for ln in body if "Error" in ln and ours(ln)]
     if errs:
-        for ln in errs[-40:]:
-            print(ln)
+        for ln in errs[-20:]:
+            out(ln)
     else:
-        print("(ошибок нет)")
+        out("(ошибок по мопеду нет)")
 
-    print("\n--- ПРЕДУПРЕЖДЕНИЯ (последние 20) ---")
-    warns = [ln for ln in body if "Warning" in ln]
-    for ln in warns[-20:]:
-        print(ln)
+    others = len([ln for ln in body if "Error" in ln and not ours(ln)])
+    out("(ошибок от других модов: %d — не наши, пропущены)" % others)
 
-    print("\n--- ХВОСТ ЛОГА (последние 25 строк) ---")
-    for ln in lines[-25:]:
-        print(ln)
+    deliver()
 
 
 if __name__ == "__main__":
