@@ -57,6 +57,13 @@ SEAT_H = 0.77       # высота седла
 # ----------------------------------------------------------------------------
 
 def clear_scene():
+    # остановить возможное проигрывание анимации
+    if bpy.context.screen is not None and bpy.context.screen.is_animation_playing:
+        bpy.ops.screen.animation_cancel(restore_frame=False)
+
+    if bpy.context.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     for block in (bpy.data.meshes, bpy.data.materials, bpy.data.objects):
@@ -71,10 +78,19 @@ def make_material(name, rgba, metallic=0.0, roughness=0.5):
         mat = bpy.data.materials.new(name)
         mat.use_nodes = True
         bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if bsdf is None:  # на случай другой локализации/версии
+            for n in mat.node_tree.nodes:
+                if n.type == "BSDF_PRINCIPLED":
+                    bsdf = n
+                    break
         if bsdf is not None:
-            bsdf.inputs["Base Color"].default_value = rgba
-            bsdf.inputs["Metallic"].default_value = metallic
-            bsdf.inputs["Roughness"].default_value = roughness
+            for socket, value in (("Base Color", rgba),
+                                  ("Metallic", metallic),
+                                  ("Roughness", roughness)):
+                if socket in bsdf.inputs:
+                    bsdf.inputs[socket].default_value = value
+        # viewport-цвет, чтобы модель была наглядной в Solid-режиме
+        mat.diffuse_color = rgba
     return mat
 
 
