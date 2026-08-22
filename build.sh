@@ -1,61 +1,91 @@
 #!/usr/bin/env bash
-# Сборка мода в ZIP, готовый для папки mods FS19.
+# Сборка модов в ZIP, готовые для папки mods FS19.
 #
-#   ./build.sh            -> build/FS19_FarmHelper.zip
-#   ./build.sh install    -> дополнительно копирует zip в папку модов игры
+#   ./build.sh                  -> собрать все моды в build/
+#   ./build.sh FS19_AlphaMoped  -> собрать только один
+#   ./build.sh install          -> собрать все и скопировать в папку модов игры
 #
 set -euo pipefail
 
-MOD_NAME="FS19_FarmHelper"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="$ROOT/$MOD_NAME"
 OUT="$ROOT/build"
 
-if [ ! -d "$SRC" ]; then
-    echo "Не найдена папка мода: $SRC" >&2
-    exit 1
+ALL_MODS=(FS19_FarmHelper FS19_AlphaMoped)
+
+DO_INSTALL=0
+MODS=()
+
+for arg in "$@"; do
+    if [ "$arg" = "install" ]; then
+        DO_INSTALL=1
+    else
+        MODS+=("$arg")
+    fi
+done
+
+if [ ${#MODS[@]} -eq 0 ]; then
+    MODS=("${ALL_MODS[@]}")
 fi
 
-# 1. Проверка синтаксиса Lua (если установлен luac/lua)
-if command -v luac5.1 >/dev/null 2>&1; then
-    LUAC=luac5.1
-elif command -v luac >/dev/null 2>&1; then
-    LUAC=luac
-else
-    LUAC=""
-fi
-
-if [ -n "$LUAC" ]; then
-    echo "==> Проверка синтаксиса Lua ($LUAC)"
-    find "$SRC" -name '*.lua' -print0 | while IFS= read -r -d '' f; do
-        "$LUAC" -p "$f"
-        echo "    ok  ${f#$ROOT/}"
-    done
-else
-    echo "==> luac не найден, пропускаю проверку Lua"
-fi
-
-# 2. Проверка XML
-if command -v xmllint >/dev/null 2>&1; then
-    echo "==> Проверка XML"
-    find "$SRC" -name '*.xml' -print0 | while IFS= read -r -d '' f; do
-        xmllint --noout "$f"
-        echo "    ok  ${f#$ROOT/}"
-    done
-fi
-
-# 3. Упаковка
 mkdir -p "$OUT"
-rm -f "$OUT/$MOD_NAME.zip"
 
-echo "==> Упаковка $MOD_NAME.zip"
-( cd "$SRC" && zip -r -q "$OUT/$MOD_NAME.zip" . -x '*.DS_Store' -x '__MACOSX/*' )
+check_xml() {
+    if command -v xmllint >/dev/null 2>&1; then
+        xmllint --noout "$1"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "import sys,xml.dom.minidom;xml.dom.minidom.parse(sys.argv[1])" "$1"
+    fi
+}
 
-echo "==> Готово: $OUT/$MOD_NAME.zip"
-unzip -l "$OUT/$MOD_NAME.zip" | tail -n +4 | head -n -2
+build_mod() {
+    local name="$1"
+    local src="$ROOT/$name"
 
-# 4. Опциональная установка в папку модов (Windows / Git Bash / WSL)
-if [ "${1:-}" = "install" ]; then
+    if [ ! -d "$src" ]; then
+        echo "!! нет папки мода: $name" >&2
+        return 1
+    fi
+
+    echo "=============================================="
+    echo "  $name"
+    echo "=============================================="
+
+    # XML
+    while IFS= read -r -d '' f; do
+        check_xml "$f"
+        echo "  xml ok  ${f#$src/}"
+    done < <(find "$src" -name '*.xml' -print0)
+
+    # Lua (если есть luac)
+    local luac=""
+    command -v luac5.1 >/dev/null 2>&1 && luac=luac5.1
+    [ -z "$luac" ] && command -v luac >/dev/null 2>&1 && luac=luac
+    if [ -n "$luac" ]; then
+        while IFS= read -r -d '' f; do
+            "$luac" -p "$f"
+            echo "  lua ok  ${f#$src/}"
+        done < <(find "$src" -name '*.lua' -print0)
+    fi
+
+    # предупреждение про отсутствующие i3d (только локальные, не из $data игры)
+    while IFS= read -r i3d; do
+        if [ ! -f "$src/$i3d" ]; then
+            echo "  !! ВНИМАНИЕ: $i3d отсутствует — мод не загрузится в игре."
+            echo "     Соберите модель: см. tools/blender_build_alpha.py и README."
+        fi
+    done < <(grep -hoE '(<filename>|filename=")[^<"$]*\.i3d' "$src"/*.xml 2>/dev/null \
+             | sed -E 's/^(<filename>|filename=")//' | sort -u)
+
+    rm -f "$OUT/$name.zip"
+    ( cd "$src" && zip -r -q "$OUT/$name.zip" . -x '*.DS_Store' -x '__MACOSX/*' -x '*.blend1' )
+    echo "  -> build/$name.zip  ($(du -h "$OUT/$name.zip" | cut -f1))"
+}
+
+for m in "${MODS[@]}"; do
+    build_mod "$m"
+done
+
+if [ "$DO_INSTALL" = "1" ]; then
     CANDIDATES=(
         "$HOME/Documents/My Games/FarmingSimulator2019/mods"
         "$HOME/OneDrive/Documents/My Games/FarmingSimulator2019/mods"
@@ -63,8 +93,10 @@ if [ "${1:-}" = "install" ]; then
     )
     for dir in "${CANDIDATES[@]}"; do
         if [ -d "$dir" ]; then
-            cp "$OUT/$MOD_NAME.zip" "$dir/"
-            echo "==> Установлен в: $dir"
+            for m in "${MODS[@]}"; do
+                cp "$OUT/$m.zip" "$dir/"
+            done
+            echo "==> Установлено в: $dir"
             exit 0
         fi
     done

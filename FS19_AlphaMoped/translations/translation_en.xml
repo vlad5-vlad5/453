@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <texts>
+        <text name="function_alphaMoped" text="Cheap and nimble transport for getting around the farm"/>
+        <text name="typeDesc_alphaMoped" text="Moped"/>
+    </texts>
+</l10n>

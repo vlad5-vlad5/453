@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="53">
+    <author>Your Name</author>
+    <version>1.0.0.0</version>
+
+    <title>
+        <ru>Мопед Альфа 110</ru>
+        <en>Alpha 110 Moped</en>
+    </title>
+
+    <description>
+        <ru><![CDATA[Классический мопед «Альфа» 110 кубов.
+
+Скорость: 65 км/ч
+Мощность: 7 л.с.
+Бак: 4 л
+Мест: 1 (+ багажник)
+
+Управление: как у обычной машины. Мопед кренится в поворотах.]]></ru>
+        <en><![CDATA[Classic Alpha 110cc moped.
+
+Top speed: 65 kph
+Power: 7 hp
+Tank: 4 l]]></en>
+    </description>
+
+    <iconFilename>icon_alphaMoped.dds</iconFilename>
+
+    <multiplayer supported="true"/>
+
+    <l10n filenamePrefix="translations/translation"/>
+
+    <!--
+        Свой тип техники = базовый "car" + наша специализация наклона в поворотах.
+        Список специализаций типа "car" берётся из data/vehicleTypes.xml игры;
+        через parent="car" мы наследуем их все и только добавляем свою.
+    -->
+    <vehicleTypes>
+        <type name="alphaMoped" parent="car" filename="$dataS/scripts/vehicles/Vehicle.lua">
+            <specialization name="FS19_AlphaMoped.alphaMopedLean"/>
+        </type>
+    </vehicleTypes>
+
+    <specializations>
+        <specialization name="alphaMopedLean" className="AlphaMopedLean"
+                        filename="scripts/AlphaMopedLean.lua"/>
+    </specializations>
+
+    <storeItems>
+        <storeItem xmlFilename="alphaMoped.xml"/>
+    </storeItems>
+</modDesc>
