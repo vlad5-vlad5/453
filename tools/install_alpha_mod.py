@@ -286,6 +286,55 @@ def build_node_index(i3d_path):
     return mapping
 
 
+
+# атрибуты, значения которых ссылаются на узлы i3d
+NODE_ATTRS = ("node", "repr", "driveNode", "rotateNode", "wheelNode", "linkNode")
+
+
+def inline_node_paths(xml_path, node_index):
+    """Подставляет ПРЯМЫЕ индексные пути вместо имён узлов.
+
+    FS19 может не понимать <i3dMappings> для некоторых мест (камеры),
+    и тогда rotateNode="cameraOutside" не резолвится -> 'Must be a camera type!'.
+    Прямой путь вида 0>1|1 работает всегда, поэтому имена заменяем на пути,
+    а сам блок <i3dMappings> убираем за ненадобностью.
+    """
+    import re
+
+    with open(xml_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    # 1. выкидываем блок маппингов целиком
+    a = text.find("<i3dMappings>")
+    b = text.find("</i3dMappings>")
+    if a != -1 and b != -1:
+        text = text[:a] + text[b + len("</i3dMappings>"):]
+
+    # 2. подставляем пути в атрибуты-ссылки
+    replaced, missing = 0, []
+
+    def sub(match):
+        nonlocal replaced
+        attr, value = match.group(1), match.group(2)
+        if value in node_index:
+            replaced += 1
+            return '%s="%s"' % (attr, node_index[value])
+        if not value.endswith(">") and "|" not in value and "$" not in value:
+            missing.append("%s=%s" % (attr, value))
+        return match.group(0)
+
+    pattern = r'\b(%s)="([^"]+)"' % "|".join(NODE_ATTRS)
+    text = re.sub(pattern, sub, text)
+
+    with open(xml_path, "w", encoding="utf-8") as f:
+        f.write(text)
+
+    log("подставлено прямых путей к узлам: %d" % replaced)
+    if missing:
+        log("не найдены в модели: %s" % ", ".join(sorted(set(missing))))
+    return missing
+
+
 def fix_mappings(xml_path, node_index):
     """Переписывает блок <i3dMappings> под реальную структуру i3d."""
     with open(xml_path, "r", encoding="utf-8") as f:
@@ -419,12 +468,12 @@ def main():
     else:
         log("физическое тело в модели найдено — ок")
 
-    missing = fix_mappings(os.path.join(modx, "alphaMoped.xml"), index)
+    missing = inline_node_paths(os.path.join(modx, "alphaMoped.xml"), index)
     if missing:
         log("НЕ НАЙДЕНЫ в модели (%d): %s" % (len(missing), ", ".join(missing)))
         log("Мод соберётся, но эти детали в игре работать не будут.")
     else:
-        log("все узлы совпали — маппинги обновлены")
+        log("все узлы найдены — пути подставлены напрямую")
 
     # zip
     out_zip = os.path.join(os.path.expanduser("~"), "Desktop", "%s.zip" % MOD)

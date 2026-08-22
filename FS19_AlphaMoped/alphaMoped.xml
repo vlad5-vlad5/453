@@ -128,13 +128,16 @@
                        accelerationLimit="6" brakeForce="4.5"
                        lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
                        ptoMotorRpmRatio="1"/>
-                <transmission name="4-speed" axleRatio="2.9">
-                    <forwardGear gearRatio="9.5"/>
-                    <forwardGear gearRatio="6.2"/>
-                    <forwardGear gearRatio="4.4"/>
-                    <forwardGear gearRatio="3.3"/>
-                    <backwardGear gearRatio="9.5"/>
-                </transmission>
+                <!--
+                    Бесступенчатая трансмиссия: задаём диапазон передаточных
+                    чисел, без списка передач.
+                    Явные <forwardGear> роняют VehicleMotor.lua(128)
+                    ("attempt to index local 'v'") и техника не создаётся.
+                -->
+                <transmission name="4-speed"
+                              minForwardGearRatio="3.3"  maxForwardGearRatio="9.5"
+                              minBackwardGearRatio="9.5" maxBackwardGearRatio="9.5"
+                              axleRatio="2.9"/>
             </motorConfiguration>
         </motorConfigurations>
 
