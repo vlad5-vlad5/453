@@ -118,6 +118,17 @@ def find_i3d(explicit=None):
         log("использую указанный файл: %s" % explicit)
         return explicit
 
+    # самый надёжный вариант: .i3d рядом с открытым .blend и с тем же именем
+    try:
+        import bpy
+        if bpy.data.filepath:
+            guess = os.path.splitext(bpy.data.filepath)[0] + ".i3d"
+            if os.path.isfile(guess):
+                log("нашёл модель рядом с .blend: %s" % guess)
+                return guess
+    except Exception:
+        pass
+
     roots = _search_roots()
     found = []
     for r in roots:
