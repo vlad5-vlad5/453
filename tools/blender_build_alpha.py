@@ -76,7 +76,12 @@ def make_material(name, rgba, metallic=0.0, roughness=0.5):
     mat = bpy.data.materials.get(name)
     if mat is None:
         mat = bpy.data.materials.new(name)
-        mat.use_nodes = True
+        # в Blender 4.x/5.x материал уже создаётся с нодами;
+        # use_nodes объявлен устаревшим и удаляется в 6.0
+        if bpy.app.version < (4, 0, 0):
+            mat.use_nodes = True
+        if mat.node_tree is None:
+            mat.use_nodes = True
         bsdf = mat.node_tree.nodes.get("Principled BSDF")
         if bsdf is None:  # на случай другой локализации/версии
             for n in mat.node_tree.nodes:
