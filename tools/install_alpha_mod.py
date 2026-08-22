@@ -316,6 +316,19 @@ def main():
     index = build_node_index(os.path.join(modx, "alphaMoped.i3d"))
     log("узлов в модели: %d" % len(index))
 
+    # проверка физики: без rigidBodyType техника не ставится в магазине
+    with open(os.path.join(modx, "alphaMoped.i3d"), "r",
+              encoding="utf-8", errors="replace") as f:
+        i3d_text = f.read()
+    if "rigidBodyType" not in i3d_text:
+        log("!" * 60)
+        log("В МОДЕЛИ НЕТ ФИЗИЧЕСКОГО ТЕЛА (rigidBodyType отсутствует).")
+        log("В игре будет: 'сначала уберите купленную технику'.")
+        log("Перестройте модель свежим blender_build_alpha.py и переэкспортируйте.")
+        log("!" * 60)
+    else:
+        log("физическое тело в модели найдено — ок")
+
     missing = fix_mappings(os.path.join(modx, "alphaMoped.xml"), index)
     if missing:
         log("НЕ НАЙДЕНЫ в модели (%d): %s" % (len(missing), ", ".join(missing)))

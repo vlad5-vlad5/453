@@ -147,6 +147,45 @@ def cylinder(name, parent, loc, radius, depth, axis="X", rot_extra=(0, 0, 0),
     return attach(obj, parent)
 
 
+def box_origin_zero(name, parent, center, size, mat=None):
+    """Коробка с геометрией в center, но с origin объекта в (0,0,0).
+
+    Нужно для корневого узла техники: FS отсчитывает позицию компонента
+    от origin, он обязан лежать в нуле."""
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=center)
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.scale = size
+    # запекаем и смещение, и масштаб в саму сетку
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    if mat is not None:
+        obj.data.materials.append(mat)
+    return attach(obj, parent)
+
+
+def set_rigid_body(obj, body_type="dynamic", compound=False, collision=True,
+                   solver_iterations=10):
+    """Проставляет атрибуты физики экспортёра GIANTS I3D.
+
+    Без этого экспортёр пишет rigid_body_type='none', модель уезжает в игру
+    без физического тела, и FS не может ни поставить технику, ни убрать её
+    («сначала уберите купленную технику»)."""
+    attrs = getattr(obj, "i3d_attributes", None)
+    if attrs is None:
+        print("[alpha] ВНИМАНИЕ: аддон GIANTS I3D не найден, физика не задана")
+        return False
+    try:
+        attrs.rigid_body_type = body_type
+        attrs.collision = collision
+        if body_type not in ("static", "compoundChild"):
+            attrs.compound = compound
+        attrs.solver_iteration_count = solver_iterations
+        return True
+    except Exception as exc:
+        print("[alpha] не удалось задать физику для %s: %s" % (obj.name, exc))
+        return False
+
+
 def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim):
     """Покрышка + диск как один объект."""
     tire = cylinder(name, None, loc, radius, width, axis="X", verts=20, mat=mat_tire)
@@ -183,7 +222,15 @@ def build():
     m_red    = make_material("alpha_red",    (0.80, 0.05, 0.05, 1.0), 0.0,  0.3)
 
     # === корень (component1) ==============================================
-    root = empty("alphaMoped", None, (0, 0, 0), size=0.35)
+    # Корень обязан быть МЕШЕМ: экспортёр разрешает физику только на мешах.
+    # Это невидимая коллизионная коробка корпуса — на ней держится вся техника.
+    m_col = make_material("alpha_collision", (0.1, 0.6, 0.1, 1.0), 0.0, 1.0)
+    root = box_origin_zero("alphaMoped", None,
+                           center=(0, 0, 0.50), size=(0.34, 1.30, 0.46),
+                           mat=m_col)
+    root.hide_render = True          # -> visibility="false" в i3d: не рисуется
+    set_rigid_body(root, "dynamic", compound=True, collision=True,
+                   solver_iterations=10)
 
     # === 0: bodyLean — всё, что кренится в поворотах =======================
     lean = empty("bodyLean", root, (0, 0, WHEEL_R), size=0.25)
@@ -312,8 +359,10 @@ def main():
         return
     build()
     print(EXPECTED_MAPPINGS)
-    print("Модель собрана. Дальше: File -> Export -> GIANTS I3D "
-          "-> FS19_AlphaMoped/alphaMoped.i3d")
+    print("Модель собрана.")
+    print("Корень alphaMoped: Rigid Body = Dynamic + Compound (иначе техника")
+    print("не ставится и не убирается в магазине).")
+    print("Дальше: File -> Export -> I3D, обязательно Include Children.")
 
 
 if __name__ == "__main__":
