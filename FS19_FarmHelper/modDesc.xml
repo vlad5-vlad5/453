@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="53">
+    <author>Your Name</author>
+    <version>1.0.0.0</version>
+
+    <title>
+        <ru>Farm Helper</ru>
+        <en>Farm Helper</en>
+        <de>Farm Helper</de>
+    </title>
+
+    <description>
+        <ru><![CDATA[Небольшой HUD-помощник: показывает баланс, время, погоду и площадь текущего поля.
+
+Клавиша по умолчанию: KEY_rctrl + KEY_h (настраивается в игре: Настройки -> Управление).]]></ru>
+        <en><![CDATA[A small HUD helper: shows balance, time, weather and the area of the current field.
+
+Default key: KEY_rctrl + KEY_h (rebindable in Settings -> Controls).]]></en>
+    </description>
+
+    <iconFilename>icon_FarmHelper.dds</iconFilename>
+
+    <multiplayer supported="true"/>
+
+    <extraSourceFiles>
+        <sourceFile filename="scripts/FarmHelperSettings.lua"/>
+        <sourceFile filename="scripts/FarmHelper.lua"/>
+    </extraSourceFiles>
+
+    <l10n filenamePrefix="translations/translation"/>
+
+    <actions>
+        <action name="FARMHELPER_TOGGLE" axisType="HALF"/>
+    </actions>
+
+    <inputBinding>
+        <actionBinding action="FARMHELPER_TOGGLE">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_rctrl KEY_h"/>
+        </actionBinding>
+    </inputBinding>
+</modDesc>
