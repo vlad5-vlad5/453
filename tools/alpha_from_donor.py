@@ -121,6 +121,8 @@ def find_donor():
     p = os.environ.get("ALPHA_SRC", "").strip().strip('"')
     if p and os.path.isfile(p):
         return p
+
+    hits = []
     for b in _bases():
         for d in ("Downloads", "Загрузки", "Desktop", "Рабочий стол",
                   "Documents", "Документы", ""):
@@ -134,24 +136,70 @@ def find_donor():
                     continue
                 for n in names:
                     if "alphaclassic" in n.lower() and n.lower().endswith(".zip"):
-                        return os.path.join(folder, n)
-    return None
+                        full = os.path.join(folder, n)
+                        if full not in hits:
+                            hits.append(full)
+
+    if not hits:
+        return None
+    # исходник — тот, что от FS22; остальные могли быть собраны нами же
+    hits.sort(key=lambda f: (0 if "fs22" in os.path.basename(f).lower() else 1,
+                             os.path.basename(f).lower()))
+    if len(hits) > 1:
+        out("подходящих архивов несколько, беру первый:")
+        for h in hits:
+            out("   " + h)
+    return hits[0]
 
 
 # ----------------------------------------------------------------- геометрия
 
-def convert_shapes(codec, work):
+def locate_donor_files(work):
+    """Находит внутри распакованного донора модель, геометрию, колёса и конфиг."""
+    main_i3d = wheels_i3d = vehicle_xml = None
+    best = -1
+
+    for root_dir, _, files in os.walk(work):
+        for name in files:
+            full = os.path.join(root_dir, name)
+            low = name.lower()
+            rel_depth = os.path.relpath(full, work).count(os.sep)
+
+            if low.endswith(".i3d"):
+                if rel_depth == 0:
+                    size = os.path.getsize(full)
+                    if size > best:
+                        best, main_i3d = size, full
+                elif "wheel" in low or "wheel" in root_dir.lower():
+                    wheels_i3d = full
+            elif low.endswith(".xml") and "moddesc" not in low:
+                try:
+                    head = open(full, encoding="utf-8", errors="replace").read(4000)
+                except Exception:
+                    continue
+                if "<vehicle" in head:
+                    vehicle_xml = full
+
+    return main_i3d, wheels_i3d, vehicle_xml
+
+
+def convert_shapes(codec, work, main_i3d, wheels_i3d):
     """Версия 7 -> версия 5, колёса вклеиваются в основную модель.
 
     Возвращает: (сдвиг id для колёсных мешей, карта имя->id колёсных мешей)."""
 
-    main_path = os.path.join(work, "AlphaClassic.i3d.shapes")
-    wheel_path = os.path.join(work, "wheels", "wheels.i3d.shapes")
+    main_path = main_i3d + ".shapes"
+    wheel_path = (wheels_i3d + ".shapes") if wheels_i3d else None
 
     out("")
     out("=" * 72)
     out("ГЕОМЕТРИЯ")
     out("=" * 72)
+
+    if not os.path.isfile(main_path):
+        out("!! рядом с моделью нет файла геометрии %s" % main_path)
+        out("   значит, геометрия лежит прямо внутри .i3d — конвертировать нечего")
+        return {}
 
     main = codec.ShapesFile.load(open(main_path, "rb").read())
     out("основная модель: версия %d, сущностей %d" % (main.version, len(main.parts)))
@@ -162,16 +210,27 @@ def convert_shapes(codec, work):
             out("   %s: %s" % (p.name, getattr(p, "error", "")))
     out(main.summary()[:4000])
 
-    wheels = codec.ShapesFile.load(open(wheel_path, "rb").read())
-    out("")
-    out("колёса: версия %d, сущностей %d" % (wheels.version, len(wheels.parts)))
-    out(wheels.summary())
+    wheels = None
+    if wheel_path and os.path.isfile(wheel_path):
+        wheels = codec.ShapesFile.load(open(wheel_path, "rb").read())
+        out("")
+        out("колёса: версия %d, сущностей %d"
+            % (wheels.version, len(wheels.parts)))
+        out(wheels.summary())
+    else:
+        out("")
+        out("отдельного файла колёс нет — значит, колёса уже внутри модели")
+
+    if main.version == 5 and wheels is None:
+        out("")
+        out("геометрия уже версии 5 и колёса на месте: перекодировать нечего")
+        return {}
 
     # переносим колёсные меши в основной файл с новыми номерами
     used = set(p.id for p in main.parts)
     shift = max(used) if used else 0
     wheel_ids = {}
-    for p in wheels.parts:
+    for p in (wheels.parts if wheels is not None else []):
         new_id = shift + p.id
         while new_id in used:
             new_id += 1
@@ -191,10 +250,11 @@ def convert_shapes(codec, work):
     assert check.version == 5 and len(check.parts) == len(main.parts)
     out("перечитано без ошибок — формат корректный")
 
-    try:
-        os.remove(wheel_path)
-    except Exception:
-        pass
+    if wheel_path:
+        try:
+            os.remove(wheel_path)
+        except Exception:
+            pass
 
     return wheel_ids
 
@@ -769,8 +829,16 @@ def main():
     with zipfile.ZipFile(donor) as z:
         z.extractall(work)
 
+    main_i3d_path, wheels_i3d_path, donor_xml_path = locate_donor_files(work)
+    out("модель :", main_i3d_path)
+    out("колёса :", wheels_i3d_path or "(отдельного файла нет)")
+    out("конфиг :", donor_xml_path)
+    if not main_i3d_path:
+        out("!! внутри архива нет .i3d — это не мод с моделью")
+        return
+
     # 1. геометрия
-    wheel_shape_ids = convert_shapes(codec, work)
+    wheel_shape_ids = convert_shapes(codec, work, main_i3d_path, wheels_i3d_path)
 
     if os.environ.get("ALPHA_STOP") == "shapes":
         out("")
@@ -784,12 +852,10 @@ def main():
     out("СЦЕНА")
     out("=" * 72)
 
-    main_i3d_path = os.path.join(work, "AlphaClassic.i3d")
-    wheels_i3d_path = os.path.join(work, "wheels", "wheels.i3d")
-
     main_tree = ET.parse(main_i3d_path)
     main_root = main_tree.getroot()
-    wheel_root = ET.parse(wheels_i3d_path).getroot()
+    wheel_root = (ET.parse(wheels_i3d_path).getroot()
+                  if wheels_i3d_path and os.path.isfile(wheels_i3d_path) else None)
 
     # 2а. чиним ссылки на файлы, которых в FS19 нет
     report = []
@@ -799,20 +865,23 @@ def main():
         out("   " + line)
 
     # 2б. переносим материалы колёс и вешаем меши на узлы колёс
-    wnodes, mat_map = merge_wheels(main_root, wheel_root, wheel_shape_ids)
-    out("перенесено материалов колёс: %d" % len(mat_map))
+    if wheel_root is not None and wheel_shape_ids:
+        wnodes, mat_map = merge_wheels(main_root, wheel_root, wheel_shape_ids)
+        out("перенесено материалов колёс: %d" % len(mat_map))
+    else:
+        wnodes, mat_map = {}, {}
+        out("колёса переносить не нужно")
 
     scene = main_root.find("Scene")
     by_name, by_path = build_paths(scene)
 
     # передний диск + покрышка на wheel_0, задний — на wheel_1
-    pairs = [("wheel_0", "wheelDriveF1", "tireL358"),
-             ("wheel_1", "wheelDriveB1", "tireL358")]
+    pairs = ([("wheel_0", "wheelDriveF1", "tireL358"),
+              ("wheel_1", "wheelDriveB1", "tireL358")] if wnodes else [])
     for host_name, rim, tyre in pairs:
         host_path = None
         try:
-            dv = open(os.path.join(work, "AlphaClassic.xml"),
-                      encoding="utf-8", errors="replace").read()
+            dv = open(donor_xml_path, encoding="utf-8", errors="replace").read()
             m = re.search(r'<i3dMapping id="%s" node="([^"]+)"' % host_name, dv)
             if m:
                 host_path = m.group(1)
@@ -854,18 +923,21 @@ def main():
 
     main_tree.write(os.path.join(stage, "alphaMoped.i3d"),
                     encoding="utf-8", xml_declaration=True)
-    shutil.move(os.path.join(work, "AlphaClassic.i3d.shapes"),
-                os.path.join(stage, "alphaMoped.i3d.shapes"))
+    src_shapes = main_i3d_path + ".shapes"
+    if os.path.isfile(src_shapes):
+        shutil.move(src_shapes, os.path.join(stage, "alphaMoped.i3d.shapes"))
+    else:
+        out("!! файла геометрии нет — модель без .shapes работать не будет")
 
-    tex_src = os.path.join(work, "textures")
+    tex_src = os.path.join(os.path.dirname(main_i3d_path), "textures")
     if os.path.isdir(tex_src):
         shutil.copytree(tex_src, os.path.join(stage, "textures"))
         out("текстуры:")
         for n in sorted(os.listdir(tex_src)):
             out("   %-34s %s" % (n, dds_kind(os.path.join(tex_src, n))))
 
-    donor_vehicle = open(os.path.join(work, "AlphaClassic.xml"),
-                         encoding="utf-8", errors="replace").read()
+    donor_vehicle = (open(donor_xml_path, encoding="utf-8",
+                          errors="replace").read() if donor_xml_path else "")
     paths = collect_paths(donor_vehicle, scene)
 
     with open(os.path.join(stage, "alphaMoped.xml"), "w", encoding="utf-8") as f:
