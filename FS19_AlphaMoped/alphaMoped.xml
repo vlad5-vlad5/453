@@ -165,8 +165,8 @@
                 -->
                 <motor torqueScale="4.5" minRpm="1300" maxRpm="8500"
                        maxForwardSpeed="65" maxBackwardSpeed="6"
-                       accelerationLimit="10" brakeForce="4.5"
-                       lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
+                       accelerationLimit="10" brakeForce="1.4"
+                       lowBrakeForceScale="0.08" lowBrakeForceSpeedLimit="0.6"
                        ptoMotorRpmRatio="1">
                     <torque normRpm="0.15" torque="0.45"/>
                     <torque normRpm="0.40" torque="0.80"/>

@@ -20,6 +20,7 @@ import math
 try:
     import bpy
     import bmesh
+    from mathutils import Vector
 except ImportError:            # запуск вне Blender — только проверка синтаксиса
     bpy = None
     bmesh = None
@@ -181,6 +182,23 @@ def cylinder(name, parent, loc, radius, depth, axis="X", rot_extra=(0, 0, 0),
     return attach(obj, parent)
 
 
+def tube(name, parent, p0, p1, radius, mat=None, verts=14):
+    """Труба, соединяющая две точки. Углы считаются сами."""
+    a, b = Vector(p0), Vector(p1)
+    d = b - a
+    length = d.length
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius,
+                                        depth=length, location=(a + b) / 2.0)
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.rotation_euler = d.to_track_quat("Z", "Y").to_euler()
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+    if mat is not None:
+        obj.data.materials.append(mat)
+    smooth(obj)
+    return attach(obj, parent)
+
+
 def cone(name, parent, loc, r1, r2, depth, axis="Y", verts=20, mat=None):
     bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r1, radius2=r2,
                                     depth=depth, location=loc)
@@ -235,39 +253,51 @@ def arc_shell(name, parent, center, radius, width, thickness,
     return attach(obj, parent)
 
 
-def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim, spokes=10):
-    """Покрышка + обод + ступица + спицы, слитые в один объект.
+def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim, spokes=12):
+    """Покрышка + обод + ступица + спицы одним объектом.
 
-    ВАЖНО: поворот обязательно запекается в саму сетку (transform_apply).
-    Игра каждый кадр выставляет поворот driveNode, чтобы колесо крутилось,
-    и стирает любой поворот, оставшийся на объекте — колесо ляжет плашмя.
+    Поворот ОБЯЗАТЕЛЬНО запекается в сетку: игра каждый кадр выставляет
+    поворот driveNode для вращения колеса и стирает поворот объекта.
     """
-    parts = []
-
+    tyre_minor = width * 0.62
     bpy.ops.mesh.primitive_torus_add(location=loc,
-                                     major_radius=radius - width * 0.55,
-                                     minor_radius=width * 0.62,
-                                     major_segments=32, minor_segments=12)
+                                     major_radius=radius - tyre_minor,
+                                     minor_radius=tyre_minor,
+                                     major_segments=36, minor_segments=12)
     tire = bpy.context.active_object
     tire.name = name
-    tire.rotation_euler = (0, math.radians(90), 0)      # ось вращения -> X
+    tire.rotation_euler = (0, math.radians(90), 0)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     tire.data.materials.append(mat_tire)
     smooth(tire)
 
-    parts.append(cylinder(name + "_rim", None, loc, radius * 0.42, width * 0.85,
-                          axis="X", verts=24, mat=mat_rim))
-    parts.append(cylinder(name + "_hub", None, loc, radius * 0.13, width * 1.15,
-                          axis="X", verts=14, mat=mat_rim))
+    parts = []
 
+    # обод — тонкое кольцо, а не диск
+    bpy.ops.mesh.primitive_torus_add(location=loc,
+                                     major_radius=radius - tyre_minor * 2.1,
+                                     minor_radius=width * 0.16,
+                                     major_segments=28, minor_segments=8)
+    rim = bpy.context.active_object
+    rim.name = name + "_rim"
+    rim.rotation_euler = (0, math.radians(90), 0)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+    rim.data.materials.append(mat_rim)
+    smooth(rim)
+    parts.append(rim)
+
+    parts.append(cylinder(name + "_hub", None, loc, radius * 0.14, width * 1.2,
+                          axis="X", verts=16, mat=mat_rim))
+
+    r_out = radius - tyre_minor * 2.1
     for i in range(spokes):
         a = 2 * math.pi * i / spokes
-        r_mid = radius * 0.28
-        p = (loc[0], loc[1] + math.cos(a) * r_mid, loc[2] + math.sin(a) * r_mid)
-        parts.append(cylinder(name + "_sp%d" % i, None, p,
-                              radius * 0.022, radius * 0.60,
-                              axis="Z", rot_extra=(a, 0, 0), verts=6,
-                              mat=mat_rim))
+        p0 = (loc[0], loc[1] + math.cos(a) * radius * 0.12,
+              loc[2] + math.sin(a) * radius * 0.12)
+        p1 = (loc[0], loc[1] + math.cos(a) * r_out,
+              loc[2] + math.sin(a) * r_out)
+        parts.append(tube(name + "_sp%d" % i, None, p0, p1,
+                          radius * 0.014, mat_rim, verts=6))
 
     bpy.ops.object.select_all(action="DESELECT")
     for o in parts:
@@ -277,7 +307,6 @@ def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim, spokes=10):
     bpy.ops.object.join()
 
     tire.name = name
-    # финальная страховка: на объекте не должно остаться поворота
     tire.rotation_euler = (0, 0, 0)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     return attach(tire, parent)
@@ -348,110 +377,119 @@ def build():
     # === 0: bodyLean — всё, что кренится ====================================
     lean = empty("bodyLean", root, (0, 0, WHEEL_R), size=0.25)
 
-    #  рама: две трубы вместо коробки
-    cylinder("frameMesh", lean, (0, FWD * 0.10, 0.66), 0.028, 0.62,
-             axis="Y", rot_extra=(math.radians(-18 * FWD), 0, 0), mat=m_black)
-    cylinder("frameDown", lean, (0, FWD * 0.22, 0.40), 0.026, 0.55,
-             axis="Y", rot_extra=(math.radians(34 * FWD), 0, 0), mat=m_black)
-    cylinder("frameRear", lean, (0, -FWD * 0.30, 0.55), 0.024, 0.52,
-             axis="Y", rot_extra=(math.radians(-24 * FWD), 0, 0), mat=m_black)
+    def Y(v):
+        """v > 0 — в сторону переда мопеда."""
+        return FWD * v
 
-    #  бак — скруглённый и сужается кверху
-    box("tankMesh", lean, (0, FWD * 0.26, 0.80), (0.26, 0.48, 0.22),
-        rot=(math.radians(-5 * FWD), 0, 0), mat=m_paint,
-        bev=0.035, taper=(0.45, 0.75))
+    def L(z):
+        return z - WHEEL_R
 
-    #  седло
-    box("seatMesh", lean, (0, -FWD * 0.20, SEAT_H + 0.03), (0.25, 0.58, 0.085),
-        mat=m_black, bev=0.03, taper=(0.8, 0.85))
+    # опорные точки рамы (мировые координаты, z от земли)
+    HEAD_TOP  = (0, Y(0.44), 0.95)
+    HEAD_BOT  = (0, Y(0.50), 0.70)
+    AX_F      = (0, Y(0.61), WHEEL_R)
+    ENG_BOT   = (0, Y(0.05), 0.30)
+    REAR_TOP  = (0, Y(-0.30), 0.72)
+    SWING     = (0, Y(-0.28), 0.38)
+    AX_R      = (0, Y(-0.61), WHEEL_R)
 
-    #  двигатель: блок + рёбра охлаждения + цилиндр
-    eng = box("engineMesh", lean, (0, FWD * 0.02, 0.40), (0.26, 0.30, 0.26),
-              mat=m_engine, bev=0.02)
+    # ---- рама трубами -----------------------------------------------------
+    tube("frameMesh",  lean, HEAD_TOP, REAR_TOP, 0.022, m_black)   # верхняя
+    tube("frameDown",  lean, HEAD_BOT, ENG_BOT,  0.022, m_black)   # подседельная
+    tube("frameCradle", lean, ENG_BOT, SWING,    0.020, m_black)   # низ
+    tube("frameStay",  lean, REAR_TOP, SWING,    0.018, m_black)   # подкос
+    tube("headTube",   lean, HEAD_TOP, HEAD_BOT, 0.032, m_chrome)  # рулевая колонка
+    for x in (-0.055, 0.055):
+        tube("swingarm%s" % ("L" if x < 0 else "R"), lean,
+             (x, SWING[1], SWING[2]), (x, AX_R[1], AX_R[2]), 0.016, m_black)
+    tube("shock", lean, (0.045, Y(-0.32), 0.68), (0.045, Y(-0.52), 0.40),
+         0.016, m_chrome)
+
+    # ---- бак, седло -------------------------------------------------------
+    box("tankMesh", lean, (0, Y(0.26), 0.83), (0.20, 0.40, 0.17),
+        rot=(math.radians(-6 * FWD), 0, 0), mat=m_paint,
+        bev=0.045, taper=(0.35, 0.7))
+    box("seatMesh", lean, (0, Y(-0.10), 0.80), (0.21, 0.46, 0.065),
+        mat=m_black, bev=0.028, taper=(0.85, 0.9))
+
+    # ---- двигатель --------------------------------------------------------
+    box("engineMesh", lean, (0, Y(0.06), 0.42), (0.20, 0.24, 0.22),
+        mat=m_engine, bev=0.018)
     for i in range(5):
-        box("engineFin%d" % i, lean,
-            (0, FWD * 0.10, 0.46 + i * 0.035), (0.22, 0.16, 0.010),
-            rot=(math.radians(20 * FWD), 0, 0), mat=m_engine, bev=0.003)
-    cylinder("engineHead", lean, (0, FWD * 0.14, 0.58), 0.075, 0.16,
-             axis="Y", rot_extra=(math.radians(24 * FWD), 0, 0),
+        box("engineFin%d" % i, lean, (0, Y(0.13), 0.50 + i * 0.030),
+            (0.17, 0.13, 0.008), rot=(math.radians(22 * FWD), 0, 0),
+            mat=m_engine, bev=0.002)
+    cylinder("engineHead", lean, (0, Y(0.17), 0.60), 0.060, 0.13,
+             axis="Y", rot_extra=(math.radians(22 * FWD), 0, 0),
              verts=16, mat=m_engine)
+    cylinder("crankCase", lean, (0, Y(0.02), 0.36), 0.095, 0.19,
+             axis="X", verts=18, mat=m_engine)
 
-    #  глушитель: труба + конический баллон
-    cylinder("exhaustPipe", lean, (0.10, FWD * 0.05, 0.30), 0.020, 0.45,
-             axis="Y", verts=14, mat=m_chrome)
-    cone("exhaustMesh", lean, (0.13, -FWD * 0.40, 0.32), 0.050, 0.038, 0.52,
+    # ---- выпуск -----------------------------------------------------------
+    tube("exhaustPipe", lean, (0.05, Y(0.14), 0.40), (0.10, Y(-0.16), 0.31),
+         0.017, m_chrome)
+    cone("exhaustMesh", lean, (0.105, Y(-0.42), 0.32), 0.036, 0.030, 0.52,
          axis="Y", mat=m_chrome)
 
-    #  багажник, крыло, звезда
-    box("rearRackMesh", lean, (0, -FWD * 0.64, SEAT_H + 0.09), (0.26, 0.24, 0.035),
-        mat=m_black, bev=0.012)
-    arc_shell("fenderRearMesh", lean, (0, AXLE_R, 0),
-              radius=WHEEL_R + 0.045, width=0.13, thickness=0.012,
-              a_start=math.radians(35), a_end=math.radians(150),
-              mat=m_paint)
-    cylinder("chainSprocket", lean, (-0.075, AXLE_R, 0.0), 0.105, 0.010,
+    # ---- задняя часть -----------------------------------------------------
+    box("rearRackMesh", lean, (0, Y(-0.56), 0.86), (0.24, 0.22, 0.028),
+        mat=m_black, bev=0.010)
+    arc_shell("fenderRearMesh", lean, (0, AX_R[1], 0),
+              radius=WHEEL_R + 0.035, width=0.115, thickness=0.010,
+              a_start=math.radians(40), a_end=math.radians(155), mat=m_paint)
+    cylinder("chainSprocket", lean, (-0.070, AX_R[1], 0.0), 0.095, 0.009,
              axis="X", verts=18, mat=m_chrome)
-    box("chainGuard", lean, (-0.085, -FWD * 0.30, 0.22), (0.012, 0.42, 0.09),
-        mat=m_black, bev=0.01)
-    cylinder("kickstand", lean, (-0.12, FWD * 0.02, 0.12), 0.012, 0.24,
-             axis="Z", rot_extra=(0, math.radians(20), 0), verts=8, mat=m_black)
+    box("chainGuard", lean, (-0.080, Y(-0.34), 0.30), (0.010, 0.36, 0.07),
+        mat=m_black, bev=0.008)
+    tube("kickstand", lean, (-0.095, Y(0.00), 0.28), (-0.15, Y(-0.06), 0.02),
+         0.011, m_black)
 
-    #  служебные точки
-    empty("engineNode", lean, (0, FWD * 0.02, 0.42), size=0.05)
-    empty("exhaustEffectNode", lean, (0.15, -FWD * 0.66, 0.33),
+    # ---- служебные точки и фонари ----------------------------------------
+    empty("engineNode", lean, (0, Y(0.06), 0.42), size=0.05)
+    empty("exhaustEffectNode", lean, (0.105, Y(-0.68), 0.32),
           rot=(0, 0, math.radians(180 if FWD > 0 else 0)), size=0.05)
-
-    #  фонари
-    cylinder("brakeLightNode", lean, (0, -FWD * 0.72, 0.84), 0.045, 0.05,
+    cylinder("brakeLightNode", lean, (0, Y(-0.64), 0.86), 0.040, 0.045,
              axis="Y", verts=14, mat=m_red)
-    cylinder("turnLightRearLeft", lean, (-0.14, -FWD * 0.70, 0.83), 0.028, 0.05,
+    cylinder("turnLightRearLeft", lean, (-0.125, Y(-0.62), 0.85), 0.024, 0.045,
              axis="Y", verts=10, mat=m_amber)
-    cylinder("turnLightRearRight", lean, (0.14, -FWD * 0.70, 0.83), 0.028, 0.05,
+    cylinder("turnLightRearRight", lean, (0.125, Y(-0.62), 0.85), 0.024, 0.045,
              axis="Y", verts=10, mat=m_amber)
 
-    # --- рулёжка -----------------------------------------------------------
-    steer = empty("handlebarNode", lean, (0, FWD * 0.52, 0.78),
-                  rot=(math.radians(24 * FWD), 0, 0), size=0.15)
+    # ---- передок ----------------------------------------------------------
+    steer = empty("handlebarNode", lean, (0, Y(0.47), 0.83), size=0.15)
 
-    #  перья вилки — две трубы
-    for side, xoff in (("L", -0.085), ("R", 0.085)):
-        cylinder("forkMesh" if side == "L" else "forkMesh" + side, steer,
-                 (xoff, FWD * 0.60, 0.62), 0.019, 0.60,
-                 axis="Z", rot_extra=(math.radians(24 * FWD), 0, 0),
-                 verts=12, mat=m_chrome)
+    for x in (-0.070, 0.070):
+        tube("forkMesh" if x < 0 else "forkMeshR", steer,
+             (x, HEAD_BOT[1], HEAD_BOT[2]), (x, AX_F[1], AX_F[2]),
+             0.018, m_chrome)
+    tube("triple", steer, (-0.085, Y(0.47), 0.86), (0.085, Y(0.47), 0.86),
+         0.016, m_chrome)
 
-    #  руль: перекладина + две ручки
-    cylinder("handlebarMesh", steer, (0, FWD * 0.50, 1.04), 0.013, 0.60,
+    cylinder("handlebarMesh", steer, (0, Y(0.44), 1.00), 0.012, 0.56,
              axis="X", verts=12, mat=m_black)
-    for xoff in (-0.27, 0.27):
-        cylinder("grip%s" % ("L" if xoff < 0 else "R"), steer,
-                 (xoff, FWD * 0.50, 1.04), 0.019, 0.11,
-                 axis="X", verts=10, mat=m_black)
-    #  зеркала
-    for xoff in (-0.24, 0.24):
-        cylinder("mirrorStem%s" % ("L" if xoff < 0 else "R"), steer,
-                 (xoff, FWD * 0.50, 1.13), 0.007, 0.17, axis="Z",
-                 verts=8, mat=m_chrome)
-        cylinder("mirror%s" % ("L" if xoff < 0 else "R"), steer,
-                 (xoff, FWD * 0.50, 1.22), 0.042, 0.012, axis="Y",
+    for x in (-0.25, 0.25):
+        cylinder("grip%s" % ("L" if x < 0 else "R"), steer,
+                 (x, Y(0.44), 1.00), 0.017, 0.10, axis="X",
+                 verts=10, mat=m_black)
+        tube("mirrorStem%s" % ("L" if x < 0 else "R"), steer,
+             (x, Y(0.44), 1.01), (x * 1.15, Y(0.42), 1.16), 0.006, m_chrome)
+        cylinder("mirror%s" % ("L" if x < 0 else "R"), steer,
+                 (x * 1.15, Y(0.42), 1.17), 0.038, 0.010, axis="Y",
                  verts=14, mat=m_black)
 
-    #  переднее крыло — гнутое
-    arc_shell("fenderFrontMesh", steer, (0, AXLE_F, 0),
-              radius=WHEEL_R + 0.040, width=0.12, thickness=0.010,
-              a_start=math.radians(30), a_end=math.radians(120),
-              mat=m_paint)
+    arc_shell("fenderFrontMesh", steer, (0, AX_F[1], 0),
+              radius=WHEEL_R + 0.032, width=0.105, thickness=0.009,
+              a_start=math.radians(35), a_end=math.radians(125), mat=m_paint)
 
-    #  фара: корпус + стекло
-    cylinder("headlightCase", steer, (0, FWD * 0.585, 0.90), 0.082, 0.10,
+    cylinder("headlightCase", steer, (0, Y(0.53), 0.90), 0.075, 0.09,
              axis="Y", verts=20, mat=m_chrome)
-    cylinder("headlightGlass", steer, (0, FWD * 0.635, 0.90), 0.074, 0.02,
+    cylinder("headlightGlass", steer, (0, Y(0.575), 0.90), 0.068, 0.018,
              axis="Y", verts=20, mat=m_glass)
-    empty("headlightLow",  steer, (0, FWD * 0.65, 0.90), size=0.05)
-    empty("headlightHigh", steer, (0, FWD * 0.65, 0.90), size=0.05)
-    cylinder("turnLightFrontLeft", steer, (-0.17, FWD * 0.56, 0.88), 0.026, 0.05,
+    empty("headlightLow",  steer, (0, Y(0.59), 0.90), size=0.05)
+    empty("headlightHigh", steer, (0, Y(0.59), 0.90), size=0.05)
+    cylinder("turnLightFrontLeft", steer, (-0.155, Y(0.50), 0.88), 0.023, 0.045,
              axis="Y", verts=10, mat=m_amber)
-    cylinder("turnLightFrontRight", steer, (0.17, FWD * 0.56, 0.88), 0.026, 0.05,
+    cylinder("turnLightFrontRight", steer, (0.155, Y(0.50), 0.88), 0.023, 0.045,
              axis="Y", verts=10, mat=m_amber)
 
     # === 1: колёса ==========================================================
