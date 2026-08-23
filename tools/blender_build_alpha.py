@@ -318,19 +318,28 @@ def build():
     box("turnLightFrontRight", steer, ( 0.16, FWD * 0.58, 0.86), (0.04, 0.04, 0.05), mat=m_amber)
 
     # === 1: колёса ==========================================================
+    # Схема как у мотоцикла MX: два ВИДИМЫХ колеса строго по центру
+    # (на них висят меши) плюс четыре НЕВИДИМЫХ стабилизатора по бокам.
+    # Меш на центральном узле не уезжает в сторону при повороте руля.
     wheels = empty("wheels", root, (0, 0, 0), size=0.2)
 
-    # 0 переднее левое (видимое)
-    wfl = empty("wheelFrontLeft", wheels, (-STAB_OFFSET, AXLE_F, WHEEL_R), size=0.1)
-    wheel_mesh("wheelFrontMesh", wfl, (0, AXLE_F, WHEEL_R), WHEEL_R, WHEEL_W, m_black, m_chrome)
-    # 1 переднее правое (стабилизатор, невидимое)
-    empty("wheelFrontRight", wheels, (STAB_OFFSET, AXLE_F, WHEEL_R), size=0.1)
-    # 2 заднее левое (видимое, ведущее)
-    wrl = empty("wheelRearLeft", wheels, (-STAB_OFFSET, AXLE_R, WHEEL_R), size=0.1)
-    wheel_mesh("wheelRearMesh", wrl, (0, AXLE_R, WHEEL_R), WHEEL_R, WHEEL_W + 0.01,
-               m_black, m_chrome)
-    # 3 заднее правое (стабилизатор, невидимое)
-    empty("wheelRearRight", wheels, (STAB_OFFSET, AXLE_R, WHEEL_R), size=0.1)
+    # 1-2: передние боковые стабилизаторы (рулевые, невидимые)
+    empty("wheelFrontLeft",  wheels, (-STAB_OFFSET, AXLE_F, WHEEL_R), size=0.1)
+    empty("wheelFrontRight", wheels, ( STAB_OFFSET, AXLE_F, WHEEL_R), size=0.1)
+
+    # 3: переднее центральное — видимое, рулевое
+    wfm = empty("wheelFrontMid", wheels, (0, AXLE_F, WHEEL_R), size=0.1)
+    wheel_mesh("wheelFrontMesh", wfm, (0, AXLE_F, WHEEL_R),
+               WHEEL_R, WHEEL_W, m_black, m_chrome)
+
+    # 4-5: задние боковые стабилизаторы (невидимые)
+    empty("wheelRearLeft",  wheels, (-STAB_OFFSET, AXLE_R, WHEEL_R), size=0.1)
+    empty("wheelRearRight", wheels, ( STAB_OFFSET, AXLE_R, WHEEL_R), size=0.1)
+
+    # 6: заднее центральное — видимое, ведущее
+    wrm = empty("wheelRearMid", wheels, (0, AXLE_R, WHEEL_R), size=0.1)
+    wheel_mesh("wheelRearMesh", wrm, (0, AXLE_R, WHEEL_R),
+               WHEEL_R, WHEEL_W + 0.01, m_black, m_chrome)
 
     # === 2: игрок и камеры ==================================================
     player = empty("player", root, (0, 0, 0), size=0.2)
