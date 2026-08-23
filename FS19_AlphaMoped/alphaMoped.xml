@@ -94,6 +94,7 @@
                     <!-- 3: заднее левое (видимое, ведущее) -->
                     <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
                         <physics repr="wheelRearLeft" driveNode="wheelRearMesh"
+                                 rotSpeed="0"
                                  radius="0.335" width="0.085" mass="0.008"
                                  suspTravel="0.12" spring="26" damper="45"
                                  restLoad="0.45" forcePointRatio="0.35"
@@ -104,18 +105,27 @@
                     <!-- 4: заднее правое (невидимый стабилизатор, ведущее) -->
                     <wheel isLeft="false" hasTireTracks="false">
                         <physics repr="wheelRearRight"
+                                 rotSpeed="0"
                                  radius="0.335" width="0.085" mass="0.008"
                                  suspTravel="0.12" spring="26" damper="45"
                                  restLoad="0.45" forcePointRatio="0.35"
                                  maxLongStiffness="28" maxLatStiffness="38"
                                  maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
                     </wheel>
-                    <!-- углы поворота задаются здесь, а не у колеса -->
-                    <ackermannSteering rotSpeed="60" rotMax="34"
-                                       rotCenterWheel1="3" rotCenterWheel2="4"/>
                 </wheels>
             </wheelConfiguration>
         </wheelConfigurations>
+
+        <!--
+            Рулевая геометрия. Как и дифференциалы, FS19 читает её ТОЛЬКО из
+            обёртки <ackermannSteeringConfigurations> и на уровне <wheels>,
+            а не внутри конфигурации колёс. Иначе руль просто не работает.
+            Индексы колёс — с единицы: 3 и 4 = задние (центр поворота).
+        -->
+        <ackermannSteeringConfigurations>
+            <ackermannSteering rotSpeed="60" rotMax="34"
+                               rotCenterWheel1="3" rotCenterWheel2="4"/>
+        </ackermannSteeringConfigurations>
     </wheels>
 
     <motorized>
