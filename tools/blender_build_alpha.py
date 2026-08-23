@@ -242,7 +242,15 @@ def build():
     root = box_origin_zero("alphaMoped", None,
                            center=(0, 0, 0.50), size=(0.34, 1.30, 0.46),
                            mat=m_col)
-    root.hide_render = True          # -> visibility="false" в i3d: не рисуется
+    # НЕ используем hide_render: visibility="false" наследуется всеми детьми
+    # и мопед пропадает целиком. Правильный способ — non_renderable у самого меша
+    # (так же сделано в пресете аддона Physics-VehicleCompound).
+    try:
+        root.data.i3d_attributes.non_renderable = True
+        root.data.i3d_attributes.casts_shadows = False
+        root.data.i3d_attributes.receive_shadows = False
+    except Exception as exc:
+        print("[alpha] не удалось задать non_renderable:", exc)
     set_rigid_body(root, "dynamic", compound=True, collision=True,
                    solver_iterations=10)
 
@@ -329,8 +337,12 @@ def build():
     # посадка водителя: чуть выше седла, лицом вперёд
     empty("playerSeatNode", player, (0, -FWD * 0.16, SEAT_H + 0.08),
           rot=(0, 0, math.radians(0 if FWD < 0 else 180)), size=0.12)
-    # камера от третьего лица
-    camera("cameraOutside", player, (0, -FWD * 0.10, SEAT_H + 0.35))
+    # камера от третьего лица: сама камера — ребёнок группы вращения,
+    # как в рабочих модах (rotateNode="cameraTarget")
+    cam_target = empty("cameraTarget", player,
+                       (0, -FWD * 0.10, SEAT_H + 0.30), size=0.12)
+    camera("cameraOutside", cam_target,
+           (0, -FWD * 0.10, SEAT_H + 0.30))
     # камера с седла
     camera("cameraInside", player, (0, -FWD * 0.02, SEAT_H + 0.42))
 

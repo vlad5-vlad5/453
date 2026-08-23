@@ -219,9 +219,12 @@
             -->
             <cameras>
                 <!-- вид от третьего лица -->
-                <camera node="cameraOutside" rotatable="true" limit="true"
-                        rotMinX="-1.05" rotMaxX="0.45"
-                        transMin="1.8" transMax="6.0"/>
+                <camera node="cameraOutside" rotatable="true"
+                        rotateNode="cameraTarget" limit="true"
+                        useWorldXZRotation="true"
+                        rotMinX="-0.9" rotMaxX="0.35"
+                        transMin="2.0" transMax="8.0"
+                        translation="0 0 3.5" rotation="-8 180 0"/>
                 <!-- вид с седла -->
                 <camera node="cameraInside" rotatable="true" limit="true"
                         isInside="true"
