@@ -67,13 +67,13 @@
     <wheels>
         <wheelConfigurations>
             <wheelConfiguration name="$l10n_configuration_valueDefault" price="0">
-                <wheels autoRotateBackSpeed="3.5" differentialIndex="1">
+                <wheels autoRotateBackSpeed="3.5">
 
                     <!-- 1: переднее левое (видимое, рулевое) -->
                     <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
                         <physics repr="wheelFrontLeft" driveNode="wheelFrontMesh"
                                  radius="0.335" width="0.075" mass="0.006"
-                                 rotSpeed="55" rotMax="34" rotMin="-34"
+                                 rotSpeed="1"
                                  suspTravel="0.10" spring="22" damper="42"
                                  restLoad="0.30" forcePointRatio="0.35"
                                  maxLongStiffness="25" maxLatStiffness="35"
@@ -84,7 +84,7 @@
                     <wheel isLeft="false" hasTireTracks="false">
                         <physics repr="wheelFrontRight"
                                  radius="0.335" width="0.075" mass="0.006"
-                                 rotSpeed="55" rotMax="34" rotMin="-34"
+                                 rotSpeed="1"
                                  suspTravel="0.10" spring="22" damper="42"
                                  restLoad="0.30" forcePointRatio="0.35"
                                  maxLongStiffness="25" maxLatStiffness="35"
@@ -110,6 +110,9 @@
                                  maxLongStiffness="28" maxLatStiffness="38"
                                  maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
                     </wheel>
+                    <!-- углы поворота задаются здесь, а не у колеса -->
+                    <ackermannSteering rotSpeed="60" rotMax="34"
+                                       rotCenterWheel1="3" rotCenterWheel2="4"/>
                 </wheels>
             </wheelConfiguration>
         </wheelConfigurations>
@@ -135,9 +138,8 @@
                     ("attempt to index local 'v'") и техника не создаётся.
                 -->
                 <transmission name="4-speed"
-                              minForwardGearRatio="3.3"  maxForwardGearRatio="9.5"
-                              minBackwardGearRatio="9.5" maxBackwardGearRatio="9.5"
-                              axleRatio="2.9"/>
+                              minForwardGearRatio="16"  maxForwardGearRatio="130"
+                              minBackwardGearRatio="60" maxBackwardGearRatio="130"/>
             </motorConfiguration>
         </motorConfigurations>
 
@@ -145,7 +147,7 @@
             Привод на задние колёса. FS19 читает дифференциалы ТОЛЬКО из
             <differentialConfigurations>; голый <differentials> игнорируется
             ("No differentials defined"), после чего VehicleMotor.lua падает
-            на nil. Выбор конфигурации — через differentialIndex у <wheels>.
+            на nil. Структура сверена с рабочим модом FS19_Zil_pack.
         -->
         <differentialConfigurations>
             <differentialConfiguration>
@@ -192,7 +194,7 @@
         </fillUnitConfigurations>
     </fillUnit>
 
-    <enterable>
+    <enterable isTabbable="true">
         <enterReferenceNode node="enterNode" upperHeight="1.6" lowerHeight="0.05"/>
         <exitPoint node="exitNode"/>
 
