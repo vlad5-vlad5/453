@@ -269,7 +269,12 @@
     </enterable>
 
     <drivable>
-        <steering wheelNode="handlebarNode" indoorRotation="42" outdoorRotation="42"/>
+        <!--
+            <steering wheelNode="..."> НЕ указываем: этим тегом игра крутит
+            рулевое КОЛЕСО в кабине и каждый кадр перезаписывает поворот узла.
+            Если направить его на handlebarNode (узел вилки), игра сотрёт
+            наклон вилки и будет вращать весь передний узел как баранку.
+        -->
         <cruiseControl minSpeed="3" maxSpeed="65"/>
     </drivable>
 

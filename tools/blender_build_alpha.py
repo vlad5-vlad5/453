@@ -236,34 +236,38 @@ def arc_shell(name, parent, center, radius, width, thickness,
 
 
 def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim, spokes=10):
-    """Покрышка + обод + спицы, всё слито в один объект."""
+    """Покрышка + обод + ступица + спицы, слитые в один объект.
+
+    ВАЖНО: поворот обязательно запекается в саму сетку (transform_apply).
+    Игра каждый кадр выставляет поворот driveNode, чтобы колесо крутилось,
+    и стирает любой поворот, оставшийся на объекте — колесо ляжет плашмя.
+    """
     parts = []
 
     bpy.ops.mesh.primitive_torus_add(location=loc,
                                      major_radius=radius - width * 0.55,
                                      minor_radius=width * 0.62,
-                                     major_segments=32, minor_segments=12,
-                                     rotation=(0, math.radians(90), 0))
+                                     major_segments=32, minor_segments=12)
     tire = bpy.context.active_object
     tire.name = name
+    tire.rotation_euler = (0, math.radians(90), 0)      # ось вращения -> X
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     tire.data.materials.append(mat_tire)
     smooth(tire)
 
-    rim = cylinder(name + "_rim", None, loc, radius * 0.42, width * 0.85,
-                   axis="X", verts=24, mat=mat_rim)
-    parts.append(rim)
-
-    hub = cylinder(name + "_hub", None, loc, radius * 0.13, width * 1.15,
-                   axis="X", verts=14, mat=mat_rim)
-    parts.append(hub)
+    parts.append(cylinder(name + "_rim", None, loc, radius * 0.42, width * 0.85,
+                          axis="X", verts=24, mat=mat_rim))
+    parts.append(cylinder(name + "_hub", None, loc, radius * 0.13, width * 1.15,
+                          axis="X", verts=14, mat=mat_rim))
 
     for i in range(spokes):
         a = 2 * math.pi * i / spokes
         r_mid = radius * 0.28
         p = (loc[0], loc[1] + math.cos(a) * r_mid, loc[2] + math.sin(a) * r_mid)
-        sp = cylinder(name + "_sp%d" % i, None, p, radius * 0.022, radius * 0.60,
-                      axis="Z", rot_extra=(a, 0, 0), verts=6, mat=mat_rim)
-        parts.append(sp)
+        parts.append(cylinder(name + "_sp%d" % i, None, p,
+                              radius * 0.022, radius * 0.60,
+                              axis="Z", rot_extra=(a, 0, 0), verts=6,
+                              mat=mat_rim))
 
     bpy.ops.object.select_all(action="DESELECT")
     for o in parts:
@@ -271,7 +275,11 @@ def wheel_mesh(name, parent, loc, radius, width, mat_tire, mat_rim, spokes=10):
     tire.select_set(True)
     bpy.context.view_layer.objects.active = tire
     bpy.ops.object.join()
+
     tire.name = name
+    # финальная страховка: на объекте не должно остаться поворота
+    tire.rotation_euler = (0, 0, 0)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
     return attach(tire, parent)
 
 
