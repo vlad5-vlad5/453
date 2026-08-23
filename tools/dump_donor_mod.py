@@ -42,7 +42,11 @@ def mods_dir():
 NEEDED = ("<cameras>", "<differentialConfigurations>", "<motorized>", "<wheels")
 
 # небольшие машины ближе к мопеду, чем комбайны
-PREFER = ("gaz", "uaz", "zil", "car", "moto", "paz", "niva", "moskvich", "lada")
+PREFER = ("mx", "moto", "mopn", "bike", "scooter", "alpha", "delta",
+          "gaz", "uaz", "zil", "car", "paz", "niva", "moskvich", "lada")
+
+# можно указать конкретный мод:  os.environ["ALPHA_DONOR"] = "MX"
+ONLY = os.environ.get("ALPHA_DONOR", "").strip().lower()
 
 
 def candidates(mods):
@@ -65,7 +69,10 @@ def candidates(mods):
                         except Exception:
                             continue
                         if all(k in t for k in NEEDED):
-                            pri = 0 if any(w in name.lower() for w in PREFER) else 1
+                            low = name.lower()
+                            if ONLY and ONLY not in low:
+                                continue
+                            pri = 0 if any(w in low for w in PREFER) else 1
                             found.append(("%s :: %s" % (name, inner), t, pri))
             except Exception:
                 continue
@@ -82,7 +89,10 @@ def candidates(mods):
                     except Exception:
                         continue
                     if all(k in t for k in NEEDED):
-                        pri = 0 if any(w in name.lower() for w in PREFER) else 1
+                        low = name.lower()
+                        if ONLY and ONLY not in low:
+                            continue
+                        pri = 0 if any(w in low for w in PREFER) else 1
                         found.append(("%s\\%s" % (name, inner), t, pri))
             except Exception:
                 continue
@@ -92,6 +102,7 @@ def candidates(mods):
 
 
 SECTIONS = [
+    (r"<vehicle\b[^>]*>",                                    "ТИП ТЕХНИКИ"),
     (r"<ackermannSteering\b[^>]*/>|<ackermannSteering\b.*?</ackermannSteering>",
      "ACKERMANN (рулевая геометрия)"),
     (r"<ackermannSteeringConfigurations>.*?</ackermannSteeringConfigurations>",
@@ -107,6 +118,8 @@ SECTIONS = [
     (r"<wheels\b[^>]*>",                                     "тег <wheels>"),
     (r"<wheel\b[^>]*>.*?</wheel>|<wheel\b[^>]*/>",           "ОДНО КОЛЕСО"),
     (r"<components>.*?</components>",                        "КОМПОНЕНТЫ"),
+    (r"<lean\b[^>]*/>|<balance\b[^>]*/>|<motorcycle\b.*?</motorcycle>|<motorcycle\b[^>]*/>",
+     "НАКЛОН / СТАБИЛИЗАЦИЯ (если есть)"),
 ]
 
 
@@ -164,6 +177,8 @@ if __name__ == "__main__":
     else:
         out("mods:", m)
         cands = candidates(m)
+        if ONLY:
+            out("фильтр по моду:", ONLY)
         out("подходящих моддерских машин:", len(cands))
         if not cands:
             out("Не нашёл мод с камерами и дифференциалами.")
