@@ -39,7 +39,7 @@ def mods_dir():
     return None
 
 
-NEEDED = ("<cameras>", "<differentialConfigurations>", "<motorized>", "<wheels")
+NEEDED = ("<vehicle", "<wheels")
 
 # небольшие машины ближе к мопеду, чем комбайны
 PREFER = ("mx", "moto", "mopn", "bike", "scooter", "alpha", "delta",
@@ -61,8 +61,6 @@ def candidates(mods):
                 with zipfile.ZipFile(path) as z:
                     for inner in z.namelist():
                         if not inner.lower().endswith(".xml"):
-                            continue
-                        if inner.count("/") > 1:
                             continue
                         try:
                             t = z.read(inner).decode("utf-8", "replace")
@@ -99,6 +97,30 @@ def candidates(mods):
 
     found.sort(key=lambda x: (x[2], len(x[1])))
     return found
+
+
+def list_all_xml(mods, only):
+    """Что вообще лежит в моде — чтобы понять структуру."""
+    res = []
+    for name in sorted(os.listdir(mods)):
+        if only not in name.lower():
+            continue
+        path = os.path.join(mods, name)
+        if name.lower().endswith(".zip"):
+            try:
+                with zipfile.ZipFile(path) as z:
+                    for inner in z.namelist():
+                        if inner.lower().endswith((".xml", ".lua")):
+                            res.append("%s :: %s" % (name, inner))
+            except Exception as exc:
+                res.append("%s :: не читается (%s)" % (name, exc))
+        elif os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for f in files:
+                    if f.lower().endswith((".xml", ".lua")):
+                        rel = os.path.relpath(os.path.join(root, f), mods)
+                        res.append(rel)
+    return res
 
 
 SECTIONS = [
@@ -181,7 +203,9 @@ if __name__ == "__main__":
             out("фильтр по моду:", ONLY)
         out("подходящих моддерских машин:", len(cands))
         if not cands:
-            out("Не нашёл мод с камерами и дифференциалами.")
+            out("Подходящего vehicle-XML не нашёл. Что вообще есть в моде:")
+            for item in list_all_xml(m, ONLY or "mx")[:40]:
+                out("   " + item)
         else:
             out("(беру самый компактный XML из списка)")
             dump(cands[0][0], cands[0][1])
