@@ -39,7 +39,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 REPO = "vlad5-vlad5/453"
-SHA = "dd152e336098cc6787451e98ea508ed64f654593"
+SHA = "04ccc51046355b164c48be53d90d19107c0083c6"
 CODEC_URL = ("https://raw.githubusercontent.com/%s/%s/tools/i3d_shapes.py"
              % (REPO, SHA))
 
