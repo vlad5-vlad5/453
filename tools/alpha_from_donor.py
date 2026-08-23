@@ -837,9 +837,11 @@ def main():
     shapes_el = main_root.find("Shapes")
     if shapes_el is not None:
         shapes_el.set("externalShapesFile", "alphaMoped.i3d.shapes")
-    for f in (main_root.find("Files") or []):
-        if (f.get("filename") or "").endswith("wheels.i3d"):
-            f.set("filename", "alphaMoped.i3d")
+    files_el = main_root.find("Files")
+    if files_el is not None:
+        for f in files_el:
+            if (f.get("filename") or "").endswith("wheels.i3d"):
+                f.set("filename", "alphaMoped.i3d")
 
     # 3. собираем мод
     out("")
