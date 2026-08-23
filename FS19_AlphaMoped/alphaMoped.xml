@@ -56,7 +56,7 @@
         <!-- центр масс низко и чуть назад: мопед меньше клюёт носом -->
         <components>
             <component centerOfMass="0 0.10 -0.08"
-                       solverIterationCount="10" mass="98"/>
+                       solverIterationCount="20" mass="130"/>
         </components>
         <schemaOverlay name="DEFAULT"/>
         <speedRotatingParts>
@@ -74,10 +74,11 @@
                         <physics repr="wheelFrontLeft" driveNode="wheelFrontMesh"
                                  radius="0.335" width="0.075" mass="0.006"
                                  rotSpeed="1"
-                                 suspTravel="0.10" spring="22" damper="42"
-                                 restLoad="0.30" forcePointRatio="0.35"
-                                 maxLongStiffness="25" maxLatStiffness="45"
-                                 maxLatStiffnessLoad="2.0" frictionScale="1.15"/>
+                                 suspTravel="0.09" spring="14" damper="35"
+                                 restLoad="0.030" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="20" maxLatStiffness="28"
+                                 maxLatStiffnessLoad="1.2" frictionScale="1.0"/>
                     </wheel>
 
                     <!-- 2: переднее правое (невидимый стабилизатор) -->
@@ -85,10 +86,11 @@
                         <physics repr="wheelFrontRight"
                                  radius="0.335" width="0.075" mass="0.006"
                                  rotSpeed="1"
-                                 suspTravel="0.10" spring="22" damper="42"
-                                 restLoad="0.30" forcePointRatio="0.35"
-                                 maxLongStiffness="25" maxLatStiffness="45"
-                                 maxLatStiffnessLoad="2.0" frictionScale="1.15"/>
+                                 suspTravel="0.09" spring="14" damper="35"
+                                 restLoad="0.030" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="20" maxLatStiffness="28"
+                                 maxLatStiffnessLoad="1.2" frictionScale="1.0"/>
                     </wheel>
 
                     <!-- 3: заднее левое (видимое, ведущее) -->
@@ -96,10 +98,11 @@
                         <physics repr="wheelRearLeft" driveNode="wheelRearMesh"
                                  rotSpeed="0"
                                  radius="0.335" width="0.085" mass="0.008"
-                                 suspTravel="0.12" spring="26" damper="45"
-                                 restLoad="0.45" forcePointRatio="0.35"
-                                 maxLongStiffness="28" maxLatStiffness="48"
-                                 maxLatStiffnessLoad="2.2" frictionScale="1.15"/>
+                                 suspTravel="0.11" spring="16" damper="38"
+                                 restLoad="0.035" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="22" maxLatStiffness="30"
+                                 maxLatStiffnessLoad="1.3" frictionScale="1.0"/>
                     </wheel>
 
                     <!-- 4: заднее правое (невидимый стабилизатор, ведущее) -->
@@ -107,10 +110,11 @@
                         <physics repr="wheelRearRight"
                                  rotSpeed="0"
                                  radius="0.335" width="0.085" mass="0.008"
-                                 suspTravel="0.12" spring="26" damper="45"
-                                 restLoad="0.45" forcePointRatio="0.35"
-                                 maxLongStiffness="28" maxLatStiffness="48"
-                                 maxLatStiffnessLoad="2.2" frictionScale="1.15"/>
+                                 suspTravel="0.11" spring="16" damper="38"
+                                 restLoad="0.035" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="22" maxLatStiffness="30"
+                                 maxLatStiffnessLoad="1.3" frictionScale="1.0"/>
                     </wheel>
                 </wheels>
             </wheelConfiguration>
@@ -123,7 +127,7 @@
             Индексы колёс — с единицы: 3 и 4 = задние (центр поворота).
         -->
         <ackermannSteeringConfigurations>
-            <ackermannSteering rotSpeed="60" rotMax="34"
+            <ackermannSteering rotSpeed="35" rotMax="24"
                                rotCenterWheel1="3" rotCenterWheel2="4"/>
         </ackermannSteeringConfigurations>
     </wheels>
