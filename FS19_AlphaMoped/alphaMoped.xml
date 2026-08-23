@@ -299,7 +299,13 @@
     </wearable>
 
     <!-- Наша специализация: наклон корпуса в поворотах -->
-    <alphaMopedLean node="bodyLean" maxAngle="22" speedFactor="0.055" smoothing="3.5"/>
+    <!--
+        Наклон корпуса в поворотах — чисто визуальный, физику не трогает.
+        maxAngle    — максимальный крен, градусы
+        speedFactor — на какой скорости крен выходит на максимум (1/км-ч)
+        smoothing   — скорость возврата в вертикаль, больше = резче
+    -->
+    <alphaMopedLean node="bodyLean" maxAngle="18" speedFactor="0.06" smoothing="5.0"/>
 
     <i3dMappings>
             <!-- ВНИМАНИЕ: экспортёр GIANTS сортирует детей ПО АЛФАВИТУ,
