@@ -67,12 +67,12 @@
     <wheels>
         <wheelConfigurations>
             <wheelConfiguration name="$l10n_configuration_valueDefault" price="0">
-                <wheels autoRotateBackSpeed="2">
+                <wheels autoRotateBackSpeed="1.2">
 
                     <!-- 1-2: передние боковые стабилизаторы, рулевые, невидимые -->
                     <wheel isLeft="true"  hasTireTracks="false">
                         <physics repr="wheelFrontLeft" rotSpeed="1"
-                                 radius="0.335" width="0.20" mass="0.06"
+                                 radius="0.335" width="0.20" mass="0.03"
                                  suspTravel="0.09" spring="25" damper="45"
                                  restLoad="0.45" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -81,7 +81,7 @@
                     </wheel>
                     <wheel isLeft="false" hasTireTracks="false">
                         <physics repr="wheelFrontRight" rotSpeed="1"
-                                 radius="0.335" width="0.20" mass="0.06"
+                                 radius="0.335" width="0.20" mass="0.03"
                                  suspTravel="0.09" spring="25" damper="45"
                                  restLoad="0.45" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -93,7 +93,7 @@
                     <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
                         <physics repr="wheelFrontMid" driveNode="wheelFrontMesh"
                                  rotSpeed="1"
-                                 radius="0.335" width="0.10" mass="0.06"
+                                 radius="0.335" width="0.10" mass="0.03"
                                  suspTravel="0.09" spring="25" damper="45"
                                  restLoad="0.45" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -104,7 +104,7 @@
                     <!-- 4-5: задние боковые стабилизаторы, невидимые -->
                     <wheel isLeft="true"  hasTireTracks="false">
                         <physics repr="wheelRearLeft" rotSpeed="0"
-                                 radius="0.335" width="0.20" mass="0.06"
+                                 radius="0.335" width="0.20" mass="0.03"
                                  suspTravel="0.11" spring="28" damper="48"
                                  restLoad="0.50" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -113,7 +113,7 @@
                     </wheel>
                     <wheel isLeft="false" hasTireTracks="false">
                         <physics repr="wheelRearRight" rotSpeed="0"
-                                 radius="0.335" width="0.20" mass="0.06"
+                                 radius="0.335" width="0.20" mass="0.03"
                                  suspTravel="0.11" spring="28" damper="48"
                                  restLoad="0.50" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -125,7 +125,7 @@
                     <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
                         <physics repr="wheelRearMid" driveNode="wheelRearMesh"
                                  rotSpeed="0"
-                                 radius="0.335" width="0.10" mass="0.06"
+                                 radius="0.335" width="0.10" mass="0.03"
                                  suspTravel="0.11" spring="28" damper="48"
                                  restLoad="0.50" forcePointRatio="0.5"
                                  initialCompression="20"
@@ -143,7 +143,7 @@
             Индексы колёс — с единицы: 3 и 4 = задние (центр поворота).
         -->
         <ackermannSteeringConfigurations>
-            <ackermannSteering rotSpeed="25" rotMax="25"
+            <ackermannSteering rotSpeed="16" rotMax="16"
                                rotCenterWheel1="4" rotCenterWheel2="5"/>
         </ackermannSteeringConfigurations>
     </wheels>
@@ -163,7 +163,7 @@
                     normRpm — доля от maxRpm, torque — относительная тяга.
                     Характер 139FMB: подхват с середины, спад к отсечке.
                 -->
-                <motor torqueScale="0.45" minRpm="1300" maxRpm="8500"
+                <motor torqueScale="2.5" minRpm="1300" maxRpm="8500"
                        maxForwardSpeed="65" maxBackwardSpeed="6"
                        accelerationLimit="6" brakeForce="4.5"
                        lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
@@ -181,7 +181,7 @@
                     ("attempt to index local 'v'") и техника не создаётся.
                 -->
                 <transmission name="4-speed"
-                              minForwardGearRatio="10"  maxForwardGearRatio="130"
+                              minForwardGearRatio="8"  maxForwardGearRatio="130"
                               minBackwardGearRatio="60" maxBackwardGearRatio="130"/>
             </motorConfiguration>
         </motorConfigurations>
