@@ -92,6 +92,12 @@ def candidates(mods):
 
 
 SECTIONS = [
+    (r"<ackermannSteering\b[^>]*/>|<ackermannSteering\b.*?</ackermannSteering>",
+     "ACKERMANN (рулевая геометрия)"),
+    (r"<ackermannSteeringConfigurations>.*?</ackermannSteeringConfigurations>",
+     "ACKERMANN-КОНФИГУРАЦИИ"),
+    (r"<wheels\b.*?</wheels>",                               "ВЕСЬ БЛОК <wheels>"),
+    (r"<drivable>.*?</drivable>|<drivable\b[^>]*/>",         "DRIVABLE"),
     (r"<enterable[^>]*>",                                    "тег <enterable>"),
     (r"<cameras>.*?</cameras>",                              "КАМЕРЫ"),
     (r"<differentialConfigurations>.*?</differentialConfigurations>",
@@ -104,7 +110,7 @@ SECTIONS = [
 ]
 
 
-def dump(label, text, limit=16):
+def dump(label, text, limit=40):
     out("=" * 68)
     out("ЭТАЛОН:", label)
     out("=" * 68)
