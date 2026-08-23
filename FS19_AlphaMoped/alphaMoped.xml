@@ -143,7 +143,7 @@
             Индексы колёс — с единицы: 3 и 4 = задние (центр поворота).
         -->
         <ackermannSteeringConfigurations>
-            <ackermannSteering rotSpeed="16" rotMax="16"
+            <ackermannSteering rotSpeed="11" rotMax="11"
                                rotCenterWheel1="4" rotCenterWheel2="5"/>
         </ackermannSteeringConfigurations>
     </wheels>
@@ -163,9 +163,9 @@
                     normRpm — доля от maxRpm, torque — относительная тяга.
                     Характер 139FMB: подхват с середины, спад к отсечке.
                 -->
-                <motor torqueScale="2.5" minRpm="1300" maxRpm="8500"
+                <motor torqueScale="4.5" minRpm="1300" maxRpm="8500"
                        maxForwardSpeed="65" maxBackwardSpeed="6"
-                       accelerationLimit="6" brakeForce="4.5"
+                       accelerationLimit="10" brakeForce="4.5"
                        lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
                        ptoMotorRpmRatio="1">
                     <torque normRpm="0.15" torque="0.45"/>
