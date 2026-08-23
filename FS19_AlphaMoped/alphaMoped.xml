@@ -55,7 +55,7 @@
         <size width="0.72" length="1.95" lengthOffset="0"/>
         <!-- центр масс низко и чуть назад: мопед меньше клюёт носом -->
         <components>
-            <component centerOfMass="0 0.18 -0.10"
+            <component centerOfMass="0 0.10 -0.08"
                        solverIterationCount="10" mass="98"/>
         </components>
         <schemaOverlay name="DEFAULT"/>
@@ -76,8 +76,8 @@
                                  rotSpeed="1"
                                  suspTravel="0.10" spring="22" damper="42"
                                  restLoad="0.30" forcePointRatio="0.35"
-                                 maxLongStiffness="25" maxLatStiffness="35"
-                                 maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                                 maxLongStiffness="25" maxLatStiffness="45"
+                                 maxLatStiffnessLoad="2.0" frictionScale="1.15"/>
                     </wheel>
 
                     <!-- 2: переднее правое (невидимый стабилизатор) -->
@@ -87,8 +87,8 @@
                                  rotSpeed="1"
                                  suspTravel="0.10" spring="22" damper="42"
                                  restLoad="0.30" forcePointRatio="0.35"
-                                 maxLongStiffness="25" maxLatStiffness="35"
-                                 maxLatStiffnessLoad="1.4" frictionScale="1.15"/>
+                                 maxLongStiffness="25" maxLatStiffness="45"
+                                 maxLatStiffnessLoad="2.0" frictionScale="1.15"/>
                     </wheel>
 
                     <!-- 3: заднее левое (видимое, ведущее) -->
@@ -98,8 +98,8 @@
                                  radius="0.335" width="0.085" mass="0.008"
                                  suspTravel="0.12" spring="26" damper="45"
                                  restLoad="0.45" forcePointRatio="0.35"
-                                 maxLongStiffness="28" maxLatStiffness="38"
-                                 maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                                 maxLongStiffness="28" maxLatStiffness="48"
+                                 maxLatStiffnessLoad="2.2" frictionScale="1.15"/>
                     </wheel>
 
                     <!-- 4: заднее правое (невидимый стабилизатор, ведущее) -->
@@ -109,8 +109,8 @@
                                  radius="0.335" width="0.085" mass="0.008"
                                  suspTravel="0.12" spring="26" damper="45"
                                  restLoad="0.45" forcePointRatio="0.35"
-                                 maxLongStiffness="28" maxLatStiffness="38"
-                                 maxLatStiffnessLoad="1.6" frictionScale="1.15"/>
+                                 maxLongStiffness="28" maxLatStiffness="48"
+                                 maxLatStiffnessLoad="2.2" frictionScale="1.15"/>
                     </wheel>
                 </wheels>
             </wheelConfiguration>
