@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <texts>
+        <text name="fh_title"     text="Помощник фермера"/>
+        <text name="fh_field"     text="Поле"/>
+        <text name="fh_noField"   text="Вне поля"/>
+        <text name="fh_toggleHud" text="Показать/скрыть HUD"/>
+        <text name="fh_hudOn"     text="Farm Helper: HUD включён"/>
+        <text name="fh_hudOff"    text="Farm Helper: HUD выключен"/>
+    </texts>
+</l10n>

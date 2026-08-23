@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="53">
+    <author>Your Name</author>
+    <version>1.0.0.0</version>
+
+    <title>
+        <ru>Мопед Альфа 110</ru>
+        <en>Alpha 110 Moped</en>
+    </title>
+
+    <description>
+        <ru><![CDATA[Классический мопед «Альфа» 110 кубов.
+
+Скорость: 65 км/ч
+Мощность: 7 л.с.
+Бак: 4 л
+Мест: 1 (+ багажник)
+
+Управление: как у обычной машины. Мопед кренится в поворотах.]]></ru>
+        <en><![CDATA[Classic Alpha 110cc moped.
+
+Top speed: 65 kph
+Power: 7 hp
+Tank: 4 l]]></en>
+    </description>
+
+    <iconFilename>icon_alphaMoped.dds</iconFilename>
+
+    <multiplayer supported="true"/>
+
+    <l10n filenamePrefix="translations/translation"/>
+
+    <specializations>
+        <specialization name="alphaMopedLean" className="AlphaMopedLean"
+                        filename="scripts/AlphaMopedLean.lua"/>
+    </specializations>
+
+    <!--
+        ВАЖНО: в FS19 у <type> НЕТ атрибута parent= — наследование типов
+        появилось только в FS22. Если написать parent="car", тип молча
+        не зарегистрируется, и игра выдаст:
+            Error: Unable to find vehicle type name '<мод>.alphaMoped'
+        Поэтому все специализации перечисляем явно, в порядке зависимостей
+        (как в vehicleTypes.xml базовой игры).
+
+        Своя специализация указывается БЕЗ префикса мода — игра подставит его сама.
+    -->
+    <vehicleTypes>
+        <type name="alphaMoped" className="Vehicle" filename="$dataS/scripts/vehicles/Vehicle.lua">
+            <specialization name="baseMaterial"/>
+            <specialization name="tipOccluder"/>
+            <specialization name="foliageBending"/>
+            <specialization name="washable"/>
+            <specialization name="wearable"/>
+            <specialization name="dynamicallyLoadedParts"/>
+            <specialization name="animatedVehicle"/>
+            <specialization name="dashboard"/>
+            <specialization name="cylindered"/>
+            <specialization name="mountable"/>
+            <specialization name="ikChains"/>
+            <specialization name="wheels"/>
+            <specialization name="speedRotatingParts"/>
+            <specialization name="enterable"/>
+            <specialization name="fillUnit"/>
+            <specialization name="motorized"/>
+            <specialization name="drivable"/>
+            <specialization name="lights"/>
+            <specialization name="honk"/>
+            <specialization name="alphaMopedLean"/>
+        </type>
+    </vehicleTypes>
+
+    <storeItems>
+        <storeItem xmlFilename="alphaMoped.xml"/>
+    </storeItems>
+</modDesc>

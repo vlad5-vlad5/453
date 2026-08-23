@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!--
+    Мопед Альфа 110 для Farming Simulator 19
+
+    ВАЖНО ПРО ФИЗИКУ ДВУХКОЛЁСНОЙ ТЕХНИКИ:
+    физика FS19 не умеет держать равновесие на двух колёсах. Поэтому здесь,
+    как и во всех рабочих мото-модах, используется 4 физических колеса,
+    сдвинутых к осевой линии на +-0.055 м. Видимых колёс при этом два:
+    меши висят на driveNode левых колёс, правые колёса невидимые.
+    Наклон в поворотах делает специализация alphaMopedLean (чисто визуально).
+
+    Имена узлов берутся из i3dMappings в самом низу файла и должны совпадать
+    с именами объектов в alphaMoped.i3d (их создаёт tools/blender_build_alpha.py).
+-->
+<!--
+    ВНИМАНИЕ: в type= пишется ИМЯ ТИПА БЕЗ имени мода.
+    Игра сама подставляет префикс: alphaMoped -> FS19_AlphaMoped.alphaMoped.
+    Если написать "FS19_AlphaMoped.alphaMoped", получится задвоение
+    "FS19_AlphaMoped.FS19_AlphaMoped.alphaMoped" и техника не загрузится.
+-->
+<vehicle type="alphaMoped">
+
+    <annotation>Alpha 110 moped</annotation>
+
+    <storeData>
+        <name>
+            <ru>Альфа 110</ru>
+            <en>Alpha 110</en>
+        </name>
+        <specs>
+            <power>7</power>
+            <maxSpeed>65</maxSpeed>
+        </specs>
+        <functions>
+            <function>$l10n_function_alphaMoped</function>
+        </functions>
+        <image>store_alphaMoped.dds</image>
+        <price>1900</price>
+        <lifetime>300</lifetime>
+        <rotation>0</rotation>
+        <brand>LIZARD</brand>
+        <category>cars</category>
+        <shopTranslationOffset>0 0 0</shopTranslationOffset>
+        <shopRotationOffset>0 0 0</shopRotationOffset>
+        <vertexBufferMemoryUsage>0</vertexBufferMemoryUsage>
+        <indexBufferMemoryUsage>0</indexBufferMemoryUsage>
+        <textureMemoryUsage>0</textureMemoryUsage>
+        <instanceVertexBufferMemoryUsage>0</instanceVertexBufferMemoryUsage>
+        <instanceIndexBufferMemoryUsage>0</instanceIndexBufferMemoryUsage>
+    </storeData>
+
+    <base>
+        <typeDesc>$l10n_typeDesc_alphaMoped</typeDesc>
+        <filename>alphaMoped.i3d</filename>
+        <size width="0.72" length="1.95" lengthOffset="0"/>
+        <!-- центр масс низко и чуть назад: мопед меньше клюёт носом -->
+        <components>
+            <component centerOfMass="0 0.10 -0.08"
+                       solverIterationCount="20" mass="130"/>
+        </components>
+        <schemaOverlay name="DEFAULT"/>
+        <speedRotatingParts>
+            <speedRotatingPart node="chainSprocket" wheelIndex="3" wheelScale="2.4"/>
+        </speedRotatingParts>
+    </base>
+
+    <wheels>
+        <wheelConfigurations>
+            <wheelConfiguration name="$l10n_configuration_valueDefault" price="0">
+                <wheels autoRotateBackSpeed="1.2">
+
+                    <!-- 1-2: передние боковые стабилизаторы, рулевые, невидимые -->
+                    <wheel isLeft="true"  hasTireTracks="false">
+                        <physics repr="wheelFrontLeft" rotSpeed="1"
+                                 radius="0.335" width="0.20" mass="0.03"
+                                 suspTravel="0.09" spring="25" damper="45"
+                                 restLoad="0.45" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="20" maxLatStiffness="28"
+                                 maxLatStiffnessLoad="1.2" frictionScale="1.0"/>
+                    </wheel>
+                    <wheel isLeft="false" hasTireTracks="false">
+                        <physics repr="wheelFrontRight" rotSpeed="1"
+                                 radius="0.335" width="0.20" mass="0.03"
+                                 suspTravel="0.09" spring="25" damper="45"
+                                 restLoad="0.45" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="20" maxLatStiffness="28"
+                                 maxLatStiffnessLoad="1.2" frictionScale="1.0"/>
+                    </wheel>
+
+                    <!-- 3: переднее центральное — ВИДИМОЕ, рулевое -->
+                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
+                        <physics repr="wheelFrontMid" driveNode="wheelFrontMesh"
+                                 rotSpeed="1"
+                                 radius="0.335" width="0.10" mass="0.03"
+                                 suspTravel="0.09" spring="25" damper="45"
+                                 restLoad="0.45" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="20" maxLatStiffness="28"
+                                 maxLatStiffnessLoad="1.2" frictionScale="1.0"/>
+                    </wheel>
+
+                    <!-- 4-5: задние боковые стабилизаторы, невидимые -->
+                    <wheel isLeft="true"  hasTireTracks="false">
+                        <physics repr="wheelRearLeft" rotSpeed="0"
+                                 radius="0.335" width="0.20" mass="0.03"
+                                 suspTravel="0.11" spring="28" damper="48"
+                                 restLoad="0.50" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="22" maxLatStiffness="30"
+                                 maxLatStiffnessLoad="1.3" frictionScale="1.0"/>
+                    </wheel>
+                    <wheel isLeft="false" hasTireTracks="false">
+                        <physics repr="wheelRearRight" rotSpeed="0"
+                                 radius="0.335" width="0.20" mass="0.03"
+                                 suspTravel="0.11" spring="28" damper="48"
+                                 restLoad="0.50" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="22" maxLatStiffness="30"
+                                 maxLatStiffnessLoad="1.3" frictionScale="1.0"/>
+                    </wheel>
+
+                    <!-- 6: заднее центральное — ВИДИМОЕ, ведущее -->
+                    <wheel isLeft="true" hasTireTracks="true" tireTrackAtlasIndex="0">
+                        <physics repr="wheelRearMid" driveNode="wheelRearMesh"
+                                 rotSpeed="0"
+                                 radius="0.335" width="0.10" mass="0.03"
+                                 suspTravel="0.11" spring="28" damper="48"
+                                 restLoad="0.50" forcePointRatio="0.5"
+                                 initialCompression="20"
+                                 maxLongStiffness="22" maxLatStiffness="30"
+                                 maxLatStiffnessLoad="1.3" frictionScale="1.0"/>
+                    </wheel>
+                </wheels>
+            </wheelConfiguration>
+        </wheelConfigurations>
+
+        <!--
+            Рулевая геометрия. Как и дифференциалы, FS19 читает её ТОЛЬКО из
+            обёртки <ackermannSteeringConfigurations> и на уровне <wheels>,
+            а не внутри конфигурации колёс. Иначе руль просто не работает.
+            Индексы колёс — с единицы: 3 и 4 = задние (центр поворота).
+        -->
+        <ackermannSteeringConfigurations>
+            <ackermannSteering rotSpeed="11" rotMax="11"
+                               rotCenterWheel1="4" rotCenterWheel2="5"/>
+        </ackermannSteeringConfigurations>
+    </wheels>
+
+    <motorized>
+        <motorConfigurations>
+            <motorConfiguration name="110 cc" hp="7" price="0">
+                <!--
+                    139FMB, 110 см3, ~7 л.с., 4 передачи.
+                    torqueScale подобран так, чтобы мопед бодро ехал по асфальту
+                    и заметно вяз на пашне.
+                -->
+                <!--
+                    Кривая крутящего момента ОБЯЗАТЕЛЬНА. Без точек <torque>
+                    VehicleMotor.lua(128) падает на "attempt to index local 'v'",
+                    техника не создаётся и покупка висит вечно.
+                    normRpm — доля от maxRpm, torque — относительная тяга.
+                    Характер 139FMB: подхват с середины, спад к отсечке.
+                -->
+                <motor torqueScale="4.5" minRpm="1300" maxRpm="8500"
+                       maxForwardSpeed="65" maxBackwardSpeed="6"
+                       accelerationLimit="10" brakeForce="1.4"
+                       lowBrakeForceScale="0.08" lowBrakeForceSpeedLimit="0.6"
+                       ptoMotorRpmRatio="1">
+                    <torque normRpm="0.15" torque="0.45"/>
+                    <torque normRpm="0.40" torque="0.80"/>
+                    <torque normRpm="0.65" torque="1.00"/>
+                    <torque normRpm="0.85" torque="0.95"/>
+                    <torque normRpm="1.00" torque="0.70"/>
+                </motor>
+                <!--
+                    Бесступенчатая трансмиссия: задаём диапазон передаточных
+                    чисел, без списка передач.
+                    Явные <forwardGear> роняют VehicleMotor.lua(128)
+                    ("attempt to index local 'v'") и техника не создаётся.
+                -->
+                <transmission name="4-speed"
+                              minForwardGearRatio="8"  maxForwardGearRatio="130"
+                              minBackwardGearRatio="60" maxBackwardGearRatio="130"/>
+            </motorConfiguration>
+        </motorConfigurations>
+
+        <!--
+            Привод на задние колёса. FS19 читает дифференциалы ТОЛЬКО из
+            <differentialConfigurations>; голый <differentials> игнорируется
+            ("No differentials defined"), после чего VehicleMotor.lua падает
+            на nil. Структура сверена с рабочим модом FS19_Zil_pack.
+        -->
+        <differentialConfigurations>
+            <differentialConfiguration>
+                <differentials>
+                    <differential torqueRatio="1" maxSpeedRatio="1.8"
+                                  wheelIndex1="4" wheelIndex2="5" wheelIndex3="6"/>
+                </differentials>
+            </differentialConfiguration>
+        </differentialConfigurations>
+
+        <consumerConfigurations>
+            <consumerConfiguration>
+                <consumer fillUnitIndex="1" fillType="DIESEL" capacity="4" usage="0.35"
+                          refillLitersPerSecond="1"/>
+            </consumerConfiguration>
+        </consumerConfigurations>
+
+        <!-- Звук: временно берём базовый мотор, свои семплы кладём в sounds/ -->
+        <sounds>
+            <motorStart template="carMotorStart" linkNode="engineNode" volumeScale="0.7"/>
+            <motorStop  template="carMotorStop"  linkNode="engineNode" volumeScale="0.7"/>
+            <motor      template="carMotorSmall" linkNode="engineNode"
+                        volumeScale="0.8" pitchScale="1.35"/>
+        </sounds>
+
+        <exhaustEffects>
+            <exhaustEffect node="exhaustEffectNode"
+                           filename="$data/shared/effects/exhaust/exhaustSmall.i3d"
+                           minRpmColor="0.0384 0.0359 0.0296 0.35"
+                           maxRpmColor="0.0384 0.0359 0.0296 0.75"
+                           minRpmScale="0.25 0.25 0.25 0.6"
+                           maxRpmScale="0.4 0.4 0.4 1.3"/>
+        </exhaustEffects>
+    </motorized>
+
+    <fillUnit>
+        <fillUnitConfigurations>
+            <fillUnitConfiguration>
+                <fillUnits>
+                    <fillUnit unit="$l10n_unit_literShort" fillTypes="DIESEL"
+                              capacity="4" showOnHud="true"/>
+                </fillUnits>
+            </fillUnitConfiguration>
+        </fillUnitConfigurations>
+    </fillUnit>
+
+    <enterable isTabbable="true">
+        <enterReferenceNode node="enterNode" upperHeight="1.6" lowerHeight="0.05"/>
+        <exitPoint node="exitNode"/>
+
+        <!--
+                Камера указывается атрибутом node= и ДОЛЖНА быть узлом Camera.
+                rotateNode= — это отдельная группа вращения, не сама камера.
+                Ошибка "Invalid camera node ... Must be a camera type!" —
+                как раз про то, что в node= попало что-то другое.
+            -->
+            <cameras>
+                <!-- вид от третьего лица -->
+                <camera node="cameraOutside" rotatable="true"
+                        rotateNode="cameraTarget" limit="true"
+                        useWorldXZRotation="true"
+                        rotMinX="-0.9" rotMaxX="0.35"
+                        transMin="2.0" transMax="8.0"
+                        translation="0 0 3.5" rotation="-8 180 0"/>
+                <!-- вид с седла -->
+                <camera node="cameraInside" rotatable="true" limit="true"
+                        isInside="true"
+                        rotMinX="-0.85" rotMaxX="0.55"
+                        transMin="0" transMax="0"/>
+            </cameras>
+
+        <characterNode node="playerSeatNode"
+                       cameraMinDistance="0.35"
+                       characterIndex="1"
+                       useAnimation="false"/>
+    </enterable>
+
+    <drivable>
+        <!--
+            <steering wheelNode="..."> НЕ указываем: этим тегом игра крутит
+            рулевое КОЛЕСО в кабине и каждый кадр перезаписывает поворот узла.
+            Если направить его на handlebarNode (узел вилки), игра сотрёт
+            наклон вилки и будет вращать весь передний узел как баранку.
+        -->
+        <cruiseControl minSpeed="3" maxSpeed="65"/>
+    </drivable>
+
+    <lights>
+        <!-- фара -->
+        <states>
+            <state1 lightTypes="0"/>
+            <state2 lightTypes="0 1"/>
+        </states>
+        <realLights>
+            <low>
+                <light node="headlightLow" type="0"/>
+            </low>
+            <high>
+                <light node="headlightHigh" type="1"/>
+            </high>
+        </realLights>
+        <defaultLights>
+            <light node="headlightGlass" decoration="false"/>
+        </defaultLights>
+        <brakeLights>
+            <brakeLight node="brakeLightNode"/>
+        </brakeLights>
+        <reverseLights>
+            <reverseLight node="brakeLightNode"/>
+        </reverseLights>
+        <turnLights>
+            <turnLightLeft node="turnLightFrontLeft"/>
+            <turnLightLeft node="turnLightRearLeft"/>
+            <turnLightRight node="turnLightFrontRight"/>
+            <turnLightRight node="turnLightRearRight"/>
+        </turnLights>
+    </lights>
+
+    <honk>
+        <sound template="carHorn" linkNode="alphaMoped" volumeScale="0.6"/>
+    </honk>
+
+    <washable>
+        <dirtNode node="frameMesh"/>
+        <dirtNode node="tankMesh"/>
+        <dirtNode node="engineMesh"/>
+    </washable>
+
+    <wearable>
+        <wearNode node="frameMesh"/>
+    </wearable>
+
+    <!-- Наша специализация: наклон корпуса в поворотах -->
+    <!--
+        Наклон корпуса в поворотах — чисто визуальный, физику не трогает.
+        maxAngle    — максимальный крен, градусы
+        speedFactor — на какой скорости крен выходит на максимум (1/км-ч)
+        smoothing   — скорость возврата в вертикаль, больше = резче
+    -->
+    <alphaMopedLean node="bodyLean" maxAngle="18" speedFactor="0.06" smoothing="5.0"/>
+
+    <i3dMappings>
+            <!-- ВНИМАНИЕ: экспортёр GIANTS сортирует детей ПО АЛФАВИТУ,
+                 поэтому порядок здесь не совпадает с порядком создания
+                 объектов в blender_build_alpha.py. Пути взяты из реального
+                 экспорта; установщик всё равно пересчитывает их сам. -->
+            <i3dMapping id="alphaMoped"           node="0>"/>
+            <i3dMapping id="bodyLean"             node="0>0"/>
+            <i3dMapping id="brakeLightNode"       node="0>0|0"/>
+            <i3dMapping id="chainSprocket"        node="0>0|1"/>
+            <i3dMapping id="engineMesh"           node="0>0|2"/>
+            <i3dMapping id="engineNode"           node="0>0|3"/>
+            <i3dMapping id="exhaustEffectNode"    node="0>0|4"/>
+            <i3dMapping id="exhaustMesh"          node="0>0|5"/>
+            <i3dMapping id="fenderRearMesh"       node="0>0|6"/>
+            <i3dMapping id="frameMesh"            node="0>0|7"/>
+            <i3dMapping id="handlebarNode"        node="0>0|8"/>
+            <i3dMapping id="fenderFrontMesh"      node="0>0|8|0"/>
+            <i3dMapping id="forkMesh"             node="0>0|8|1"/>
+            <i3dMapping id="handlebarMesh"        node="0>0|8|2"/>
+            <i3dMapping id="headlightGlass"       node="0>0|8|3"/>
+            <i3dMapping id="headlightHigh"        node="0>0|8|4"/>
+            <i3dMapping id="headlightLow"         node="0>0|8|5"/>
+            <i3dMapping id="turnLightFrontLeft"   node="0>0|8|6"/>
+            <i3dMapping id="turnLightFrontRight"  node="0>0|8|7"/>
+            <i3dMapping id="rearRackMesh"         node="0>0|9"/>
+            <i3dMapping id="seatMesh"             node="0>0|10"/>
+            <i3dMapping id="tankMesh"             node="0>0|11"/>
+            <i3dMapping id="turnLightRearLeft"    node="0>0|12"/>
+            <i3dMapping id="turnLightRearRight"   node="0>0|13"/>
+            <i3dMapping id="cameraInside"         node="0>1|0"/>
+            <i3dMapping id="cameraOutside"        node="0>1|1"/>
+            <i3dMapping id="enterNode"            node="0>1|2"/>
+            <i3dMapping id="exitNode"             node="0>1|3"/>
+            <i3dMapping id="playerSeatNode"       node="0>1|4"/>
+            <i3dMapping id="wheelFrontLeft"       node="0>2|0"/>
+            <i3dMapping id="wheelFrontMesh"       node="0>2|0|0"/>
+            <i3dMapping id="wheelFrontRight"      node="0>2|1"/>
+            <i3dMapping id="wheelRearLeft"        node="0>2|2"/>
+            <i3dMapping id="wheelRearMesh"        node="0>2|2|0"/>
+            <i3dMapping id="wheelRearRight"       node="0>2|3"/>
+    </i3dMappings>
+
+</vehicle>
