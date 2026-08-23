@@ -126,11 +126,24 @@
                     torqueScale подобран так, чтобы мопед бодро ехал по асфальту
                     и заметно вяз на пашне.
                 -->
+                <!--
+                    Кривая крутящего момента ОБЯЗАТЕЛЬНА. Без точек <torque>
+                    VehicleMotor.lua(128) падает на "attempt to index local 'v'",
+                    техника не создаётся и покупка висит вечно.
+                    normRpm — доля от maxRpm, torque — относительная тяга.
+                    Характер 139FMB: подхват с середины, спад к отсечке.
+                -->
                 <motor torqueScale="0.09" minRpm="1300" maxRpm="8500"
                        maxForwardSpeed="65" maxBackwardSpeed="6"
                        accelerationLimit="6" brakeForce="4.5"
                        lowBrakeForceScale="0.35" lowBrakeForceSpeedLimit="1.2"
-                       ptoMotorRpmRatio="1"/>
+                       ptoMotorRpmRatio="1">
+                    <torque normRpm="0.15" torque="0.45"/>
+                    <torque normRpm="0.40" torque="0.80"/>
+                    <torque normRpm="0.65" torque="1.00"/>
+                    <torque normRpm="0.85" torque="0.95"/>
+                    <torque normRpm="1.00" torque="0.70"/>
+                </motor>
                 <!--
                     Бесступенчатая трансмиссия: задаём диапазон передаточных
                     чисел, без списка передач.

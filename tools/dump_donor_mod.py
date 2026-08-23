@@ -97,7 +97,7 @@ SECTIONS = [
     (r"<differentialConfigurations>.*?</differentialConfigurations>",
      "ДИФФЕРЕНЦИАЛЫ"),
     (r"<transmission[^>]*/>|<transmission.*?</transmission>", "ТРАНСМИССИЯ"),
-    (r"<motor [^>]*/>",                                      "МОТОР"),
+    (r"<motor\b[^>]*>.*?</motor>|<motor\b[^>]*/>",           "МОТОР"),
     (r"<wheels\b[^>]*>",                                     "тег <wheels>"),
     (r"<wheel\b[^>]*>.*?</wheel>|<wheel\b[^>]*/>",           "ОДНО КОЛЕСО"),
     (r"<components>.*?</components>",                        "КОМПОНЕНТЫ"),
