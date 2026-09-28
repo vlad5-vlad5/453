@@ -3,8 +3,15 @@ import Hls from 'hls.js';
 import type { Channel } from './types';
 import { parseM3U } from './m3uParser';
 import { COUNTRIES } from './countries';
+import { processPlaylist } from '../scripts/core-logic.cjs';
+import countriesData from '../shared/countries.json';
 
 const STORAGE_KEY = 'iptv-playlist-url';
+
+/** Имя файла для скачивания результата */
+function outputName(name: string): string {
+  return name.replace(/(\.m3u8?)?$/i, (m) => `_со_странами${m || '.m3u'}`);
+}
 
 /**
  * Загрузка текста плейлиста: напрямую, а при CORS/HTTP-ограничениях —
@@ -57,6 +64,9 @@ export default function App() {
   const [loadingPlaylist, setLoadingPlaylist] = useState(false);
   const [status, setStatus] = useState('');
   const [zapVisible, setZapVisible] = useState(false);
+  const [rawPlaylist, setRawPlaylist] = useState<string | null>(null);
+  const [sourceName, setSourceName] = useState('playlist.m3u');
+  const [downloadNote, setDownloadNote] = useState('');
 
   const listRef = useRef<HTMLUListElement>(null);
   const zapTimer = useRef<number>();
@@ -130,10 +140,12 @@ export default function App() {
     setStatus('Загрузка плейлиста…');
     setError('');
     try {
-      const text = await fetchPlaylistText(url);
+      const text = (await fetchPlaylistText(url)).replace(/^\uFEFF/, '');
       const parsed = parseM3U(text);
       if (!parsed.length) throw new Error('в файле не найдено ни одного канала');
       setChannels(parsed);
+      setRawPlaylist(text);
+      setSourceName('playlist.m3u');
       setFocusIndex(0);
       setCurrent(null);
       setPlaying(false);
@@ -154,10 +166,12 @@ export default function App() {
     setStatus(`Читаю ${file.name}…`);
     setError('');
     try {
-      const text = await file.text();
+      const text = (await file.text()).replace(/^\uFEFF/, '');
       const parsed = parseM3U(text);
       if (!parsed.length) throw new Error('в файле не найдено ни одного канала');
       setChannels(parsed);
+      setRawPlaylist(text);
+      setSourceName(file.name);
       setFocusIndex(0);
       setCurrent(null);
       setPlaying(false);
@@ -170,6 +184,28 @@ export default function App() {
       setLoadingPlaylist(false);
     }
   }, []);
+
+  /** Скачать M3U с названиями стран в именах каналов */
+  const downloadPlaylist = useCallback(
+    (withFlag: boolean) => {
+      if (!rawPlaylist) return;
+      const { text, stats } = processPlaylist(rawPlaylist, countriesData, { withFlag });
+      const blob = new Blob(['\uFEFF' + text], { type: 'audio/x-mpegurl' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = outputName(sourceName);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      const note = `Сохранено: ${a.download} — страна добавлена у ${stats.added} из ${stats.total} каналов`;
+      setDownloadNote(note);
+      setStatus(note);
+      window.setTimeout(() => setDownloadNote(''), 6000);
+    },
+    [rawPlaylist, sourceName]
+  );
 
   // Автозагрузка сохранённого URL при старте
   useEffect(() => {
@@ -421,10 +457,30 @@ export default function App() {
           <button className="ctrl-btn" onClick={() => setSettingsOpen(true)}>
             📋 Плейлист
           </button>
+          <button
+            className="ctrl-btn"
+            disabled={!rawPlaylist}
+            onClick={() => downloadPlaylist(false)}
+            title="Скачать M3U с названием страны рядом с именем каждого канала"
+          >
+            💾 Со странами
+          </button>
+          <button
+            className="ctrl-btn"
+            disabled={!rawPlaylist}
+            onClick={() => downloadPlaylist(true)}
+            title="То же самое, но с флагом страны"
+          >
+            🚩 С флагом
+          </button>
           <div className="spacer" />
-          <div className="hint">
-            <b>↑↓</b> каналы <b>OK</b> смотреть <b>Esc</b> назад <b>M</b> звук
-          </div>
+          {downloadNote ? (
+            <div className="hint download-note">{downloadNote}</div>
+          ) : (
+            <div className="hint">
+              <b>↑↓</b> каналы <b>OK</b> смотреть <b>Esc</b> назад <b>M</b> звук
+            </div>
+          )}
         </div>
       </main>
 
