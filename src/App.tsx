@@ -6,6 +6,36 @@ import { COUNTRIES } from './countries';
 
 const STORAGE_KEY = 'iptv-playlist-url';
 
+/**
+ * Загрузка текста плейлиста: напрямую, а при CORS/HTTP-ограничениях —
+ * через публичный прокси (частые M3U-хосты не отдают CORS-заголовки).
+ */
+async function fetchPlaylistText(url: string): Promise<string> {
+  const direct = async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  };
+  const viaProxy = async () => {
+    const res = await fetch(
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  };
+
+  // Страница на https не может тянуть http-плейлисты напрямую (mixed content)
+  const isMixed =
+    window.location.protocol === 'https:' && /^http:\/\//i.test(url);
+  if (isMixed) return viaProxy();
+
+  try {
+    return await direct();
+  } catch {
+    return viaProxy();
+  }
+}
+
 function loadFromStorage(): string {
   try {
     return localStorage.getItem(STORAGE_KEY) ?? '';
@@ -100,9 +130,7 @@ export default function App() {
     setStatus('Загрузка плейлиста…');
     setError('');
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
+      const text = await fetchPlaylistText(url);
       const parsed = parseM3U(text);
       if (!parsed.length) throw new Error('в файле не найдено ни одного канала');
       setChannels(parsed);
