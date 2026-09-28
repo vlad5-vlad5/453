@@ -1,0 +1,25 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="russia1.ru" tvg-country="RU" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Russian_Television_logo.svg/200px-Russian_Television_logo.svg.png" group-title="Россия",Первый канал
+http://sample.test/stream1.m3u8
+#EXTINF:-1 tvg-id="rossiya24.ru" tvg-country="RU" group-title="Россия",Россия 24
+http://sample.test/stream2.m3u8
+#EXTINF:-1 tvg-id="ictv.ua" tvg-country="UA" group-title="Украина",ICTV Украина
+http://sample.test/stream3.m3u8
+#EXTINF:-1 tvg-id="ard.de" tvg-country="DE" group-title="Германия",Das Erste (ARD)
+http://sample.test/stream4.m3u8
+#EXTINF:-1 tvg-id="bbc.uk" tvg-country="GB" group-title="Великобритания",BBC One
+http://sample.test/stream5.m3u8
+#EXTINF:-1 tvg-id="france2.fr" tvg-country="FR" group-title="Франция",France 2
+http://sample.test/stream6.m3u8
+#EXTINF:-1 tvg-id="rai1.it" tvg-country="IT" group-title="Италия",Rai 1
+http://sample.test/stream7.m3u8
+#EXTINF:-1 tvg-id="tve.es" tvg-country="ES" group-title="Испания",La 1 (TVE)
+http://sample.test/stream8.m3u8
+#EXTINF:-1 tvg-id="trt1.tr" tvg-country="TR" group-title="Турция",TRT 1
+http://sample.test/stream9.m3u8
+#EXTINF:-1 tvg-id="nhk.jp" tvg-country="JP" group-title="Япония",NHK総合
+http://sample.test/stream10.m3u8
+#EXTINF:-1 tvg-id="cctv1.cn" tvg-country="CN" group-title="Китай",CCTV-1
+http://sample.test/stream11.m3u8
+#EXTINF:-1 tvg-id="abc.us" tvg-country="US" group-title="США",ABC News Live
+http://sample.test/stream12.m3u8
