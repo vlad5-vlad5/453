@@ -218,4 +218,6 @@ ${GLUE.replace('__DATA__', () => data)}
 `;
 
 writeFileSync(path.join(root, 'add-country.html'), html, 'utf8');
-console.log('Готово → add-country.html (' + html.length + ' байт)');
+// копия в public/ — чтобы файл попал в сборку Vite и на GitHub Pages
+writeFileSync(path.join(root, 'public', 'add-country.html'), html, 'utf8');
+console.log('Готово → add-country.html и public/add-country.html (' + html.length + ' байт)');
