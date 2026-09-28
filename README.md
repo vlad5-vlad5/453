@@ -12,6 +12,18 @@ npm run dev      # разработка
 npm run build    # production-сборка в dist/
 ```
 
+## 📺 Установка на телевизор
+
+Сборка уже опубликована в ветке `gh-pages`. Нужно один раз включить GitHub Pages:
+открыть **Settings → Pages → Source: Deploy from a branch → `gh-pages` / root → Save**.
+Через минуту плеер будет доступен по адресу:
+
+**https://vlad5-vlad5.github.io/453/**
+
+Эту ссылку открывают в браузере телевизора (Samsung Tizen, LG webOS, Android/Google TV).
+После изменений в коде обновить сайт: `./scripts/deploy-pages.sh`.
+
+
 ## Загрузка плейлиста
 
 Кнопка **«📋 Плейлист»** внизу справа:
