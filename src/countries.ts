@@ -376,17 +376,27 @@ export interface CountryInfo {
 
 /**
  * Возвращает информацию о стране по коду (например "RU", "ru", "RU,DE").
+ * Учитывает алиасы: UK → GB (iptv-org), EL → GR.
  */
+const CODE_ALIASES: Record<string, string> = { UK: 'GB', EL: 'GR' };
+
 export function countryFromCode(code?: string): CountryInfo | undefined {
   if (!code) return undefined;
-  const first = code.split(/[,\s]+/)[0]?.trim().toUpperCase();
+  let first = code.split(/[,\s]+/)[0]?.trim().toUpperCase();
   if (!first) return undefined;
+  first = CODE_ALIASES[first] ?? first;
   return SPECIAL[first] ?? COUNTRIES[first];
 }
 
 /**
  * Пытается определить страну по названию группы (group-title).
+ * Самые длинные ключи проверяются первыми, чтобы «Ukraine»
+ * не совпало с коротким ключом «uk» (= Великобритания).
  */
+const GROUP_ENTRIES = Object.entries(GROUP_TO_COUNTRY).sort(
+  (a, b) => b[0].length - a[0].length
+);
+
 export function countryFromGroup(group?: string): CountryInfo | undefined {
   if (!group) return undefined;
   const key = group.trim().toLowerCase();
@@ -395,7 +405,7 @@ export function countryFromGroup(group?: string): CountryInfo | undefined {
     return SPECIAL[code] ?? COUNTRIES[code];
   }
   // Частичное совпадение: группа вида "Россия | 128 каналов" и т.п.
-  for (const [k, v] of Object.entries(GROUP_TO_COUNTRY)) {
+  for (const [k, v] of GROUP_ENTRIES) {
     if (key.includes(k)) {
       return SPECIAL[v] ?? COUNTRIES[v];
     }
