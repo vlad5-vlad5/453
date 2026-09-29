@@ -310,6 +310,28 @@ KNOWN_LOGOS = {
     "4U TV": "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/iran/4u-tv-ir.png",
 }
 
+# Загружаем расширенную базу логотипов (3770+ из tv-logo repo) если есть файл tv_logos.json рядом
+try:
+    import json as _json
+    from pathlib import Path as _Path
+    _logo_db_path = _Path(__file__).parent / "tv_logos.json"
+    if _logo_db_path.exists():
+        with open(_logo_db_path, 'r', encoding='utf-8') as _f:
+            _extra_logos = _json.load(_f)
+            # Добавляем только те, которых нет в KNOWN_LOGOS (приоритет у ручных)
+            for _k, _v in _extra_logos.items():
+                if _k not in KNOWN_LOGOS:
+                    KNOWN_LOGOS[_k] = _v
+        # print(f"Loaded {len(_extra_logos)} extra logos from tv_logos.json", file=sys.stderr)
+except Exception as _e:
+    # Тихо игнорируем если файла нет
+    pass
+
+# Построим индекс lower -> logo для быстрого поиска
+_LOGO_INDEX_LOWER = {k.lower(): v for k, v in KNOWN_LOGOS.items()}
+# Список ключей отсортированный по длине убыванию для поиска по подстроке (сначала длинные)
+_LOGO_KEYS_SORTED = sorted(KNOWN_LOGOS.keys(), key=lambda x: len(x), reverse=True)
+
 def get_logo_for_channel(channel_name: str, tvg_id: str = ""):
     """Ищет логотип для канала по имени, с очисткой от флагов и [Страна] и (1080p)"""
     if not channel_name:
@@ -327,21 +349,39 @@ def get_logo_for_channel(channel_name: str, tvg_id: str = ""):
         return KNOWN_LOGOS[channel_name]
     if clean in KNOWN_LOGOS:
         return KNOWN_LOGOS[clean]
+    # Быстрый поиск по lower индексу
+    lc = clean.lower()
+    if lc in _LOGO_INDEX_LOWER:
+        return _LOGO_INDEX_LOWER[lc]
+    if channel_name.lower() in _LOGO_INDEX_LOWER:
+        return _LOGO_INDEX_LOWER[channel_name.lower()]
 
-    # Поиск по подстроке (очищенный)
-    lower_name = clean.lower()
+    # Поиск по подстроке (очищенный) - только для ключей длиной >2, сортируем длинные вперед
+    lower_name = lc
     lower_orig = channel_name.lower()
-    for name, logo in KNOWN_LOGOS.items():
+    # Ограничим поиск первыми 500 наиболее релевантными? Но пройдем по всем отсортированным
+    for name in _LOGO_KEYS_SORTED:
+        if len(name) < 3:
+            continue
         nl = name.lower()
-        if nl in lower_name or lower_name in nl or nl in lower_orig or lower_orig in nl:
-            return logo
+        # Пропускаем слишком общие короткие имена
+        if len(nl) < 3:
+            continue
+        if nl in lower_name or nl in lower_orig:
+            return KNOWN_LOGOS[name]
     # По tvg-id
     if tvg_id:
+        tl = tvg_id.lower()
+        if tl in _LOGO_INDEX_LOWER:
+            return _LOGO_INDEX_LOWER[tl]
         if tvg_id in KNOWN_LOGOS:
             return KNOWN_LOGOS[tvg_id]
-        for name, logo in KNOWN_LOGOS.items():
-            if name.lower() in tvg_id.lower() or tvg_id.lower() in name.lower():
-                return logo
+        for name in _LOGO_KEYS_SORTED:
+            nl = name.lower()
+            if len(nl) < 3:
+                continue
+            if nl in tl or tl in nl:
+                return KNOWN_LOGOS[name]
     return None
 
 

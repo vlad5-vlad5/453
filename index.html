@@ -406,6 +406,33 @@ const KNOWN_LOGOS = {
 "4U TV":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/iran/4u-tv-ir.png"
 };
 
+// Загрузка расширенной базы 3770+ логотипов из tv_logos.json
+let extraLogosLoaded = false;
+let logoKeysSorted = Object.keys(KNOWN_LOGOS).sort((a,b)=>b.length-a.length);
+fetch('tv_logos.json').then(r=>{
+  if(!r.ok) throw new Error('no tv_logos.json');
+  return r.json();
+}).then(data=>{
+  let added = 0;
+  for(const [k,v] of Object.entries(data)){
+    if(!KNOWN_LOGOS[k]){
+      KNOWN_LOGOS[k]=v;
+      added++;
+    }
+  }
+  logoKeysSorted = Object.keys(KNOWN_LOGOS).sort((a,b)=>b.length-a.length);
+  extraLogosLoaded = true;
+  console.log(`Loaded ${added} extra logos, total ${Object.keys(KNOWN_LOGOS).length}`);
+  const infoEl = document.getElementById('fileInfo');
+  if(infoEl && added>0){
+    // не перезаписываем важное сообщение, только лог
+    console.log(`Логотипов загружено: ${Object.keys(KNOWN_LOGOS).length}`);
+  }
+}).catch(e=>{
+  console.log('tv_logos.json not loaded (optional):', e.message);
+  extraLogosLoaded = true;
+});
+
 function getLogoForChannel(name, tvgId=""){
   if(!name) return null;
   // очистка от флагов, [Страна], (1080p)
@@ -414,15 +441,20 @@ function getLogoForChannel(name, tvgId=""){
   if(KNOWN_LOGOS[clean]) return KNOWN_LOGOS[clean];
   const lower = clean.toLowerCase();
   const lowerOrig = name.toLowerCase();
-  for(const [ch,logo] of Object.entries(KNOWN_LOGOS)){
+  // быстрый поиск по точному lower
+  // ищем по отсортированным ключам (длинные первыми) для лучшего совпадения
+  for(const ch of logoKeysSorted){
+    if(ch.length<3) continue;
     const cl = ch.toLowerCase();
-    if(lower.includes(cl) || cl.includes(lower) || lowerOrig.includes(cl) || cl.includes(lowerOrig)) return logo;
+    if(cl.length<3) continue;
+    if(lower.includes(cl) || lowerOrig.includes(cl)) return KNOWN_LOGOS[ch];
   }
   if(tvgId){
     if(KNOWN_LOGOS[tvgId]) return KNOWN_LOGOS[tvgId];
     const tl = tvgId.toLowerCase();
-    for(const [ch,logo] of Object.entries(KNOWN_LOGOS)){
-      if(tl.includes(ch.toLowerCase()) || ch.toLowerCase().includes(tl)) return logo;
+    for(const ch of logoKeysSorted){
+      if(ch.length<3) continue;
+      if(tl.includes(ch.toLowerCase()) || ch.toLowerCase().includes(tl)) return KNOWN_LOGOS[ch];
     }
   }
   return null;
