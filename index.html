@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OTT-Play FOSS Конвертер - Добавить страну к каналу</title>
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0f1115; color:#e6e6e6; line-height:1.6; padding:20px; }
+.container { max-width:900px; margin:0 auto; }
+h1 { font-size:28px; margin-bottom:10px; color:#fff; }
+h2 { font-size:18px; margin:20px 0 10px; color:#aaa; }
+.subtitle { color:#888; margin-bottom:20px; }
+.card { background:#1a1d24; border:1px solid #2a2d36; border-radius:12px; padding:20px; margin-bottom:20px; }
+label { display:block; margin-bottom:6px; font-weight:600; color:#ccc; }
+select, input[type=file] { width:100%; padding:12px; background:#0f1115; border:1px solid #2a2d36; border-radius:8px; color:#fff; margin-bottom:15px; font-size:14px; }
+select option { background:#1a1d24; }
+button { background:#4f46e5; color:white; border:none; padding:14px 24px; border-radius:8px; font-size:16px; font-weight:600; cursor:pointer; width:100%; transition:0.2s; }
+button:hover { background:#4338ca; }
+button:disabled { background:#2a2d36; cursor:not-allowed; }
+.example { background:#0f1115; border-radius:8px; padding:15px; font-family:monospace; font-size:13px; color:#8b9bb4; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin-top:10px; }
+.stats { background:#0f1115; border-radius:8px; padding:15px; margin-top:15px; font-size:14px; }
+.stat-line { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1a1d24; }
+.progress { height:6px; background:#2a2d36; border-radius:3px; overflow:hidden; margin:10px 0; display:none; }
+.progress-bar { height:100%; background:#4f46e5; width:0%; transition:width 0.3s; }
+textarea { width:100%; height:200px; background:#0f1115; border:1px solid #2a2d36; border-radius:8px; color:#fff; padding:12px; font-family:monospace; font-size:12px; resize:vertical; }
+.drop-zone { border:2px dashed #2a2d36; border-radius:12px; padding:40px 20px; text-align:center; color:#666; transition:0.2s; cursor:pointer; margin-bottom:15px; }
+.drop-zone.dragover { border-color:#4f46e5; background:rgba(79,70,229,0.1); color:#fff; }
+.drop-zone p { margin-bottom:10px; }
+.small { font-size:12px; color:#666; margin-top:10px; }
+.success { background:#052e16; border:1px solid #166534; color:#bbf7d0; padding:15px; border-radius:8px; margin-top:15px; display:none; }
+.error { background:#450a0a; border:1px solid #991b1b; color:#fecaca; padding:15px; border-radius:8px; margin-top:15px; display:none; }
+.format-preview { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+.format-option { background:#0f1115; border:1px solid #2a2d36; border-radius:8px; padding:10px; font-size:13px; cursor:pointer; transition:0.2s; }
+.format-option:hover { border-color:#4f46e5; }
+.format-option.active { border-color:#4f46e5; background:rgba(79,70,229,0.2); }
+.format-option strong { display:block; color:#fff; margin-bottom:4px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📺 OTT-Play FOSS Конвертер</h1>
+<p class="subtitle">Добавляет флаг и название страны к каналам — чтобы при перемотке в OTT-Play FOSS было видно страну</p>
+
+<div class="card">
+<h2>1. Загрузите плейлист</h2>
+<div class="drop-zone" id="dropZone">
+<p>📁 Перетащите .m3u / .m3u8 файл сюда</p>
+<p>или</p>
+<input type="file" id="fileInput" accept=".m3u,.m3u8,.txt" style="display:none">
+<button type="button" onclick="document.getElementById('fileInput').click()" style="width:auto; padding:10px 20px; margin-top:10px;">Выбрать файл</button>
+<p class="small">Работает полностью в браузере — файл не загружается на сервер. Для файлов >10MB (9619 каналов ~3-5MB) используйте Python версию — она надёжнее: <code>python3 playlist_converter.py файл.m3u</code></p>
+</div>
+
+<div id="fileInfo" style="display:none; margin-bottom:15px; color:#888; font-size:14px;"></div>
+
+<div style="margin:20px 0; padding:15px; background:#0f1115; border-radius:8px; border:1px solid #2a2d36;">
+<h3 style="font-size:14px; margin-bottom:10px; color:#aaa;">Или вставьте текст плейлиста (если файл не выбирается):</h3>
+<textarea id="pasteArea" placeholder="Вставьте сюда содержимое .m3u файла...&#10;#EXTM3U&#10;#EXTINF:-1 group-title=&quot;USA&quot;,CNN&#10;http://..." style="height:120px; font-size:12px;"></textarea>
+<button id="loadPasteBtn" style="margin-top:10px; background:#2a2d36; padding:10px;">📋 Загрузить из вставленного текста</button>
+<p class="small">Скопируйте весь плейлист в блокноте (Ctrl+A, Ctrl+C) и вставьте сюда — это обходит проблему выбора файла</p>
+</div>
+
+<h2>2. Формат отображения (выбранный вами: с флагом)</h2>
+<div class="format-preview">
+<div class="format-option active" data-format="flag_prefix" data-lang="ru">
+<strong>🇺🇸 BBC One [США]</strong>
+Рекомендуется для OTT-Play
+</div>
+<div class="format-option" data-format="prefix_bracket" data-lang="ru">
+<strong>[США] BBC One</strong>
+Страна в начале
+</div>
+<div class="format-option" data-format="suffix_bracket" data-lang="ru">
+<strong>BBC One [США]</strong>
+Страна в конце
+</div>
+<div class="format-option" data-format="pipe" data-lang="ru">
+<strong>BBC One | США</strong>
+Через разделитель
+</div>
+</div>
+
+<label style="margin-top:15px;">Язык страны:</label>
+<select id="langSelect">
+<option value="ru" selected>Русский — США, Германия, Великобритания</option>
+<option value="en">Английский — USA, Germany, UK</option>
+<option value="both">Двойной — USA / США</option>
+</select>
+
+<label>Действие с группами:</label>
+<select id="groupSelect">
+<option value="replace" selected>Заменить group-title на страну (группировка по странам в OTT-Play)</option>
+<option value="keep">Оставить оригинальные группы</option>
+</select>
+
+<button id="convertBtn" disabled>🔄 Конвертировать плейлист</button>
+
+<div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+<div class="success" id="successBox"></div>
+<div class="error" id="errorBox"></div>
+
+<div class="stats" id="statsBox" style="display:none;"></div>
+</div>
+
+<div class="card">
+<h2>📋 Результат (первые 50 строк)</h2>
+<textarea id="outputPreview" placeholder="Здесь появится результат..."></textarea>
+<button id="downloadBtn" style="display:none; margin-top:10px; background:#16a34a;">💾 Скачать готовый плейлист</button>
+</div>
+
+<div class="card">
+<h2>Пример</h2>
+<p><strong>Было:</strong></p>
+<div class="example">#EXTINF:-1 group-title="USA",CNN
+http://example.com/cnn.m3u8
+#EXTINF:-1 group-title="UK",BBC One
+http://example.com/bbc.m3u8
+#EXTINF:-1 group-title="Germany",ZDF
+http://example.com/zdf.m3u8</div>
+<p style="margin-top:15px;"><strong>Стало (ваш формат 🇺🇸 + русский):</strong></p>
+<div class="example">#EXTINF:-1 group-title="США" tvg-country="US",🇺🇸 CNN [США]
+http://example.com/cnn.m3u8
+#EXTINF:-1 group-title="Великобритания" tvg-country="GB",🇬🇧 BBC One [Великобритания]
+http://example.com/bbc.m3u8
+#EXTINF:-1 group-title="Германия" tvg-country="DE",🇩🇪 ZDF [Германия]
+http://example.com/zdf.m3u8</div>
+</div>
+
+<div class="card">
+<h2>Почему выдаёт ошибку при загрузке?</h2>
+<p style="color:#aaa; font-size:14px; line-height:1.8;">
+Частые причины и решения:<br><br>
+<b>1. Файл слишком большой (&gt;50МБ)</b> — разбейте на части или используйте Python скрипт локально:<br>
+<code>python3 playlist_converter.py ваш_файл.m3u --format flag_prefix --lang ru</code><br><br>
+<b>2. Неверная кодировка</b> — этот конвертер поддерживает UTF-8, Windows-1251, Latin1. Если ошибка — попробуйте пересохранить файл в UTF-8.<br><br>
+<b>3. Неверный формат</b> — убедитесь что файл начинается с <code>#EXTM3U</code> и содержит строки <code>#EXTINF</code>.<br><br>
+<b>4. Браузер блокирует</b> — попробуйте другой браузер (Chrome/Firefox) или используйте локальный Python скрипт из репозитория.<br><br>
+<b>5. Этот онлайн-конвертер</b> работает полностью офлайн в вашем браузере — никаких загрузок на сервер, поэтому ошибок сервера быть не должно. Просто перетащите файл сюда.
+</p>
+</div>
+
+</div>
+
+<script>
+const COUNTRIES = {
+"AF": {ru:"Афганистан",en:"Afghanistan",flag:"🇦🇫",aliases:["afghanistan", "af", "афганистан", "afghan"]},
+"AL": {ru:"Албания",en:"Albania",flag:"🇦🇱",aliases:["albania", "албания", "al"]},
+"DZ": {ru:"Алжир",en:"Algeria",flag:"🇩🇿",aliases:["алжир", "algeria", "dz"]},
+"AD": {ru:"Андорра",en:"Andorra",flag:"🇦🇩",aliases:["andorra", "ad", "андорра"]},
+"AO": {ru:"Ангола",en:"Angola",flag:"🇦🇴",aliases:["angola", "ангола", "ao"]},
+"AG": {ru:"Антигуа и Барбуда",en:"Antigua and Barbuda",flag:"🇦🇬",aliases:["barbuda", "antigua", "антигуа и барбуда", "ag", "antigua and barbuda"]},
+"AR": {ru:"Аргентина",en:"Argentina",flag:"🇦🇷",aliases:["аргентина", "argentina", "ar"]},
+"AM": {ru:"Армения",en:"Armenia",flag:"🇦🇲",aliases:["армения", "armenia", "am"]},
+"AU": {ru:"Австралия",en:"Australia",flag:"🇦🇺",aliases:["au", "australia", "австралия"]},
+"AT": {ru:"Австрия",en:"Austria",flag:"🇦🇹",aliases:["at", "австрия", "austria"]},
+"AZ": {ru:"Азербайджан",en:"Azerbaijan",flag:"🇦🇿",aliases:["azerbaijan", "азербайджан", "az"]},
+"BS": {ru:"Багамы",en:"Bahamas",flag:"🇧🇸",aliases:["bahamas", "багамы", "bs"]},
+"BH": {ru:"Бахрейн",en:"Bahrain",flag:"🇧🇭",aliases:["bh", "bahrain", "бахрейн"]},
+"BD": {ru:"Бангладеш",en:"Bangladesh",flag:"🇧🇩",aliases:["bangladesh", "бангладеш", "bd"]},
+"BB": {ru:"Барбадос",en:"Barbados",flag:"🇧🇧",aliases:["bb", "барбадос", "barbados"]},
+"BY": {ru:"Беларусь",en:"Belarus",flag:"🇧🇾",aliases:["беларусь", "by", "belarus", "белоруссия"]},
+"BE": {ru:"Бельгия",en:"Belgium",flag:"🇧🇪",aliases:["belgium", "бельгия", "be"]},
+"BZ": {ru:"Белиз",en:"Belize",flag:"🇧🇿",aliases:["белиз", "belize", "bz"]},
+"BJ": {ru:"Бенин",en:"Benin",flag:"🇧🇯",aliases:["bj", "benin", "бенин"]},
+"BT": {ru:"Бутан",en:"Bhutan",flag:"🇧🇹",aliases:["bt", "бутан", "bhutan"]},
+"BO": {ru:"Боливия",en:"Bolivia",flag:"🇧🇴",aliases:["bo", "bolivia", "боливия"]},
+"BA": {ru:"Босния и Герцеговина",en:"Bosnia and Herzegovina",flag:"🇧🇦",aliases:["ba", "bosnia and herzegovina", "herzegovina", "босния и герцеговина", "bosnia"]},
+"BW": {ru:"Ботсвана",en:"Botswana",flag:"🇧🇼",aliases:["botswana", "bw", "ботсвана"]},
+"BR": {ru:"Бразилия",en:"Brazil",flag:"🇧🇷",aliases:["бразилия", "brasil", "br", "brazil"]},
+"BN": {ru:"Бруней",en:"Brunei",flag:"🇧🇳",aliases:["bn", "бруней", "brunei"]},
+"BG": {ru:"Болгария",en:"Bulgaria",flag:"🇧🇬",aliases:["болгария", "bg", "bulgaria"]},
+"BF": {ru:"Буркина-Фасо",en:"Burkina Faso",flag:"🇧🇫",aliases:["bf", "буркина-фасо", "burkina", "burkina faso"]},
+"BI": {ru:"Бурунди",en:"Burundi",flag:"🇧🇮",aliases:["burundi", "бурунди", "bi"]},
+"CV": {ru:"Кабо-Верде",en:"Cape Verde",flag:"🇨🇻",aliases:["cabo verde", "кабо-верде", "cape verde", "cv"]},
+"KH": {ru:"Камбоджа",en:"Cambodia",flag:"🇰🇭",aliases:["камбоджа", "cambodia", "kh"]},
+"CM": {ru:"Камерун",en:"Cameroon",flag:"🇨🇲",aliases:["cm", "камерун", "cameroon"]},
+"CA": {ru:"Канада",en:"Canada",flag:"🇨🇦",aliases:["canada", "канада", "ca"]},
+"CF": {ru:"ЦАР",en:"Central African Republic",flag:"🇨🇫",aliases:["цар", "car", "central african republic", "cf"]},
+"TD": {ru:"Чад",en:"Chad",flag:"🇹🇩",aliases:["чад", "td", "chad"]},
+"CL": {ru:"Чили",en:"Chile",flag:"🇨🇱",aliases:["chile", "cl", "чили"]},
+"CN": {ru:"Китай",en:"China",flag:"🇨🇳",aliases:["китай", "china", "cn"]},
+"CO": {ru:"Колумбия",en:"Colombia",flag:"🇨🇴",aliases:["colombia", "колумбия", "co"]},
+"KM": {ru:"Коморы",en:"Comoros",flag:"🇰🇲",aliases:["km", "comoros", "коморы"]},
+"CG": {ru:"Конго",en:"Congo",flag:"🇨🇬",aliases:["cg", "congo", "конго"]},
+"CD": {ru:"ДР Конго",en:"DR Congo",flag:"🇨🇩",aliases:["др конго", "dr congo", "congo kinshasa", "cd"]},
+"CR": {ru:"Коста-Рика",en:"Costa Rica",flag:"🇨🇷",aliases:["коста-рика", "costa rica", "cr"]},
+"CI": {ru:"Кот-д'Ивуар",en:"Ivory Coast",flag:"🇨🇮",aliases:["cote d'ivoire", "ivory coast", "ci", "кот-д'ивуар"]},
+"HR": {ru:"Хорватия",en:"Croatia",flag:"🇭🇷",aliases:["hr", "хорватия", "croatia"]},
+"CU": {ru:"Куба",en:"Cuba",flag:"🇨🇺",aliases:["cuba", "куба", "cu"]},
+"CY": {ru:"Кипр",en:"Cyprus",flag:"🇨🇾",aliases:["cy", "кипр", "cyprus"]},
+"CZ": {ru:"Чехия",en:"Czech",flag:"🇨🇿",aliases:["чехия", "czech", "czech republic", "cz"]},
+"DK": {ru:"Дания",en:"Denmark",flag:"🇩🇰",aliases:["dk", "denmark", "danmark", "дания"]},
+"DJ": {ru:"Джибути",en:"Djibouti",flag:"🇩🇯",aliases:["dj", "djibouti", "джибути"]},
+"DM": {ru:"Доминика",en:"Dominica",flag:"🇩🇲",aliases:["доминика", "dm", "dominica"]},
+"DO": {ru:"Доминикана",en:"Dominican Republic",flag:"🇩🇴",aliases:["do", "dominican republic", "доминикана", "dominicana"]},
+"EC": {ru:"Эквадор",en:"Ecuador",flag:"🇪🇨",aliases:["эквадор", "ecuador", "ec"]},
+"EG": {ru:"Египет",en:"Egypt",flag:"🇪🇬",aliases:["eg", "египет", "egypt"]},
+"SV": {ru:"Сальвадор",en:"El Salvador",flag:"🇸🇻",aliases:["сальвадор", "el salvador", "salvador", "sv"]},
+"GQ": {ru:"Экваториальная Гвинея",en:"Equatorial Guinea",flag:"🇬🇶",aliases:["equatorial guinea", "gq", "экваториальная гвинея"]},
+"ER": {ru:"Эритрея",en:"Eritrea",flag:"🇪🇷",aliases:["eritrea", "эритрея", "er"]},
+"EE": {ru:"Эстония",en:"Estonia",flag:"🇪🇪",aliases:["эстония", "estonia", "ee"]},
+"SZ": {ru:"Эсватини",en:"Eswatini",flag:"🇸🇿",aliases:["eswatini", "эсватини", "swaziland", "sz"]},
+"ET": {ru:"Эфиопия",en:"Ethiopia",flag:"🇪🇹",aliases:["эфиопия", "ethiopia", "et"]},
+"FJ": {ru:"Фиджи",en:"Fiji",flag:"🇫🇯",aliases:["fiji", "fj", "фиджи"]},
+"FI": {ru:"Финляндия",en:"Finland",flag:"🇫🇮",aliases:["финляндия", "fi", "suomi", "finland"]},
+"FR": {ru:"Франция",en:"France",flag:"🇫🇷",aliases:["france", "франция", "fr", "frankreich"]},
+"GA": {ru:"Габон",en:"Gabon",flag:"🇬🇦",aliases:["gabon", "ga", "габон"]},
+"GM": {ru:"Гамбия",en:"Gambia",flag:"🇬🇲",aliases:["гамбия", "gambia", "gm"]},
+"GE": {ru:"Грузия",en:"Georgia",flag:"🇬🇪",aliases:["грузия", "georgia", "ge"]},
+"DE": {ru:"Германия",en:"Germany",flag:"🇩🇪",aliases:["deutschland", "германия", "german", "de", "germany"]},
+"GH": {ru:"Гана",en:"Ghana",flag:"🇬🇭",aliases:["гана", "gh", "ghana"]},
+"GR": {ru:"Греция",en:"Greece",flag:"🇬🇷",aliases:["greece", "греция", "gr"]},
+"GD": {ru:"Гренада",en:"Grenada",flag:"🇬🇩",aliases:["гренада", "grenada", "gd"]},
+"GT": {ru:"Гватемала",en:"Guatemala",flag:"🇬🇹",aliases:["guatemala", "гватемала", "gt"]},
+"GN": {ru:"Гвинея",en:"Guinea",flag:"🇬🇳",aliases:["гвинея", "guinea", "gn"]},
+"GW": {ru:"Гвинея-Бисау",en:"Guinea-Bissau",flag:"🇬🇼",aliases:["guinea-bissau", "гвинея-бисау", "gw"]},
+"GY": {ru:"Гайана",en:"Guyana",flag:"🇬🇾",aliases:["guyana", "gy", "гайана"]},
+"HT": {ru:"Гаити",en:"Haiti",flag:"🇭🇹",aliases:["haiti", "ht", "гаити"]},
+"HN": {ru:"Гондурас",en:"Honduras",flag:"🇭🇳",aliases:["гондурас", "honduras", "hn"]},
+"HU": {ru:"Венгрия",en:"Hungary",flag:"🇭🇺",aliases:["magyar", "венгрия", "hu", "hungary"]},
+"IS": {ru:"Исландия",en:"Iceland",flag:"🇮🇸",aliases:["iceland", "исландия", "is"]},
+"IN": {ru:"Индия",en:"India",flag:"🇮🇳",aliases:["india", "индия", "in"]},
+"ID": {ru:"Индонезия",en:"Indonesia",flag:"🇮🇩",aliases:["индонезия", "indonesia", "id"]},
+"IR": {ru:"Иран",en:"Iran",flag:"🇮🇷",aliases:["persian", "farsi", "iran", "иран", "ir", "4u tv", "4utv", "4u"]},
+"IQ": {ru:"Ирак",en:"Iraq",flag:"🇮🇶",aliases:["ирак", "iq", "iraq"]},
+"IE": {ru:"Ирландия",en:"Ireland",flag:"🇮🇪",aliases:["ie", "ireland", "ирландия"]},
+"IL": {ru:"Израиль",en:"Israel",flag:"🇮🇱",aliases:["il", "israel", "израиль"]},
+"IT": {ru:"Италия",en:"Italy",flag:"🇮🇹",aliases:["it", "italy", "italia", "италия"]},
+"JM": {ru:"Ямайка",en:"Jamaica",flag:"🇯🇲",aliases:["jamaica", "jm", "ямайка"]},
+"JP": {ru:"Япония",en:"Japan",flag:"🇯🇵",aliases:["jp", "japan", "япония"]},
+"JO": {ru:"Иордания",en:"Jordan",flag:"🇯🇴",aliases:["иордания", "jo", "jordan"]},
+"KZ": {ru:"Казахстан",en:"Kazakhstan",flag:"🇰🇿",aliases:["казахстан", "kz", "kazakhstan"]},
+"KE": {ru:"Кения",en:"Kenya",flag:"🇰🇪",aliases:["ke", "kenya", "кения"]},
+"KI": {ru:"Кирибати",en:"Kiribati",flag:"🇰🇮",aliases:["кирибати", "kiribati", "ki"]},
+"KP": {ru:"КНДР",en:"North Korea",flag:"🇰🇵",aliases:["dprk", "north korea", "kp", "кндр", "северная корея"]},
+"KR": {ru:"Корея",en:"South Korea",flag:"🇰🇷",aliases:["южная корея", "корея", "korea", "south korea", "kr"]},
+"KW": {ru:"Кувейт",en:"Kuwait",flag:"🇰🇼",aliases:["kuwait", "kw", "кувейт"]},
+"KG": {ru:"Киргизия",en:"Kyrgyzstan",flag:"🇰🇬",aliases:["кыргызстан", "киргизия", "kg", "kyrgyzstan"]},
+"LA": {ru:"Лаос",en:"Laos",flag:"🇱🇦",aliases:["la", "laos", "лаос"]},
+"LV": {ru:"Латвия",en:"Latvia",flag:"🇱🇻",aliases:["латвия", "lv", "latvia"]},
+"LB": {ru:"Ливан",en:"Lebanon",flag:"🇱🇧",aliases:["lb", "ливан", "lebanon"]},
+"LS": {ru:"Лесото",en:"Lesotho",flag:"🇱🇸",aliases:["лесото", "ls", "lesotho"]},
+"LR": {ru:"Либерия",en:"Liberia",flag:"🇱🇷",aliases:["либерия", "liberia", "lr"]},
+"LY": {ru:"Ливия",en:"Libya",flag:"🇱🇾",aliases:["libya", "ливия", "ly"]},
+"LI": {ru:"Лихтенштейн",en:"Liechtenstein",flag:"🇱🇮",aliases:["лихтенштейн", "liechtenstein", "li"]},
+"LT": {ru:"Литва",en:"Lithuania",flag:"🇱🇹",aliases:["lt", "lithuania", "литва"]},
+"LU": {ru:"Люксембург",en:"Luxembourg",flag:"🇱🇺",aliases:["luxembourg", "люксембург", "lu"]},
+"MG": {ru:"Мадагаскар",en:"Madagascar",flag:"🇲🇬",aliases:["madagascar", "мадагаскар", "mg"]},
+"MW": {ru:"Малави",en:"Malawi",flag:"🇲🇼",aliases:["малави", "mw", "malawi"]},
+"MY": {ru:"Малайзия",en:"Malaysia",flag:"🇲🇾",aliases:["my", "malaysia", "малайзия"]},
+"MV": {ru:"Мальдивы",en:"Maldives",flag:"🇲🇻",aliases:["mv", "maldives", "мальдивы"]},
+"ML": {ru:"Мали",en:"Mali",flag:"🇲🇱",aliases:["mali", "мали", "ml"]},
+"MT": {ru:"Мальта",en:"Malta",flag:"🇲🇹",aliases:["malta", "mt", "мальта"]},
+"MH": {ru:"Маршалловы Острова",en:"Marshall Islands",flag:"🇲🇭",aliases:["маршалловы острова", "marshall islands", "mh"]},
+"MR": {ru:"Мавритания",en:"Mauritania",flag:"🇲🇷",aliases:["mr", "мавритания", "mauritania"]},
+"MU": {ru:"Маврикий",en:"Mauritius",flag:"🇲🇺",aliases:["mu", "mauritius", "маврикий"]},
+"MX": {ru:"Мексика",en:"Mexico",flag:"🇲🇽",aliases:["мексика", "mexico", "mx"]},
+"FM": {ru:"Микронезия",en:"Micronesia",flag:"🇫🇲",aliases:["микронезия", "micronesia", "fm"]},
+"MD": {ru:"Молдова",en:"Moldova",flag:"🇲🇩",aliases:["md", "молдова", "молдавия", "moldova"]},
+"MC": {ru:"Монако",en:"Monaco",flag:"🇲🇨",aliases:["mc", "monaco", "монако"]},
+"MN": {ru:"Монголия",en:"Mongolia",flag:"🇲🇳",aliases:["mn", "монголия", "mongolia"]},
+"ME": {ru:"Черногория",en:"Montenegro",flag:"🇲🇪",aliases:["черногория", "me", "montenegro"]},
+"MA": {ru:"Марокко",en:"Morocco",flag:"🇲🇦",aliases:["ma", "марокко", "morocco"]},
+"MZ": {ru:"Мозамбик",en:"Mozambique",flag:"🇲🇿",aliases:["mozambique", "mz", "мозамбик"]},
+"MM": {ru:"Мьянма",en:"Myanmar",flag:"🇲🇲",aliases:["мьянма", "myanmar", "burma", "mm"]},
+"NA": {ru:"Намибия",en:"Namibia",flag:"🇳🇦",aliases:["na", "намибия", "namibia"]},
+"NR": {ru:"Науру",en:"Nauru",flag:"🇳🇷",aliases:["науру", "nr", "nauru"]},
+"NP": {ru:"Непал",en:"Nepal",flag:"🇳🇵",aliases:["nepal", "непал", "np"]},
+"NL": {ru:"Нидерланды",en:"Netherlands",flag:"🇳🇱",aliases:["netherlands", "holland", "nl", "нидерланды", "nederland"]},
+"NZ": {ru:"Новая Зеландия",en:"New Zealand",flag:"🇳🇿",aliases:["new zealand", "nz", "новая зеландия"]},
+"NI": {ru:"Никарагуа",en:"Nicaragua",flag:"🇳🇮",aliases:["никарагуа", "nicaragua", "ni"]},
+"NE": {ru:"Нигер",en:"Niger",flag:"🇳🇪",aliases:["нигер", "ne", "niger"]},
+"NG": {ru:"Нигерия",en:"Nigeria",flag:"🇳🇬",aliases:["nigeria", "ng", "нигерия"]},
+"MK": {ru:"Северная Македония",en:"North Macedonia",flag:"🇲🇰",aliases:["mk", "north macedonia", "северная македония", "macedonia"]},
+"NO": {ru:"Норвегия",en:"Norway",flag:"🇳🇴",aliases:["norge", "норвегия", "norway", "no"]},
+"OM": {ru:"Оман",en:"Oman",flag:"🇴🇲",aliases:["оман", "om", "oman"]},
+"PK": {ru:"Пакистан",en:"Pakistan",flag:"🇵🇰",aliases:["pk", "pakistan", "пакистан"]},
+"PW": {ru:"Палау",en:"Palau",flag:"🇵🇼",aliases:["pw", "палау", "palau"]},
+"PS": {ru:"Палестина",en:"Palestine",flag:"🇵🇸",aliases:["palestine", "ps", "палестина"]},
+"PA": {ru:"Панама",en:"Panama",flag:"🇵🇦",aliases:["панама", "panama", "pa"]},
+"PG": {ru:"Папуа-Новая Гвинея",en:"Papua New Guinea",flag:"🇵🇬",aliases:["papua new guinea", "папуа-новая гвинея", "pg"]},
+"PY": {ru:"Парагвай",en:"Paraguay",flag:"🇵🇾",aliases:["py", "paraguay", "парагвай"]},
+"PE": {ru:"Перу",en:"Peru",flag:"🇵🇪",aliases:["peru", "перу", "pe"]},
+"PH": {ru:"Филиппины",en:"Philippines",flag:"🇵🇭",aliases:["philippines", "филиппины", "ph"]},
+"PL": {ru:"Польша",en:"Poland",flag:"🇵🇱",aliases:["poland", "польша", "pl", "polska"]},
+"PT": {ru:"Португалия",en:"Portugal",flag:"🇵🇹",aliases:["portugal", "португалия", "pt"]},
+"QA": {ru:"Катар",en:"Qatar",flag:"🇶🇦",aliases:["qatar", "катар", "qa"]},
+"RO": {ru:"Румыния",en:"Romania",flag:"🇷🇴",aliases:["romania", "румыния", "ro"]},
+"RU": {ru:"Россия",en:"Russia",flag:"🇷🇺",aliases:["russia", "ru", "россия"]},
+"RW": {ru:"Руанда",en:"Rwanda",flag:"🇷🇼",aliases:["rw", "rwanda", "руанда"]},
+"KN": {ru:"Сент-Китс и Невис",en:"Saint Kitts and Nevis",flag:"🇰🇳",aliases:["сент-китс и невис", "saint kitts and nevis", "kn"]},
+"LC": {ru:"Сент-Люсия",en:"Saint Lucia",flag:"🇱🇨",aliases:["lc", "сент-люсия", "saint lucia"]},
+"VC": {ru:"Сент-Винсент",en:"Saint Vincent",flag:"🇻🇨",aliases:["vc", "сент-винсент", "saint vincent"]},
+"WS": {ru:"Самоа",en:"Samoa",flag:"🇼🇸",aliases:["самоа", "ws", "samoa"]},
+"SM": {ru:"Сан-Марино",en:"San Marino",flag:"🇸🇲",aliases:["сан-марино", "san marino", "sm"]},
+"ST": {ru:"Сан-Томе и Принсипи",en:"Sao Tome and Principe",flag:"🇸🇹",aliases:["sao tome and principe", "st", "сан-томе и принсипи"]},
+"SA": {ru:"Саудовская Аравия",en:"Saudi Arabia",flag:"🇸🇦",aliases:["sa", "saudi", "saudi arabia", "саудовская аравия"]},
+"SN": {ru:"Сенегал",en:"Senegal",flag:"🇸🇳",aliases:["sn", "сенегал", "senegal"]},
+"RS": {ru:"Сербия",en:"Serbia",flag:"🇷🇸",aliases:["serbia", "сербия", "rs"]},
+"SC": {ru:"Сейшелы",en:"Seychelles",flag:"🇸🇨",aliases:["сейшелы", "seychelles", "sc"]},
+"SL": {ru:"Сьерра-Леоне",en:"Sierra Leone",flag:"🇸🇱",aliases:["sierra leone", "сьерра-леоне", "sl"]},
+"SG": {ru:"Сингапур",en:"Singapore",flag:"🇸🇬",aliases:["sg", "сингапур", "singapore"]},
+"SK": {ru:"Словакия",en:"Slovakia",flag:"🇸🇰",aliases:["slovakia", "словакия", "sk"]},
+"SI": {ru:"Словения",en:"Slovenia",flag:"🇸🇮",aliases:["si", "словения", "slovenia"]},
+"SB": {ru:"Соломоновы Острова",en:"Solomon Islands",flag:"🇸🇧",aliases:["соломоновы острова", "solomon islands", "sb"]},
+"SO": {ru:"Сомали",en:"Somalia",flag:"🇸🇴",aliases:["so", "somalia", "сомали"]},
+"ZA": {ru:"ЮАР",en:"South Africa",flag:"🇿🇦",aliases:["южная африка", "za", "юар", "south africa"]},
+"SS": {ru:"Южный Судан",en:"South Sudan",flag:"🇸🇸",aliases:["ss", "south sudan", "южный судан"]},
+"ES": {ru:"Испания",en:"Spain",flag:"🇪🇸",aliases:["spain", "espana", "испания", "es"]},
+"LK": {ru:"Шри-Ланка",en:"Sri Lanka",flag:"🇱🇰",aliases:["sri lanka", "шри-ланка", "lk"]},
+"SD": {ru:"Судан",en:"Sudan",flag:"🇸🇩",aliases:["судан", "sd", "sudan"]},
+"SR": {ru:"Суринам",en:"Suriname",flag:"🇸🇷",aliases:["suriname", "суринам", "sr"]},
+"SE": {ru:"Швеция",en:"Sweden",flag:"🇸🇪",aliases:["se", "швеция", "sverige", "sweden"]},
+"CH": {ru:"Швейцария",en:"Switzerland",flag:"🇨🇭",aliases:["swiss", "швейцария", "switzerland", "ch"]},
+"SY": {ru:"Сирия",en:"Syria",flag:"🇸🇾",aliases:["sy", "сирия", "syria"]},
+"TW": {ru:"Тайвань",en:"Taiwan",flag:"🇹🇼",aliases:["тайвань", "tw", "taiwan"]},
+"TJ": {ru:"Таджикистан",en:"Tajikistan",flag:"🇹🇯",aliases:["tj", "tajikistan", "таджикистан"]},
+"TZ": {ru:"Танзания",en:"Tanzania",flag:"🇹🇿",aliases:["tz", "tanzania", "танзания"]},
+"TH": {ru:"Таиланд",en:"Thailand",flag:"🇹🇭",aliases:["thailand", "th", "таиланд", "thai", "true4u", "true 4u"]},
+"TL": {ru:"Восточный Тимор",en:"Timor-Leste",flag:"🇹🇱",aliases:["east timor", "timor-leste", "восточный тимор", "tl"]},
+"TG": {ru:"Того",en:"Togo",flag:"🇹🇬",aliases:["того", "tg", "togo"]},
+"TO": {ru:"Тонга",en:"Tonga",flag:"🇹🇴",aliases:["to", "tonga", "тонга"]},
+"TT": {ru:"Тринидад и Тобаго",en:"Trinidad and Tobago",flag:"🇹🇹",aliases:["тринидад и тобаго", "trinidad and tobago", "tt"]},
+"TN": {ru:"Тунис",en:"Tunisia",flag:"🇹🇳",aliases:["tunisia", "tn", "тунис"]},
+"TR": {ru:"Турция",en:"Turkey",flag:"🇹🇷",aliases:["turkey", "tr", "турция", "turkiye", "a haber", "a spor"]},
+"TM": {ru:"Туркменистан",en:"Turkmenistan",flag:"🇹🇲",aliases:["turkmenistan", "tm", "туркменистан"]},
+"TV": {ru:"Тувалу",en:"Tuvalu",flag:"🇹🇻",aliases:["tv", "тувалу", "tuvalu"]},
+"UG": {ru:"Уганда",en:"Uganda",flag:"🇺🇬",aliases:["ug", "uganda", "уганда"]},
+"UA": {ru:"Украина",en:"Ukraine",flag:"🇺🇦",aliases:["украина", "ukraine", "ua"]},
+"AE": {ru:"ОАЭ",en:"UAE",flag:"🇦🇪",aliases:["uae", "эмираты", "ae", "emirates", "оаэ"]},
+"GB": {ru:"Великобритания",en:"UK",flag:"🇬🇧",aliases:["gb", "great britain", "uk", "britain", "england", "united kingdom", "великобритания"]},
+"US": {ru:"США",en:"USA",flag:"🇺🇸",aliases:["сша", "us", "america", "usa", "united states"]},
+"UY": {ru:"Уругвай",en:"Uruguay",flag:"🇺🇾",aliases:["uy", "uruguay", "уругвай"]},
+"UZ": {ru:"Узбекистан",en:"Uzbekistan",flag:"🇺🇿",aliases:["uzbekistan", "uz", "узбекистан"]},
+"VU": {ru:"Вануату",en:"Vanuatu",flag:"🇻🇺",aliases:["vu", "вануату", "vanuatu"]},
+"VA": {ru:"Ватикан",en:"Vatican",flag:"🇻🇦",aliases:["vatican", "ватикан", "va"]},
+"VE": {ru:"Венесуэла",en:"Venezuela",flag:"🇻🇪",aliases:["ve", "венесуэла", "venezuela"]},
+"VN": {ru:"Вьетнам",en:"Vietnam",flag:"🇻🇳",aliases:["vn", "вьетнам", "vietnam"]},
+"YE": {ru:"Йемен",en:"Yemen",flag:"🇾🇪",aliases:["ye", "йемен", "yemen"]},
+"ZM": {ru:"Замбия",en:"Zambia",flag:"🇿🇲",aliases:["замбия", "zm", "zambia"]},
+"ZW": {ru:"Зимбабве",en:"Zimbabwe",flag:"🇿🇼",aliases:["zw", "zimbabwe", "зимбабве"]},
+"KRD": {ru:"Курдистан",en:"Kurdistan",flag:"☀️",aliases:["krd", "курдский", "4kurd", "kurdish", "курдистан", "kurdistan", "kurd"]},
+"XK": {ru:"Косово",en:"Kosovo",flag:"🇽🇰",aliases:["kosovo", "косово", "xk"]},
+"PR": {ru:"Пуэрто-Рико",en:"Puerto Rico",flag:"🇵🇷",aliases:["пуэрто-рико", "pr", "puerto rico"]},
+"HK": {ru:"Гонконг",en:"Hong Kong",flag:"🇭🇰",aliases:["hong kong", "hk", "гонконг"]},
+"MO": {ru:"Макао",en:"Macau",flag:"🇲🇴",aliases:["макао", "mo", "macau"]},
+};
+
+const KNOWN_CHANNELS = {
+"BBC One":"GB","BBC Two":"GB","BBC Three":"GB","BBC Four":"GB","BBC News":"GB","BBC World":"GB",
+"ITV":"GB","ITV1":"GB","ITV2":"GB","ITV3":"GB","ITV4":"GB","Channel 4":"GB","Channel 5":"GB","Sky News":"GB","Sky Sports":"GB",
+"CNN":"US","Fox News":"US","MSNBC":"US","ABC":"US","NBC":"US","CBS":"US","ESPN":"US","HBO":"US","Discovery":"US",
+"ZDF":"DE","ARD":"DE","Das Erste":"DE","RTL":"DE","Sat.1":"DE","ProSieben":"DE","VOX":"DE","Kabel Eins":"DE",
+"TF1":"FR","France 2":"FR","France 3":"FR","France 4":"FR","France 5":"FR","M6":"FR","Canal+":"FR",
+"Rai 1":"IT","Rai 2":"IT","Rai 3":"IT","Canale 5":"IT","Italia 1":"IT","Rete 4":"IT",
+"La 1":"ES","La 2":"ES","Antena 3":"ES","Telecinco":"ES","Cuatro":"ES",
+"TRT 1":"TR","TRT":"TR","ATV":"TR","Kanal D":"TR","Show TV":"TR","Star TV":"TR",
+"Первый канал":"RU","Россия 1":"RU","НТВ":"RU","ТНТ":"RU","СТС":"RU","РЕН ТВ":"RU","Пятница":"RU","Матч ТВ":"RU",
+"1+1":"UA","ICTV":"UA","СТБ":"UA",
+"TVP1":"PL","TVP2":"PL","Polsat":"PL","TVN":"PL",
+"4KURD":"KRD","Kurdistan TV":"KRD","Kurd TV":"KRD",
+"4U TV":"IR","4UTV":"IR",
+"True4U":"TH",
+"1Almere TV":"NL","Almere TV":"NL",
+"2GB Sydney":"AU","3AW Melbourne":"AU","Sydney":"AU","Melbourne":"AU",
+"2M":"MA","2M Monde":"MA","2M Monde +1":"MA",
+"2STV":"SN",
+"3ABN":"US","3ABN Dare To Dream":"US","3ABN English":"US","3ABN French":"US","3ABN International":"US","3ABN Kids":"US","3ABN Latino":"US",
+"3sat":"DE","3sat HD":"DE",
+"4 Fun TV":"PL","4 Fun Kids":"PL","4Fun TV":"PL",
+"4K Travel TV":"US","4K TRAVEL TV":"US",
+"5AAB TV":"IN",
+"5TV Corrientes":"AR"
+};
+
+
+const KNOWN_LOGOS = {
+"BBC One":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-one-uk.png",
+"BBC Two":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-two-uk.png",
+"BBC News":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-news-uk.png",
+"ITV":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/itv-uk.png",
+"CNN":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cnn-us.png",
+"Fox News":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-news-us.png",
+"ZDF":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/zdf-de.png",
+"Das Erste":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/das-erste-de.png",
+"RTL":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/rtl-de.png",
+"TF1":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tf1-fr.png",
+"4KURD":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/kurdistan/4kurd.png",
+"4U TV":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/iran/4u-tv-ir.png"
+};
+
+function getLogoForChannel(name, tvgId=""){
+  if(!name) return null;
+  if(KNOWN_LOGOS[name]) return KNOWN_LOGOS[name];
+  const lower = name.toLowerCase();
+  for(const [ch,logo] of Object.entries(KNOWN_LOGOS)){
+    if(lower.includes(ch.toLowerCase()) || ch.toLowerCase().includes(lower)) return logo;
+  }
+  if(tvgId && KNOWN_LOGOS[tvgId]) return KNOWN_LOGOS[tvgId];
+  return null;
+}
+
+
+const TLD_TO_COUNTRY = {
+".de":"DE",".fr":"FR",".it":"IT",".es":"ES",".co.uk":"GB",".uk":"GB",".us":"US",
+".ru":"RU",".ua":"UA",".by":"BY",".kz":"KZ",".tr":"TR",".pl":"PL",".nl":"NL",
+".be":"BE",".ch":"CH",".at":"AT",".cz":"CZ",".sk":"SK",".hu":"HU",".ro":"RO",
+".bg":"BG",".gr":"GR",".pt":"PT",".se":"SE",".no":"NO",".dk":"DK",".fi":"FI",
+".ir":"IR",".iq":"IQ",".sa":"SA",".ae":"AE",".il":"IL",".in":"IN",".jp":"JP",
+".kr":"KR",".cn":"CN",".br":"BR",".ar":"AR",".mx":"MX",".ca":"CA",".au":"AU"
+};
+
+
+const US_STATES = {
+"Albuquerque":"US","Orlando":"US","Milwaukee":"US","Las Vegas":"US","Tallahassee":"US","Miami":"US",
+"New York":"US","Los Angeles":"US","Chicago":"US","Houston":"US","Phoenix":"US","Philadelphia":"US",
+"San Antonio":"US","San Diego":"US","Dallas":"US","San Jose":"US","Austin":"US","Seattle":"US",
+"Perth":"AU","Sydney":"AU","Melbourne":"AU","Brisbane":"AU","Adelaide":"AU","Hawaii":"US",
+"Alicante":"ES","Valencia":"ES","Madrid":"ES","Barcelona":"ES",
+"Budapest":"HU","Bucharest":"RO","Sofia":"BG","Warsaw":"PL","Prague":"CZ",
+"Doha":"QA","Dubai":"AE","Istanbul":"TR","Ankara":"TR",
+"Texas":"US","California":"US","Florida":"US","New Mexico":"US","Wisconsin":"US","Nevada":"US"
+};
+
+function detectCountryFromUSStates(text){
+  if(!text) return null;
+  const lower = text.toLowerCase();
+  for(const [state,code] of Object.entries(US_STATES)){
+    const re = new RegExp('\\b' + state.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    if(re.test(lower)) return code;
+  }
+  return null;
+}
+
+
+function detectCountryFromUrl(url){
+  if(!url) return null;
+  const lower = url.toLowerCase();
+  const sorted = Object.entries(TLD_TO_COUNTRY).sort((a,b)=>b[0].length-a[0].length);
+  for(const [tld,code] of sorted){
+    if(lower.includes(tld)) return code;
+  }
+  return null;
+}
+
+
+const ALIAS_TO_CODE = {};
+for (const [code, info] of Object.entries(COUNTRIES)) {
+  ALIAS_TO_CODE[code.toLowerCase()] = code;
+  ALIAS_TO_CODE[info.ru.toLowerCase()] = code;
+  ALIAS_TO_CODE[info.en.toLowerCase()] = code;
+  for (const alias of info.aliases) ALIAS_TO_CODE[alias.toLowerCase()] = code;
+}
+
+function detectCountry(text) {
+  if (!text) return null;
+  const t = text.toLowerCase().trim();
+  if (ALIAS_TO_CODE[t]) return ALIAS_TO_CODE[t];
+  // длинные алиасы сначала
+  const sorted = Object.entries(ALIAS_TO_CODE).sort((a,b)=>b[0].length-a[0].length);
+  for (const [alias, code] of sorted) {
+    if (alias.length <=2) continue;
+    if (t.includes(alias)) return code;
+  }
+  const words = t.split(/[\s\|\-\:\[\]\(\)]+/);
+  for (const w of words) if (ALIAS_TO_CODE[w] && w.length===2) return ALIAS_TO_CODE[w];
+  return null;
+}
+
+function detectCountryFromExtinf(extinfLine, displayName, url="") {
+  const attrRe = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
+  const attrs = {};
+  let m;
+  while ((m=attrRe.exec(extinfLine))!==null) attrs[m[1]]=m[2];
+  // 0. Known channels exact match
+  if (displayName) {
+    const dn = displayName.trim();
+    const dnLower = dn.toLowerCase();
+    for (const [chName, code] of Object.entries(KNOWN_CHANNELS)) {
+      if (chName.toLowerCase() === dnLower) return code;
+    }
+    for (const [chName, code] of Object.entries(KNOWN_CHANNELS)) {
+      if (chName.length>3 && dnLower.includes(chName.toLowerCase())) return code;
+    }
+  }
+  if (attrs['tvg-country']) { const c=detectCountry(attrs['tvg-country']); if(c) return c; }
+  if (attrs['group-title']) { const c=detectCountry(attrs['group-title']); if(c) return c; }
+  const prefixMatch = displayName.match(/^\s*[\[\(]?([A-Z]{2,3})[\]\)]?[\s\|\-:\]]+/i);
+  if (prefixMatch) { const maybe=prefixMatch[1].toLowerCase(); if(ALIAS_TO_CODE[maybe]) return ALIAS_TO_CODE[maybe]; }
+  const c1 = detectCountry(displayName);
+  if (c1) {
+    return c1;
+  }
+  if (attrs['tvg-name']) { const c=detectCountry(attrs['tvg-name']); if(c) return c; }
+  if (attrs['tvg-id']) { const c=detectCountry(attrs['tvg-id']); if(c) return c; }
+  if (url) { const c=detectCountryFromUrl(url); if(c) return c; }
+  let c2 = detectCountryFromUSStates(displayName);
+  if (c2) return c2;
+  return null;
+}
+
+function cleanName(name) {
+  let cleaned = name.trim();
+  const prefixPatterns = [
+    /^\s*[\[\(][A-Z]{2,3}[\]\)]\s*[\|\-:\s]*/i,
+    /^\s*[A-Z]{2,3}\s*[\|\-:\]]\s*/,
+    /^\s*(USA|UK|Germany|France|Russia|Italia|Espana|Turkiye|Polska|Ukraine|Belarus)\s*[\|\-:\]]\s*/i
+  ];
+  for (const pat of prefixPatterns) cleaned = cleaned.replace(pat,'');
+  cleaned = cleaned.replace(/\s*[\[\(][A-Z]{2,3}[\]\)]\s*$/i,'').trim();
+  cleaned = cleaned.replace(/\s{2,}/g,' ').trim();
+  return cleaned || name.trim();
+}
+
+function formatName(clean, code, fmt, lang) {
+  if (!code || !COUNTRIES[code]) return clean;
+  const info = COUNTRIES[code];
+  const countryLabel = lang==='ru'?info.ru: lang==='en'?info.en: `${info.en} / ${info.ru}`;
+  if (clean.toLowerCase().includes(info.ru.toLowerCase()) || clean.toLowerCase().includes(info.en.toLowerCase())) {
+    if (fmt==='flag_prefix' && !clean.includes(info.flag)) return `${info.flag} ${clean}`;
+    return clean;
+  }
+  switch(fmt){
+    case 'prefix_bracket': return `[${countryLabel}] ${clean}`;
+    case 'suffix_bracket': return `${clean} [${countryLabel}]`;
+    case 'suffix_paren': return `${clean} (${countryLabel})`;
+    case 'pipe': return `${clean} | ${countryLabel}`;
+    case 'flag_prefix': return `${info.flag} ${clean} [${countryLabel}]`;
+    case 'flag_suffix': return `${clean} ${info.flag} [${countryLabel}]`;
+    default: return `${info.flag} ${clean} [${countryLabel}]`;
+  }
+}
+
+function updateExtinf(line, newDisplay, code, lang, keepGroup) {
+  if (!code) {
+    const idx = line.lastIndexOf(',');
+    return idx!==-1? line.slice(0,idx+1)+newDisplay : line;
+  }
+  const info = COUNTRIES[code];
+  const match = line.match(/^(#EXTINF:[^\s]*)\s*(.*?),/);
+  if (!match) { const idx=line.lastIndexOf(','); return idx!==-1? line.slice(0,idx+1)+newDisplay:line; }
+  const duration = match[1];
+  const attrsPart = match[2];
+  const attrRe = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
+  const attrs={};
+  let m; while((m=attrRe.exec(attrsPart))!==null) attrs[m[1]]=m[2];
+  attrs['tvg-country']=code;
+  if (!keepGroup) {
+    attrs['group-title']= lang==='ru'?info.ru: lang==='en'?info.en: `${info.en} / ${info.ru}`;
+  } else {
+    if (!attrs['group-title'] || !attrs['group-title'].trim()) {
+      attrs['group-title']= lang==='ru'?info.ru: lang==='en'?info.en: `${info.en} / ${info.ru}`;
+    }
+  }
+  // Add logo if missing
+  if (!attrs['tvg-logo'] || !attrs['tvg-logo'].trim()) {
+    const tvgId = attrs['tvg-id'] || "";
+    let logo = getLogoForChannel(newDisplay, tvgId);
+    if (!logo) {
+      const cleanForLogo = newDisplay.replace(/[\U00010000-\U0010ffff\u2600-\u26FF\u2700-\u27BF]+/gu, '').replace(/\s*\[.*?\]\s*/g, '').trim();
+      logo = getLogoForChannel(cleanForLogo, tvgId);
+    }
+    if (logo) attrs['tvg-logo'] = logo;
+  }
+  const ordered = ["tvg-id","tvg-name","tvg-logo","group-title","tvg-country"];
+  for (const k of Object.keys(attrs)) if (!ordered.includes(k)) ordered.push(k);
+  let attrsStr="";
+  for (const k of ordered) if (attrs[k]) attrsStr+=` ${k}="${attrs[k].replace(/"/g,"'")}"`;
+  return `${duration}${attrsStr},${newDisplay}`;
+}
+
+let originalFileName = "playlist_ott.m3u";
+let convertedContent = "";
+let fileContent = "";
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const convertBtn = document.getElementById('convertBtn');
+const outputPreview = document.getElementById('outputPreview');
+const downloadBtn = document.getElementById('downloadBtn');
+const successBox = document.getElementById('successBox');
+const errorBox = document.getElementById('errorBox');
+const statsBox = document.getElementById('statsBox');
+const progress = document.getElementById('progress');
+const progressBar = document.getElementById('progressBar');
+const pasteArea = document.getElementById('pasteArea');
+const loadPasteBtn = document.getElementById('loadPasteBtn');
+
+let selectedFormat = "flag_prefix";
+
+document.querySelectorAll('.format-option').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('.format-option').forEach(e=>e.classList.remove('active'));
+    el.classList.add('active');
+    selectedFormat = el.dataset.format;
+    document.getElementById('langSelect').value = el.dataset.lang || document.getElementById('langSelect').value;
+  });
+});
+
+dropZone.addEventListener('click', ()=>{ fileInput.click(); });
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  console.log('Drop event', e.dataTransfer.files);
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  else showError("Файлы не обнаружены при перетаскивании");
+});
+fileInput.addEventListener('change', (e)=>{
+  console.log('File input change', e.target.files);
+  if(fileInput.files.length) {
+    handleFile(fileInput.files[0]);
+    // Reset input to allow selecting same file again
+    // fileInput.value = '';
+  } else {
+    console.log('No files in input');
+    showError("Файл не выбран. Попробуйте перетащить файл или вставить текст ниже.");
+  }
+});
+
+// Paste fallback
+if (loadPasteBtn && pasteArea) {
+  loadPasteBtn.addEventListener('click', ()=>{
+    const text = pasteArea.value.trim();
+    if (!text) {
+      showError("Вставьте текст плейлиста в поле выше");
+      return;
+    }
+    if (!text.includes('#EXTM3U') && !text.includes('#EXTINF')) {
+      showError("Вставленный текст не похож на плейлист .m3u (нет #EXTM3U / #EXTINF)");
+      return;
+    }
+    fileContent = text;
+    originalFileName = "pasted_playlist_ott.m3u";
+    fileInfo.style.display='block';
+    fileInfo.textContent=`📄 Вставленный текст — ${(text.length/1024).toFixed(1)} KB — ${text.split(/\r?\n/).length} строк`;
+    convertBtn.disabled=false;
+    errorBox.style.display='none';
+    successBox.style.display='none';
+    outputPreview.value = text.slice(0,3000) + "\n\n... текст загружен, нажмите Конвертировать ...";
+    showSuccess(`Текст загружен: ${text.split(/\r?\n/).length} строк. Нажмите Конвертировать.`);
+  });
+}
+
+
+function handleFile(file) {
+  originalFileName = file.name.replace(/\.m3u8?$/i,'') + '_ott.m3u';
+  fileInfo.style.display='block';
+  const sizeMB = (file.size/1024/1024).toFixed(2);
+  fileInfo.textContent=`📄 ${file.name} — ${sizeMB} MB — читаю...`;
+  
+  if (file.size > 50*1024*1024) {
+    showError(`Файл слишком большой: ${sizeMB} MB. Браузер может зависнуть. Рекомендую Python версию: python3 playlist_converter.py "${file.name}" --format flag_prefix --lang ru`);
+    // Продолжаем попытку, но предупреждаем
+  }
+  
+  const reader = new FileReader();
+  
+  reader.onprogress = e=>{
+    if (e.lengthComputable) {
+      const percent = Math.round(e.loaded / e.total * 100);
+      fileInfo.textContent=`📄 ${file.name} — ${sizeMB} MB — загружено ${percent}%`;
+    }
+  };
+  
+  reader.onload = e=>{
+    try {
+      fileContent = e.target.result;
+      const lines = fileContent.split(/\r?\n/).length;
+      fileInfo.textContent=`📄 ${file.name} — ${sizeMB} MB — ${lines} строк — готов к конвертации`;
+      convertBtn.disabled=false;
+      errorBox.style.display='none';
+      successBox.style.display='none';
+      const preview = fileContent.slice(0,3000);
+      outputPreview.value = preview + "\n\n... файл загружен (" + lines + " строк, " + sizeMB + " MB), нажмите Конвертировать ...";
+      showSuccess(`Файл загружен: ${lines} строк, ${sizeMB} MB. Нажмите Конвертировать.`);
+    } catch(err) {
+      showError("Ошибка обработки файла: " + err.message);
+    }
+  };
+  
+  reader.onerror = ()=>{
+    console.error(reader.error);
+    let msg = "Ошибка чтения файла. ";
+    if (reader.error && reader.error.name === 'NotReadableError') {
+      msg += "Файл не читается, возможно занят другим процессом.";
+    } else {
+      msg += "Попробуйте пересохранить в UTF-8 или используйте Python скрипт: python3 playlist_converter.py ваш_файл.m3u";
+    }
+    showError(msg);
+    fileInfo.textContent=`❌ Ошибка чтения ${file.name}`;
+  };
+  
+  reader.onabort = ()=>{
+    showError("Чтение файла прервано");
+  };
+  
+  try {
+    reader.readAsText(file, 'UTF-8');
+  } catch(err) {
+    showError("Не удалось начать чтение: " + err.message + ". Используйте Python версию для больших файлов.");
+  }
+}
+
+function showError(msg){ errorBox.textContent="❌ "+msg; errorBox.style.display='block'; successBox.style.display='none'; }
+function showSuccess(msg){ successBox.textContent="✅ "+msg; successBox.style.display='block'; errorBox.style.display='none'; }
+
+convertBtn.addEventListener('click', ()=>{
+  console.log('Convert button clicked, fileContent length:', fileContent ? fileContent.length : 0);
+  if (!fileContent) { 
+    showError("Сначала загрузите файл или вставьте текст"); 
+    return; 
+  }
+  convertBtn.disabled=true;
+  convertBtn.textContent='⏳ Конвертирую...';
+  progress.style.display='block';
+  progressBar.style.width='5%';
+  successBox.style.display='none';
+  errorBox.style.display='none';
+  
+  // Use setTimeout to allow UI to update
+  setTimeout(()=>{
+    try {
+      const lang = document.getElementById('langSelect').value;
+      const keepGroup = document.getElementById('groupSelect').value==='keep';
+      const lines = fileContent.split(/\r?\n/);
+      console.log('Lines to process:', lines.length);
+      const out = [];
+      const stats = {total:0, detected:0, countries:{}};
+      const undetectedList = [];
+      
+      if (lines.length && !lines[0].trim().startsWith('#EXTM3U')) out.push('#EXTM3U');
+      
+      // Process in chunks to avoid blocking UI for large files (9619 channels)
+      let i = 0;
+      const chunkSize = 500; // Process 500 lines at a time
+      
+      function processChunk() {
+        const end = Math.min(i + chunkSize, lines.length);
+        for (; i < end; i++){
+          const line = lines[i];
+          if (line.trim().startsWith('#EXTINF')) {
+            stats.total++;
+            const idx = line.lastIndexOf(',');
+            const display = idx!==-1? line.slice(idx+1).trim() : "";
+            let nextUrl = "";
+            if (i+1 < lines.length) {
+              const nxt = lines[i+1].trim();
+              if (nxt && !nxt.startsWith('#')) nextUrl = nxt;
+            }
+            const code = detectCountryFromExtinf(line, display, nextUrl);
+            if (code) {
+              stats.detected++;
+              stats.countries[code]=(stats.countries[code]||0)+1;
+              const cleaned = cleanName(display);
+              const newDisplay = formatName(cleaned, code, selectedFormat, lang);
+              out.push(updateExtinf(line, newDisplay, code, lang, keepGroup));
+            } else {
+              const cleaned = cleanName(display);
+              const newLine = cleaned!==display && idx!==-1? line.slice(0,idx+1)+cleaned : line;
+              out.push(newLine);
+              undetectedList.push(display);
+            }
+          } else {
+            out.push(line);
+          }
+        }
+        
+        // Update progress
+        const percent = Math.round((i / lines.length) * 90) + 5;
+        progressBar.style.width = percent + '%';
+        fileInfo.textContent = `⏳ Обработка... ${i}/${lines.length} строк (${Math.round(i/lines.length*100)}%)`;
+        
+        if (i < lines.length) {
+          // Continue next chunk
+          setTimeout(processChunk, 10);
+        } else {
+          // Done
+          progressBar.style.width='100%';
+          convertedContent = out.join('\n');
+          outputPreview.value = convertedContent.split('\n').slice(0,80).join('\n') + "\n\n... всего "+out.length+" строк, "+stats.total+" каналов ...";
+          downloadBtn.style.display='block';
+          downloadBtn.textContent = `💾 Скачать готовый плейлист (${stats.total} каналов)`;
+          statsBox.style.display='block';
+          let statsHtml = `<div class="stat-line"><span>Всего каналов</span><span>${stats.total}</span></div>`;
+          statsHtml+=`<div class="stat-line"><span>Определено стран</span><span>${stats.detected}</span></div>`;
+          statsHtml+=`<div class="stat-line"><span>Не определено</span><span>${stats.total - stats.detected} (${stats.total>0?Math.round((stats.total - stats.detected)/stats.total*100):0}%)</span></div>`;
+          statsHtml+=`<div style="margin-top:10px; font-weight:600;">По странам:</div>`;
+          const sorted = Object.entries(stats.countries).sort((a,b)=>b[1]-a[1]);
+          for (const [code,count] of sorted) {
+            const info = COUNTRIES[code];
+            if (!info) continue;
+            statsHtml+=`<div class="stat-line"><span>${info.flag} ${info.ru} (${code})</span><span>${count}</span></div>`;
+          }
+          if (undetectedList.length > 0) {
+            const showCount = Math.min(undetectedList.length, 200);
+            statsHtml+=`<div style="margin-top:15px; font-weight:600; color:#fbbf24;">❓ Не определено (${undetectedList.length}), первые ${showCount}:</div>`;
+            statsHtml+=`<div style="background:#0f1115; padding:10px; border-radius:6px; margin-top:8px; max-height:400px; overflow-y:auto; font-family:monospace; font-size:12px;">`;
+            statsHtml+= undetectedList.slice(0,showCount).map(n=>`- ${n}`).join('<br>');
+            if (undetectedList.length > showCount) statsHtml+=`<br>... и еще ${undetectedList.length - showCount} каналов`;
+            statsHtml+=`</div>`;
+            statsHtml+=`<div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">`;
+            statsHtml+=`<button id="downloadUndetectedBtn" style="background:#f59e0b; color:#000; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:13px;">📥 Скачать список неопределённых (${undetectedList.length})</button>`;
+            statsHtml+=`<button id="copyUndetectedBtn" style="background:#2a2d36; color:#fff; padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:13px;">📋 Копировать</button>`;
+            statsHtml+=`</div>`;
+          }
+          statsBox.innerHTML=statsHtml;
+          showSuccess(`✅ Готово! Обработано ${stats.total} каналов, определено: ${stats.detected}, не определено: ${stats.total - stats.detected}.`);
+          
+          const dlBtn = document.getElementById('downloadUndetectedBtn');
+          if (dlBtn) {
+            dlBtn.addEventListener('click', ()=>{
+              const blob = new Blob([undetectedList.join('\n')], {type:'text/plain;charset=utf-8'});
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href=url;
+              a.download='undetected_channels.txt';
+              a.click();
+              URL.revokeObjectURL(url);
+            });
+          }
+          const copyBtn = document.getElementById('copyUndetectedBtn');
+          if (copyBtn) {
+            copyBtn.addEventListener('click', ()=>{
+              const text = undetectedList.join('\n');
+              navigator.clipboard.writeText(text).then(()=>{
+                copyBtn.textContent='✅ Скопировано!';
+                setTimeout(()=>copyBtn.textContent='📋 Копировать', 2000);
+              }).catch(()=>{
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                copyBtn.textContent='✅ Скопировано!';
+              });
+            });
+          }
+          
+          fileInfo.textContent=`✅ Готово: ${stats.total} каналов, ${stats.detected} определено`;
+          convertBtn.disabled=false;
+          convertBtn.textContent='🔄 Конвертировать плейлист';
+          setTimeout(()=>{ progress.style.display='none'; progressBar.style.width='0%'; }, 1000);
+        }
+      }
+      
+      // Start processing
+      processChunk();
+      
+    } catch(e){
+      console.error(e);
+      showError("Ошибка конвертации: "+e.message + " Stack: " + e.stack + ". Попробуйте Python скрипт.");
+      progress.style.display='none';
+      convertBtn.disabled=false;
+      convertBtn.textContent='🔄 Конвертировать плейлист';
+    }
+  }, 100);
+});
+
+downloadBtn.addEventListener('click', ()=>{
+  if (!convertedContent) return;
+  const blob = new Blob([convertedContent], {type:'audio/x-mpegurl;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url;
+  a.download=originalFileName;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
