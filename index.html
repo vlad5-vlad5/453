@@ -94,6 +94,14 @@ textarea { width:100%; height:200px; background:#0f1115; border:1px solid #2a2d3
 <option value="keep">Оставить оригинальные группы</option>
 </select>
 
+<div style="margin-top:15px; background:#0f1115; padding:12px; border-radius:8px; border:1px solid #2a2d36;">
+<label style="display:flex; align-items:center; gap:10px; margin:0; cursor:pointer;">
+<input type="checkbox" id="epgCheck" checked style="width:auto;"> <span>📅 Добавить EPG (программа передач) — url-tvg</span>
+</label>
+<input type="text" id="epgUrl" value="https://epgshare01.online/epgshare01/epg_ripper_US1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz,https://epgshare01.online/epgshare01/epg_ripper_FR1.xml.gz,https://iptv-org.github.io/epg/guides/us/tvtv.us.epg.xml" style="margin-top:8px; font-size:12px; padding:8px;" placeholder="URL EPG XMLTV">
+<p class="small" style="margin-top:6px;">EPG нужен чтобы в OTT-Play FOSS видеть что сейчас идет. Используется <code>iptv-org</code> — 10000+ каналов. Можно указать несколько через запятую: <code>https://.../us.xml,https://.../uk.xml</code></p>
+</div>
+
 <button id="convertBtn" disabled>🔄 Конвертировать плейлист</button>
 
 <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
@@ -612,6 +620,19 @@ function updateExtinf(line, newDisplay, code, lang, keepGroup) {
       attrs['group-title']= lang==='ru'?info.ru: lang==='en'?info.en: `${info.en} / ${info.ru}`;
     }
   }
+  // Add tvg-id if missing for EPG
+  if (!attrs['tvg-id'] || !attrs['tvg-id'].trim()) {
+    let baseId = newDisplay.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u26FF\u2700-\u27BF]/g, '').replace(/\s*\[.*?\]\s*/g, ' ').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    // Убираем название страны чтобы не дублировать
+    if (code && COUNTRIES[code]) {
+      baseId = baseId.replace(COUNTRIES[code].ru, '').replace(COUNTRIES[code].en, '').trim();
+    }
+    baseId = baseId.replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
+    if (baseId) {
+      attrs['tvg-id'] = code ? `${baseId}.${code.toLowerCase()}` : baseId;
+      if (!attrs['tvg-name']) attrs['tvg-name'] = baseId;
+    }
+  }
   // Add logo if missing
   if (!attrs['tvg-logo'] || !attrs['tvg-logo'].trim()) {
     const tvgId = attrs['tvg-id'] || "";
@@ -784,16 +805,39 @@ convertBtn.addEventListener('click', ()=>{
     try {
       const lang = document.getElementById('langSelect').value;
       const keepGroup = document.getElementById('groupSelect').value==='keep';
+      const addEpg = document.getElementById('epgCheck') ? document.getElementById('epgCheck').checked : true;
+      const epgUrl = document.getElementById('epgUrl') ? document.getElementById('epgUrl').value.trim() : 'https://iptv-org.github.io/epg/guides/all.xml';
       const lines = fileContent.split(/\r?\n/);
       console.log('Lines to process:', lines.length);
       const out = [];
       const stats = {total:0, detected:0, countries:{}};
       const undetectedList = [];
       
-      if (lines.length && !lines[0].trim().startsWith('#EXTM3U')) out.push('#EXTM3U');
+      // Обработка заголовка #EXTM3U с добавлением EPG url-tvg
+      let startIdx = 0;
+      if (lines.length && lines[0].trim().startsWith('#EXTM3U')) {
+        let first = lines[0].trim();
+        if (addEpg && epgUrl && !first.includes('url-tvg=')) {
+          if (first === '#EXTM3U') {
+            out.push(`#EXTM3U url-tvg="${epgUrl}"`);
+          } else {
+            out.push(first + ` url-tvg="${epgUrl}"`);
+          }
+        } else {
+          out.push(lines[0]);
+        }
+        startIdx = 1;
+      } else {
+        if (addEpg && epgUrl) {
+          out.push(`#EXTM3U url-tvg="${epgUrl}"`);
+        } else {
+          out.push('#EXTM3U');
+        }
+        startIdx = 0;
+      }
       
       // Process in chunks to avoid blocking UI for large files (9619 channels)
-      let i = 0;
+      let i = startIdx;
       const chunkSize = 500; // Process 500 lines at a time
       
       function processChunk() {
