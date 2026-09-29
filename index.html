@@ -559,7 +559,7 @@ function updateExtinf(line, newDisplay, code, lang, keepGroup) {
     const tvgId = attrs['tvg-id'] || "";
     let logo = getLogoForChannel(newDisplay, tvgId);
     if (!logo) {
-      const cleanForLogo = newDisplay.replace(/[\U00010000-\U0010ffff\u2600-\u26FF\u2700-\u27BF]+/gu, '').replace(/\s*\[.*?\]\s*/g, '').trim();
+      const cleanForLogo = newDisplay.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u26FF\u2700-\u27BF]/g, '').replace(/\s*\[.*?\]\s*/g, '').trim();
       logo = getLogoForChannel(cleanForLogo, tvgId);
     }
     if (logo) attrs['tvg-logo'] = logo;
