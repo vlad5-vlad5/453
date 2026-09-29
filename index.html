@@ -383,6 +383,21 @@ const KNOWN_LOGOS = {
 "ITV":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/itv-uk.png",
 "CNN":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cnn-us.png",
 "Fox News":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/fox-news-us.png",
+"ABC":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/abc-us.png",
+"NBC":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/nbc-us.png",
+"CBS":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cbs-us.png",
+"ESPN":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/espn-us.png",
+"HBO":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/hbo-us.png",
+"Discovery":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/discovery-channel-us.png",
+"National Geographic":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/national-geographic-us.png",
+"4K Travel TV":"https://i.postimg.cc/8P1rXRgm/4K-TRAVEL-2026-728x412p-01.png",
+"4K Travel":"https://i.postimg.cc/8P1rXRgm/4K-TRAVEL-2026-728x412p-01.png",
+"4K TRAVEL":"https://i.postimg.cc/8P1rXRgm/4K-TRAVEL-2026-728x412p-01.png",
+"Travel TV":"https://i.postimg.cc/8P1rXRgm/4K-TRAVEL-2026-728x412p-01.png",
+"Travel Channel":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/travel-channel-us.png",
+"Travel XP":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/india/travel-xp-in.png",
+"Bloomberg":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/bloomberg-us.png",
+"CNBC":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-states/cnbc-us.png",
 "ZDF":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/zdf-de.png",
 "Das Erste":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/das-erste-de.png",
 "RTL":"https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/germany/rtl-de.png",
@@ -393,12 +408,23 @@ const KNOWN_LOGOS = {
 
 function getLogoForChannel(name, tvgId=""){
   if(!name) return null;
+  // очистка от флагов, [Страна], (1080p)
+  let clean = name.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u26FF\u2700-\u27BF]/g, '').replace(/\s*\[.*?\]\s*/g, ' ').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
   if(KNOWN_LOGOS[name]) return KNOWN_LOGOS[name];
-  const lower = name.toLowerCase();
+  if(KNOWN_LOGOS[clean]) return KNOWN_LOGOS[clean];
+  const lower = clean.toLowerCase();
+  const lowerOrig = name.toLowerCase();
   for(const [ch,logo] of Object.entries(KNOWN_LOGOS)){
-    if(lower.includes(ch.toLowerCase()) || ch.toLowerCase().includes(lower)) return logo;
+    const cl = ch.toLowerCase();
+    if(lower.includes(cl) || cl.includes(lower) || lowerOrig.includes(cl) || cl.includes(lowerOrig)) return logo;
   }
-  if(tvgId && KNOWN_LOGOS[tvgId]) return KNOWN_LOGOS[tvgId];
+  if(tvgId){
+    if(KNOWN_LOGOS[tvgId]) return KNOWN_LOGOS[tvgId];
+    const tl = tvgId.toLowerCase();
+    for(const [ch,logo] of Object.entries(KNOWN_LOGOS)){
+      if(tl.includes(ch.toLowerCase()) || ch.toLowerCase().includes(tl)) return logo;
+    }
+  }
   return null;
 }
 
