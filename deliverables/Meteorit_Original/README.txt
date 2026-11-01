@@ -8,4 +8,4 @@ Arrangement: 4-bar intro, 8-bar verse, 8-bar refrain, 4-bar outro.
 The melody and arrangement are original and only use broad Russian-chanson traits; they do not copy the song “Метеорит”.
 
 Keep the Samples folder beside the FLP (or open the included ZIP project package) so the accordion sample can be found.
-The FLP is built from an FL Studio 20-compatible project structure and has been structurally checked, but cannot be auditioned here in FL Studio.
+The FLP version metadata targets FL Studio 20.8.3.2304. It has been structurally checked, but cannot be auditioned here in FL Studio.
