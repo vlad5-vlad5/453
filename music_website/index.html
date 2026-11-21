@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundWave — Музыкальный сайт</title>
+  <meta name="description" content="Слушайте музыку по жанрам: Электроника, Эмбиент, Рок и Поп. Создавайте плейлисты и добавляйте любимые треки в избранное." />
+  <meta property="og:title" content="SoundWave — Музыкальный сайт" />
+  <meta property="og:description" content="Коллекция музыки по жанрам с плеером, избранным и плейлистами." />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-glow bg-glow-1" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-2" aria-hidden="true"></div>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">SoundWave</h1>
+          <p class="brand-subtitle" id="modeBadge">Коллекция музыки по жанрам</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <label class="search-box" aria-label="Поиск треков">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="search"
+            id="searchInput"
+            placeholder="Поиск по названию или автору..."
+            autocomplete="off"
+          />
+        </label>
+
+        <button type="button" class="btn btn-secondary btn-icon-only" id="shareBtn" title="Скопировать ссылку на сайт" aria-label="Поделиться сайтом">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        </button>
+
+        <button type="button" class="btn btn-secondary btn-icon-only hidden" id="rescanBtn" title="Пересканировать папки tracks/" aria-label="Пересканировать папки">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+
+        <button type="button" class="btn btn-primary" id="openUploadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <span>Добавить трек</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- Фильтры по жанрам и избранному -->
+    <section class="filters-section" aria-label="Фильтры">
+      <div class="genre-tabs" id="genreTabs" role="tablist">
+        <button type="button" class="genre-tab active" data-genre="all" role="tab" aria-selected="true">
+          <span>Все жанры</span>
+          <span class="tab-count" data-count="all">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="favorites" role="tab" aria-selected="false">
+          <span class="heart-mini">♥</span>
+          <span>Избранное</span>
+          <span class="tab-count" data-count="favorites">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="electronic" role="tab" aria-selected="false">
+          <span class="genre-dot dot-electronic"></span>
+          <span>Электроника</span>
+          <span class="tab-count" data-count="electronic">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="ambient" role="tab" aria-selected="false">
+          <span class="genre-dot dot-ambient"></span>
+          <span>Эмбиент</span>
+          <span class="tab-count" data-count="ambient">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="rock" role="tab" aria-selected="false">
+          <span class="genre-dot dot-rock"></span>
+          <span>Рок</span>
+          <span class="tab-count" data-count="rock">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="pop" role="tab" aria-selected="false">
+          <span class="genre-dot dot-pop"></span>
+          <span>Поп</span>
+          <span class="tab-count" data-count="pop">0</span>
+        </button>
+      </div>
+
+      <!-- Панель плейлистов -->
+      <div class="playlists-bar" aria-label="Плейлисты">
+        <div class="playlists-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
+          <span>Плейлисты:</span>
+        </div>
+
+        <div class="playlists-chips" id="playlistsChips"></div>
+
+        <button type="button" class="btn btn-ghost btn-sm" id="newPlaylistBtn">
+          <span>+ Новый плейлист</span>
+        </button>
+      </div>
+
+      <!-- Баннер активного плейлиста -->
+      <div class="playlist-banner hidden" id="playlistBanner">
+        <div class="playlist-banner-info">
+          <span class="playlist-banner-tag">Плейлист</span>
+          <h2 id="playlistBannerTitle">Название плейлиста</h2>
+        </div>
+        <div class="playlist-banner-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="playPlaylistBtn">Слушать</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="renamePlaylistBtn">Переименовать</button>
+          <button type="button" class="btn btn-danger btn-sm" id="deletePlaylistBtn">Удалить</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="closePlaylistViewBtn">Все треки</button>
+        </div>
+      </div>
+
+      <div class="results-meta">
+        <span id="resultsLabel">Показано треков: 0</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="playAllBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="6 4 20 12 6 20 6 4" />
+          </svg>
+          <span>Слушать подборку</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Сетка треков -->
+    <section class="tracks-section" aria-label="Список треков">
+      <div class="tracks-grid" id="tracksGrid"></div>
+
+      <div class="empty-state hidden" id="emptyState">
+        <div class="empty-icon" aria-hidden="true">♪</div>
+        <h3 id="emptyTitle">Треки не найдены</h3>
+        <p id="emptyDesc">Попробуйте выбрать другой жанр, очистить поиск или добавить свой аудиофайл.</p>
+        <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Сбросить фильтры</button>
+      </div>
+    </section>
+
+    <!-- Подсказка по структуре папок -->
+    <section class="guide-card" aria-label="Инструкция по добавлению музыки">
+      <div class="guide-header">
+        <h2>Автоматическое сканирование папок</h2>
+        <span class="guide-badge">tracks/</span>
+      </div>
+      <div class="guide-body">
+        <p>
+          Просто закиньте аудиофайлы (<code>.mp3</code>, <code>.wav</code>, <code>.ogg</code>, <code>.flac</code>, <code>.m4a</code>)
+          в нужную папку жанра — сервер автоматически найдёт их при обновлении.
+          Если положить рядом картинку с таким же именем (например, <code>song.jpg</code> для <code>song.mp3</code>), она станет обложкой трека!
+          Также можно загружать треки и обложки прямо через сайт.
+        </p>
+        <div class="folder-chips">
+          <span class="folder-chip"><span class="genre-dot dot-electronic"></span>tracks/electronic/</span>
+          <span class="folder-chip"><span class="genre-dot dot-ambient"></span>tracks/ambient/</span>
+          <span class="folder-chip"><span class="genre-dot dot-rock"></span>tracks/rock/</span>
+          <span class="folder-chip"><span class="genre-dot dot-pop"></span>tracks/pop/</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Нижний аудиоплеер -->
+  <aside class="player-bar" id="playerBar" aria-label="Аудиоплеер">
+    <div class="player-progress-wrap">
+      <input
+        type="range"
+        id="progressBar"
+        class="progress-bar"
+        min="0"
+        max="100"
+        value="0"
+        step="0.1"
+        aria-label="Перемотка трека"
+      />
+    </div>
+
+    <div class="container player-inner">
+      <div class="player-track">
+        <div class="player-cover" id="playerCover">
+          <span>♪</span>
+        </div>
+        <div class="player-meta">
+          <div class="player-title" id="playerTitle">Выберите трек</div>
+          <div class="player-artist" id="playerArtist">Нажмите Play на любой карточке</div>
+        </div>
+        <button type="button" class="icon-btn player-like-btn" id="playerLikeBtn" title="В избранное" aria-label="Добавить текущий трек в избранное">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="player-controls-wrap">
+        <div class="player-controls">
+          <button type="button" class="icon-btn" id="shuffleBtn" title="Перемешать" aria-label="Перемешать">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
+            </svg>
+          </button>
+
+          <button type="button" class="icon-btn" id="prevBtn" title="Предыдущий трек" aria-label="Предыдущий трек">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20" />
+              <rect x="5" y="4" width="2.5" height="16" rx="1" />
+            </svg>
+          </button>
+
+          <button type="button" class="play-main-btn" id="playPauseBtn" title="Воспроизвести / Пауза" aria-label="Воспроизвести или пауза">
+            <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="7 4 20 12 7 20 7 4" />
+            </svg>
+            <svg class="icon-pause hidden" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1.2" />
+              <rect x="14" y="4" width="4" height="16" rx="1.2" />
+            </svg>
+          </button>
+
+          <button type="button" class="icon-btn" id="nextBtn" title="Следующий трек" aria-label="Следующий трек">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4" />
+              <rect x="16.5" y="4" width="2.5" height="16" rx="1" />
+            </svg>
+          </button>
+
+          <button type="button" class="icon-btn" id="repeatBtn" title="Повтор трека" aria-label="Повтор трека">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="player-time">
+          <span id="currentTime">0:00</span>
+          <span class="time-sep">/</span>
+          <span id="durationTime">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-right">
+        <canvas id="visualizer" class="visualizer" width="120" height="32" aria-hidden="true"></canvas>
+        <div class="volume-wrap">
+          <button type="button" class="icon-btn" id="muteBtn" title="Звук" aria-label="Включить или выключить звук">
+            <svg class="icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+            <svg class="icon-mute hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          </button>
+          <input
+            type="range"
+            id="volumeBar"
+            class="volume-bar"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.85"
+            aria-label="Громкость"
+          />
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Модальное окно загрузки трека и обложки -->
+  <div class="modal-backdrop hidden" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="uploadModalTitle">Загрузить трек в папку tracks/</h2>
+        <button type="button" class="icon-btn" id="closeUploadBtn" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="uploadForm" class="modal-form">
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="audio/*" multiple hidden />
+          <div class="dropzone-icon">♫</div>
+          <div class="dropzone-text" id="dropzoneText">
+            Перетащите аудиофайлы сюда или <span>выберите на устройстве</span>
+          </div>
+          <div class="dropzone-hint">MP3, WAV, OGG, FLAC, M4A · сохранятся прямо в выбранную папку жанра</div>
+        </label>
+
+        <div class="form-row">
+          <label class="form-field">
+            <span>Жанр (папка)</span>
+            <select id="uploadGenre">
+              <option value="electronic">Электроника (tracks/electronic/)</option>
+              <option value="ambient">Эмбиент (tracks/ambient/)</option>
+              <option value="rock">Рок (tracks/rock/)</option>
+              <option value="pop">Поп (tracks/pop/)</option>
+            </select>
+          </label>
+
+          <label class="form-field">
+            <span>Название (для 1 файла)</span>
+            <input type="text" id="uploadTitle" placeholder="Возьмётся из имени файла" />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="form-field">
+            <span>Исполнитель</span>
+            <input type="text" id="uploadArtist" placeholder="Например: Мой проект" />
+          </label>
+
+          <label class="form-field">
+            <span>Обложка альбома (необязательно)</span>
+            <input type="file" id="coverInput" accept="image/*" class="file-inline-input" />
+          </label>
+        </div>
+
+        <div class="cover-preview-row hidden" id="coverPreviewRow">
+          <img id="coverPreviewImg" alt="Превью обложки" />
+          <span id="coverPreviewName">cover.jpg</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="clearCoverBtn">Убрать</button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelUploadBtn">Отмена</button>
+          <button type="submit" class="btn btn-primary" id="submitUploadBtn" disabled>Загрузить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модальное окно создания/переименования плейлиста -->
+  <div class="modal-backdrop hidden" id="playlistModal" role="dialog" aria-modal="true" aria-labelledby="playlistModalTitle">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h2 id="playlistModalTitle">Новый плейлист</h2>
+        <button type="button" class="icon-btn" id="closePlaylistModalBtn" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="playlistForm" class="modal-form">
+        <label class="form-field">
+          <span>Название плейлиста</span>
+          <input type="text" id="playlistNameInput" placeholder="Например: Для работы или В дорогу" required maxlength="50" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelPlaylistModalBtn">Отмена</button>
+          <button type="submit" class="btn btn-primary" id="savePlaylistBtn">Создать</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модальное окно добавления трека в плейлисты -->
+  <div class="modal-backdrop hidden" id="addToPlaylistModal" role="dialog" aria-modal="true" aria-labelledby="addToPlaylistTitle">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h2 id="addToPlaylistTitle">Добавить в плейлист</h2>
+        <button type="button" class="icon-btn" id="closeAddToPlaylistBtn" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="modal-subtitle" id="addToPlaylistTrackName"></p>
+
+      <div class="playlist-checklist" id="playlistChecklist"></div>
+
+      <form id="quickPlaylistForm" class="quick-playlist-form">
+        <input type="text" id="quickPlaylistInput" placeholder="Или создайте новый плейлист..." maxlength="50" />
+        <button type="submit" class="btn btn-primary btn-sm">Создать</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Скрытый input для быстрой смены обложки любого трека -->
+  <input type="file" id="changeCoverInput" accept="image/*" hidden />
+
+  <!-- Всплывающие уведомления -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <audio id="audioPlayer" preload="metadata"></audio>
+  <script src="script.js"></script>
+</body>
+</html>

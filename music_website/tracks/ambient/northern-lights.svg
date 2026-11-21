@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#051626"/>
+      <stop offset="60%" stop-color="#0d3b52"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+    <linearGradient id="aurora1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="aurora2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#sky)"/>
+  <path d="M-20 190 Q90 80 200 155 T420 110 L420 260 Q280 200 180 245 T-20 270 Z" fill="url(#aurora1)"/>
+  <path d="M-20 120 Q120 40 240 120 T420 80 L420 190 Q270 150 150 190 T-20 200 Z" fill="url(#aurora2)"/>
+  <polygon points="0,400 0,305 85,245 155,300 245,220 330,295 400,260 400,400" fill="#06131f" opacity="0.92"/>
+  <polygon points="0,400 50,330 135,365 215,290 295,355 400,315 400,400" fill="#0b2235" opacity="0.85"/>
+  <circle cx="70" cy="60" r="2" fill="#e0f2fe" opacity="0.9"/>
+  <circle cx="160" cy="42" r="1.8" fill="#e0f2fe" opacity="0.8"/>
+  <circle cx="295" cy="55" r="2.4" fill="#e0f2fe" opacity="0.85"/>
+  <circle cx="350" cy="95" r="1.6" fill="#e0f2fe" opacity="0.75"/>
+  <circle cx="120" cy="92" r="1.5" fill="#e0f2fe" opacity="0.7"/>
+</svg>

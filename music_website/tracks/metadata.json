@@ -1,0 +1,22 @@
+{
+  "tracks/electronic/neon-pulse.wav": {
+    "title": "Neon Pulse",
+    "artist": "SynthLab",
+    "cover": "tracks/electronic/neon-pulse.svg"
+  },
+  "tracks/ambient/northern-lights.wav": {
+    "title": "Northern Lights",
+    "artist": "Aurora Drift",
+    "cover": "tracks/ambient/northern-lights.svg"
+  },
+  "tracks/rock/electric-horizon.wav": {
+    "title": "Electric Horizon",
+    "artist": "Voltage Drive",
+    "cover": "tracks/rock/electric-horizon.svg"
+  },
+  "tracks/pop/summer-skyline.wav": {
+    "title": "Summer Skyline",
+    "artist": "Brightline",
+    "cover": "tracks/pop/summer-skyline.svg"
+  }
+}
