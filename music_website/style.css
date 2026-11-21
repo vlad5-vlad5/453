@@ -1405,6 +1405,271 @@ body {
   border-color: var(--accent);
 }
 
+/* Кнопки лайков и комментариев со счётчиком */
+.card-social-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.social-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.15s;
+}
+
+.social-pill svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.18s ease;
+}
+
+.social-pill:active {
+  transform: scale(0.95);
+}
+
+.like-pill:hover {
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.like-pill.liked {
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.16);
+}
+
+.like-pill.liked svg {
+  fill: var(--rose);
+  stroke: var(--rose);
+  transform: scale(1.1);
+}
+
+.comment-pill:hover {
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.comment-pill.has-comments {
+  color: #e0f2fe;
+}
+
+/* Модальное окно комментариев */
+.comments-modal-card {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+}
+
+.comments-track-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.comments-track-cover {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.comments-track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comments-track-meta {
+  min-width: 0;
+}
+
+.comments-track-meta h2 {
+  font-size: 1.06rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comments-track-artist {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.comments-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 120px;
+  max-height: 320px;
+  padding: 4px 2px 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comments-empty {
+  text-align: center;
+  padding: 32px 14px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.comment-item {
+  display: flex;
+  gap: 11px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+.comment-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.comment-author {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.comment-right-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-date {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.comment-delete-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.comment-delete-btn:hover {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.14);
+}
+
+.comment-text {
+  font-size: 0.89rem;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comment-author-input,
+.comment-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.comment-author-input {
+  height: 38px;
+  padding: 0 12px;
+}
+
+.comment-textarea {
+  padding: 10px 12px;
+  resize: none;
+  min-height: 62px;
+}
+
+.comment-author-input:focus,
+.comment-textarea:focus {
+  border-color: var(--accent);
+}
+
+.comment-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.comment-submit-btn {
+  height: 40px;
+  padding: 0 18px;
+  flex-shrink: 0;
+}
+
 /* Уведомления (Toast) */
 .toast-container {
   position: fixed;

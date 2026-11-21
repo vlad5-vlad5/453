@@ -12,7 +12,9 @@ import json
 import mimetypes
 import os
 import re
+import time
 import urllib.parse
+import uuid
 import wave
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent
 TRACKS_DIR = BASE_DIR / "tracks"
 METADATA_FILE = TRACKS_DIR / "metadata.json"
 INDEX_FILE = TRACKS_DIR / "tracks.json"
+SOCIAL_FILE = TRACKS_DIR / "social.json"
 
 GENRES = ("electronic", "ambient", "rock", "pop")
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus", ".webm"}
@@ -49,6 +52,27 @@ def sync_tracks_index() -> None:
     tracks = scan_tracks()
     INDEX_FILE.write_text(
         json.dumps({"tracks": tracks}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_social() -> dict:
+    if not SOCIAL_FILE.exists():
+        return {"likes": {}, "comments": {}}
+    try:
+        data = json.loads(SOCIAL_FILE.read_text(encoding="utf-8"))
+        return {
+            "likes": data.get("likes", {}) if isinstance(data.get("likes"), dict) else {},
+            "comments": data.get("comments", {}) if isinstance(data.get("comments"), dict) else {},
+        }
+    except Exception:
+        return {"likes": {}, "comments": {}}
+
+
+def save_social(data: dict) -> None:
+    TRACKS_DIR.mkdir(parents=True, exist_ok=True)
+    SOCIAL_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -199,6 +223,9 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
             tracks = scan_tracks()
             self.send_json(200, {"tracks": tracks, "serverMode": True})
             return
+        if parsed.path == "/api/social":
+            self.send_json(200, load_social())
+            return
 
         # Обработка HTTP Range для плавной перемотки аудио
         range_header = self.headers.get("Range")
@@ -252,7 +279,73 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/cover":
             self.handle_cover_update()
             return
+        if parsed.path == "/api/like":
+            self.handle_like()
+            return
+        if parsed.path == "/api/comments":
+            self.handle_add_comment()
+            return
+        if parsed.path == "/api/comments/delete":
+            self.handle_delete_comment()
+            return
         self.send_json(404, {"error": "Маршрут не найден."})
+
+    def handle_like(self) -> None:
+        data = self.read_json_body()
+        if data is None:
+            return
+        track_id = str(data.get("trackId", "")).strip()
+        delta = 1 if int(data.get("delta", 0)) >= 0 else -1
+        if not track_id:
+            self.send_json(400, {"error": "Не указан трек."})
+            return
+        social = load_social()
+        current = int(social["likes"].get(track_id, 0))
+        new_val = max(0, current + delta)
+        social["likes"][track_id] = new_val
+        save_social(social)
+        self.send_json(200, {"trackId": track_id, "likes": new_val})
+
+    def handle_add_comment(self) -> None:
+        data = self.read_json_body()
+        if data is None:
+            return
+        track_id = str(data.get("trackId", "")).strip()
+        author = str(data.get("author", "")).strip()[:40] or "Гость"
+        text = str(data.get("text", "")).strip()[:500]
+        client_id = str(data.get("clientId", "")).strip()[:64]
+        if not track_id or not text:
+            self.send_json(400, {"error": "Введите текст комментария."})
+            return
+        comment = {
+            "id": uuid.uuid4().hex[:12],
+            "author": author,
+            "text": text,
+            "createdAt": int(time.time() * 1000),
+            "clientId": client_id,
+        }
+        social = load_social()
+        social["comments"].setdefault(track_id, []).insert(0, comment)
+        save_social(social)
+        self.send_json(201, {"comment": comment})
+
+    def handle_delete_comment(self) -> None:
+        data = self.read_json_body()
+        if data is None:
+            return
+        track_id = str(data.get("trackId", "")).strip()
+        comment_id = str(data.get("commentId", "")).strip()
+        client_id = str(data.get("clientId", "")).strip()
+        if not track_id or not comment_id:
+            self.send_json(400, {"error": "Недостаточно данных."})
+            return
+        social = load_social()
+        items = social["comments"].get(track_id, [])
+        social["comments"][track_id] = [
+            c for c in items if not (c.get("id") == comment_id and (not c.get("clientId") or c.get("clientId") == client_id))
+        ]
+        save_social(social)
+        self.send_json(200, {"ok": True})
 
     def handle_upload(self) -> None:
         data = self.read_json_body()
