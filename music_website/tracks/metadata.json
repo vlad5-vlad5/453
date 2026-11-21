@@ -1,22 +1,22 @@
 {
   "tracks/electronic/neon-pulse.wav": {
-    "title": "Neon Pulse",
-    "artist": "SynthLab",
+    "title": "Неоновый пульс",
+    "artist": "СинтЛаб",
     "cover": "tracks/electronic/neon-pulse.svg"
   },
   "tracks/ambient/northern-lights.wav": {
-    "title": "Northern Lights",
-    "artist": "Aurora Drift",
+    "title": "Северное сияние",
+    "artist": "Аврора",
     "cover": "tracks/ambient/northern-lights.svg"
   },
   "tracks/rock/electric-horizon.wav": {
-    "title": "Electric Horizon",
-    "artist": "Voltage Drive",
+    "title": "Электрический горизонт",
+    "artist": "Вольтаж",
     "cover": "tracks/rock/electric-horizon.svg"
   },
   "tracks/pop/summer-skyline.wav": {
-    "title": "Summer Skyline",
-    "artist": "Brightline",
+    "title": "Летний горизонт",
+    "artist": "Яркий Свет",
     "cover": "tracks/pop/summer-skyline.svg"
   }
 }

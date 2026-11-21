@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Локальный сервер для SoundWave (music_website).
+Локальный сервер для сайта «Моя Новая Музыка» (music_website).
 - Автоматически сканирует папки tracks/electronic, ambient, rock, pop
-- Отдаёт /api/tracks с метаданными и обложками
+- Отдаёт /api/tracks с метаданными и обложками и синхронизирует tracks/tracks.json
 - Поддерживает загрузку треков (POST /api/upload) и обложек (POST /api/cover) прямо в tracks/
 - Поддерживает HTTP Range-запросы для плавной перемотки аудио
 """
@@ -20,6 +20,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 TRACKS_DIR = BASE_DIR / "tracks"
 METADATA_FILE = TRACKS_DIR / "metadata.json"
+INDEX_FILE = TRACKS_DIR / "tracks.json"
 
 GENRES = ("electronic", "ambient", "rock", "pop")
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus", ".webm"}
@@ -40,6 +41,14 @@ def save_metadata(data: dict) -> None:
     TRACKS_DIR.mkdir(parents=True, exist_ok=True)
     METADATA_FILE.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def sync_tracks_index() -> None:
+    tracks = scan_tracks()
+    INDEX_FILE.write_text(
+        json.dumps({"tracks": tracks}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -303,6 +312,7 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
             **({"cover": cover_rel} if cover_rel else {}),
         }
         save_metadata(meta)
+        sync_tracks_index()
 
         self.send_json(
             201,
@@ -359,6 +369,7 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         entry["cover"] = rel_cover
         meta[track_id] = entry
         save_metadata(meta)
+        sync_tracks_index()
 
         self.send_json(200, {"cover": rel_cover})
 
@@ -367,7 +378,7 @@ def main():
     port = int(os.environ.get("PORT", "8000"))
     ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer(("0.0.0.0", port), MusicRequestHandler)
-    print(f"SoundWave server running on http://0.0.0.0:{port}", flush=True)
+    print(f"Сервер «Моя Новая Музыка» запущен на http://0.0.0.0:{port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
