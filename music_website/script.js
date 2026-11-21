@@ -53,8 +53,19 @@ const FALLBACK_TRACKS = [
   },
 ];
 
+// Необязательно: вставьте сюда ссылку на бесплатную Firebase Realtime Database
+// (например: "https://my-music-default-rtdb.europe-west1.firebasedatabase.app"),
+// чтобы лайки и комментарии были общими для всех друзей на GitHub Pages.
+const FIREBASE_DB_URL = "";
+
 const LS_FAVORITES = "soundwave_favorites_v1";
 const LS_PLAYLISTS = "soundwave_playlists_v1";
+const LS_LIKES_MAP = "soundwave_likes_map_v1";
+const LS_COMMENTS_MAP = "soundwave_comments_map_v1";
+const LS_USERNAME = "soundwave_username_v1";
+const LS_CLIENT_ID = "soundwave_client_id_v1";
+
+const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
 
 function loadJSON(key, fallback) {
   try {
@@ -73,6 +84,21 @@ function saveJSON(key, value) {
   }
 }
 
+function getOrCreateClientId() {
+  let id = localStorage.getItem(LS_CLIENT_ID);
+  if (!id) {
+    id = `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      localStorage.setItem(LS_CLIENT_ID, id);
+    } catch {
+      // ignore
+    }
+  }
+  return id;
+}
+
+const CLIENT_ID = getOrCreateClientId();
+
 // Состояние приложения
 const state = {
   serverMode: false,
@@ -85,11 +111,14 @@ const state = {
   isShuffle: false,
   isRepeat: false,
   favorites: new Set(loadJSON(LS_FAVORITES, [])),
+  likeCounts: loadJSON(LS_LIKES_MAP, {}), // { trackId: number }
+  commentsMap: loadJSON(LS_COMMENTS_MAP, {}), // { trackId: [{ id, author, text, createdAt, clientId }] }
   playlists: loadJSON(LS_PLAYLISTS, []), // [{ id, name, trackIds: [] }]
   selectedFiles: [],
   selectedCoverFile: null,
   editingPlaylistId: null,
   playlistModalTrackId: null,
+  activeCommentsTrackId: null,
   coverTargetTrackId: null,
 };
 
@@ -123,6 +152,7 @@ const playerCover = document.getElementById("playerCover");
 const playerTitle = document.getElementById("playerTitle");
 const playerArtist = document.getElementById("playerArtist");
 const playerLikeBtn = document.getElementById("playerLikeBtn");
+const playerCommentBtn = document.getElementById("playerCommentBtn");
 const playPauseBtn = document.getElementById("playPauseBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
@@ -172,6 +202,20 @@ const addToPlaylistTrackName = document.getElementById("addToPlaylistTrackName")
 const playlistChecklist = document.getElementById("playlistChecklist");
 const quickPlaylistForm = document.getElementById("quickPlaylistForm");
 const quickPlaylistInput = document.getElementById("quickPlaylistInput");
+
+// Модалка комментариев
+const commentsModal = document.getElementById("commentsModal");
+const closeCommentsBtn = document.getElementById("closeCommentsBtn");
+const commentsTrackCover = document.getElementById("commentsTrackCover");
+const commentsModalTitle = document.getElementById("commentsModalTitle");
+const commentsTrackArtist = document.getElementById("commentsTrackArtist");
+const commentsLikeBtn = document.getElementById("commentsLikeBtn");
+const commentsLikeCount = document.getElementById("commentsLikeCount");
+const commentsList = document.getElementById("commentsList");
+const commentForm = document.getElementById("commentForm");
+const commentAuthorInput = document.getElementById("commentAuthorInput");
+const commentTextInput = document.getElementById("commentTextInput");
+const commentSubmitBtn = document.getElementById("commentSubmitBtn");
 
 const changeCoverInput = document.getElementById("changeCoverInput");
 const toastContainer = document.getElementById("toastContainer");
@@ -351,6 +395,78 @@ async function mergeNewTracksFromGitHub() {
   }
 }
 
+function encodeFirebaseKey(trackId) {
+  return trackId.replace(/[.#$/[\]]/g, "_");
+}
+
+function getLikeCount(trackId) {
+  const stored = Number(state.likeCounts[trackId] || 0);
+  const minForSelf = state.favorites.has(trackId) ? 1 : 0;
+  return Math.max(stored, minForSelf);
+}
+
+function getTrackComments(trackId) {
+  const arr = state.commentsMap[trackId];
+  return Array.isArray(arr) ? arr : [];
+}
+
+function syncOwnerControls() {
+  const showOwner = state.serverMode || IS_ADMIN;
+  openUploadBtn.classList.toggle("hidden", !showOwner);
+}
+
+async function loadSocialData() {
+  if (state.serverMode) {
+    try {
+      const res = await fetch("/api/social", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        state.likeCounts = data.likes || {};
+        state.commentsMap = data.comments || {};
+        saveJSON(LS_LIKES_MAP, state.likeCounts);
+        saveJSON(LS_COMMENTS_MAP, state.commentsMap);
+        renderTracks();
+        if (state.activeCommentsTrackId) renderCommentsModal();
+      }
+    } catch {
+      // Используем локальные данные
+    }
+    return;
+  }
+
+  const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+  if (!fbBase) return;
+
+  try {
+    const res = await fetch(`${fbBase}/social.json`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+
+    const likes = {};
+    const comments = {};
+    for (const track of state.tracks) {
+      const key = encodeFirebaseKey(track.id);
+      if (data.likes && typeof data.likes[key] === "number") {
+        likes[track.id] = data.likes[key];
+      }
+      if (data.comments && data.comments[key]) {
+        const rawObj = data.comments[key];
+        const list = Array.isArray(rawObj) ? rawObj.filter(Boolean) : Object.values(rawObj);
+        comments[track.id] = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      }
+    }
+    state.likeCounts = { ...state.likeCounts, ...likes };
+    state.commentsMap = { ...state.commentsMap, ...comments };
+    saveJSON(LS_LIKES_MAP, state.likeCounts);
+    saveJSON(LS_COMMENTS_MAP, state.commentsMap);
+    renderTracks();
+    if (state.activeCommentsTrackId) renderCommentsModal();
+  } catch {
+    // Тихий fallback на localStorage
+  }
+}
+
 // Загрузка треков: сначала локальный сервер /api/tracks, затем tracks/tracks.json + GitHub
 async function loadTracksFromServer(notify = false) {
   rescanBtn.classList.add("is-spinning");
@@ -361,10 +477,12 @@ async function loadTracksFromServer(notify = false) {
     if (Array.isArray(data.tracks)) {
       state.serverMode = true;
       state.tracks = data.tracks;
-      modeBadge.textContent = "Автосканирование папок активно";
+      modeBadge.textContent = "Коллекция музыки по жанрам";
       rescanBtn.classList.remove("hidden");
+      syncOwnerControls();
+      await loadSocialData();
       if (notify) {
-        showToast(`Папки обновлены · треков: ${data.tracks.length}`);
+        showToast(`Список обновлён · треков: ${data.tracks.length}`);
       }
       renderAll();
       return;
@@ -373,6 +491,7 @@ async function loadTracksFromServer(notify = false) {
     state.serverMode = false;
     modeBadge.textContent = "Коллекция музыки по жанрам";
     rescanBtn.classList.remove("hidden");
+    syncOwnerControls();
 
     // Пробуем загрузить автоматически сгенерированный tracks/tracks.json
     try {
@@ -389,6 +508,7 @@ async function loadTracksFromServer(notify = false) {
 
     renderAll();
     await mergeNewTracksFromGitHub();
+    await loadSocialData();
 
     if (notify) {
       showToast(`Список обновлён · треков: ${state.tracks.length}`);
@@ -414,7 +534,7 @@ shareBtn?.addEventListener("click", async () => {
   }
 });
 
-// Сохранение лайков и плейлистов
+// Сохранение лайков, комментариев и плейлистов
 function persistFavorites() {
   saveJSON(LS_FAVORITES, Array.from(state.favorites));
 }
@@ -423,18 +543,58 @@ function persistPlaylists() {
   saveJSON(LS_PLAYLISTS, state.playlists);
 }
 
-function toggleFavorite(trackId) {
+async function toggleFavorite(trackId) {
   if (!trackId) return;
-  if (state.favorites.has(trackId)) {
+  const alreadyLiked = state.favorites.has(trackId);
+  const prevCount = getLikeCount(trackId);
+  const delta = alreadyLiked ? -1 : 1;
+
+  if (alreadyLiked) {
     state.favorites.delete(trackId);
-    showToast("Убрано из избранного");
+    showToast("Лайк убран");
   } else {
     state.favorites.add(trackId);
-    showToast("Добавлено в избранное ♥");
+    showToast("Понравилось ♥");
   }
+
+  const nextCount = Math.max(0, prevCount + delta);
+  state.likeCounts[trackId] = nextCount;
   persistFavorites();
+  saveJSON(LS_LIKES_MAP, state.likeCounts);
   updatePlayerUI();
   renderAll();
+  if (state.activeCommentsTrackId === trackId) renderCommentsModal();
+
+  if (state.serverMode) {
+    try {
+      const res = await fetch("/api/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trackId, delta }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        state.likeCounts[trackId] = data.likes;
+        saveJSON(LS_LIKES_MAP, state.likeCounts);
+        renderTracks();
+        if (state.activeCommentsTrackId === trackId) renderCommentsModal();
+      }
+    } catch {
+      // Локальное состояние уже обновлено
+    }
+  } else if (FIREBASE_DB_URL) {
+    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+    const key = encodeFirebaseKey(trackId);
+    try {
+      await fetch(`${fbBase}/social/likes/${key}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextCount),
+      });
+    } catch {
+      // ignore
+    }
+  }
 }
 
 // Фильтрация треков
@@ -553,7 +713,10 @@ function renderTracks() {
       const isCurrent = track.id === state.currentTrackId;
       const isPlayingCurrent = isCurrent && state.isPlaying;
       const isLiked = state.favorites.has(track.id);
+      const likeCount = getLikeCount(track.id);
+      const commentCount = getTrackComments(track.id).length;
       const inPlaylist = isTrackInAnyPlaylist(track.id);
+      const showOwner = state.serverMode || IS_ADMIN;
 
       const cardClass = [
         "track-card",
@@ -567,13 +730,8 @@ function renderTracks() {
         ? `<img class="cover-img" src="${escapeHtml(track.cover)}" alt="Обложка ${escapeHtml(track.title)}" loading="lazy" />`
         : `<span class="cover-symbol" aria-hidden="true">${genreInfo.icon}</span>`;
 
-      return `
-        <article class="${cardClass}" data-id="${escapeHtml(track.id)}">
-          <div class="track-cover cover-${escapeHtml(track.genre)}" data-action="toggle" data-id="${escapeHtml(track.id)}">
-            ${coverHtml}
-            <span class="track-genre-badge">${escapeHtml(genreInfo.label)}</span>
-
-            <div class="cover-top-actions">
+      const coverEditHtml = showOwner
+        ? `<div class="cover-top-actions">
               <button
                 type="button"
                 class="cover-mini-btn"
@@ -588,7 +746,15 @@ function renderTracks() {
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
               </button>
-            </div>
+            </div>`
+        : "";
+
+      return `
+        <article class="${cardClass}" data-id="${escapeHtml(track.id)}">
+          <div class="track-cover cover-${escapeHtml(track.genre)}" data-action="toggle" data-id="${escapeHtml(track.id)}">
+            ${coverHtml}
+            <span class="track-genre-badge">${escapeHtml(genreInfo.label)}</span>
+            ${coverEditHtml}
 
             <div class="eq-bars" aria-hidden="true">
               <span></span><span></span><span></span><span></span>
@@ -614,17 +780,35 @@ function renderTracks() {
               <h3 class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</h3>
               <p class="track-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
             </div>
+          </div>
+
+          <div class="card-social-bar">
             <button
               type="button"
-              class="like-btn ${isLiked ? "liked" : ""}"
+              class="social-pill like-pill ${isLiked ? "liked" : ""}"
               data-action="like"
               data-id="${escapeHtml(track.id)}"
-              title="${isLiked ? "Убрать из избранного" : "В избранное"}"
-              aria-label="${isLiked ? "Убрать из избранного" : "Добавить в избранное"}"
+              title="${isLiked ? "Убрать лайк" : "Поставить лайк"}"
+              aria-label="${isLiked ? "Убрать лайк" : "Поставить лайк"}"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
+              <span>${likeCount}</span>
+            </button>
+
+            <button
+              type="button"
+              class="social-pill comment-pill ${commentCount > 0 ? "has-comments" : ""}"
+              data-action="comments"
+              data-id="${escapeHtml(track.id)}"
+              title="Комментарии к треку"
+              aria-label="Открыть комментарии (${commentCount})"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+              <span>${commentCount}</span>
             </button>
           </div>
 
@@ -802,6 +986,9 @@ tracksGrid.addEventListener("click", (e) => {
   if (action === "like") {
     e.stopPropagation();
     toggleFavorite(id);
+  } else if (action === "comments") {
+    e.stopPropagation();
+    openCommentsModal(id);
   } else if (action === "playlist") {
     e.stopPropagation();
     openAddToPlaylistModal(id);
@@ -1023,9 +1210,207 @@ quickPlaylistForm.addEventListener("submit", (e) => {
   renderAll();
 });
 
+// --- Комментарии к треку ---
+function formatCommentDate(ts) {
+  if (!ts) return "";
+  const diffSec = Math.floor((Date.now() - ts) / 1000);
+  if (diffSec < 60) return "только что";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} мин назад`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} ч назад`;
+  return new Date(ts).toLocaleString("ru-RU", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function renderCommentsModal() {
+  const trackId = state.activeCommentsTrackId;
+  if (!trackId) return;
+  const track = state.tracks.find((t) => t.id === trackId);
+  if (!track) return;
+
+  const genreInfo = GENRES[track.genre] || { label: track.genre, icon: "♪" };
+  commentsModalTitle.textContent = track.title;
+  commentsTrackArtist.textContent = `${track.artist} · ${genreInfo.label}`;
+  commentsTrackCover.className = `comments-track-cover cover-${track.genre}`;
+  commentsTrackCover.innerHTML = track.cover
+    ? `<img src="${escapeHtml(track.cover)}" alt="" />`
+    : `<span>${genreInfo.icon}</span>`;
+
+  const liked = state.favorites.has(trackId);
+  commentsLikeBtn.classList.toggle("liked", liked);
+  commentsLikeCount.textContent = String(getLikeCount(trackId));
+
+  const items = getTrackComments(trackId);
+  if (items.length === 0) {
+    commentsList.innerHTML = `<div class="comments-empty">Пока нет комментариев — станьте первым!</div>`;
+    return;
+  }
+
+  commentsList.innerHTML = items
+    .map((c) => {
+      const initial = (c.author || "Г").trim().charAt(0).toUpperCase() || "Г";
+      const canDelete = !c.clientId || c.clientId === CLIENT_ID;
+      return `
+        <div class="comment-item" data-comment-id="${escapeHtml(c.id)}">
+          <div class="comment-avatar" aria-hidden="true">${escapeHtml(initial)}</div>
+          <div class="comment-body">
+            <div class="comment-meta-row">
+              <span class="comment-author">${escapeHtml(c.author || "Гость")}</span>
+              <div class="comment-right-meta">
+                <span class="comment-date">${escapeHtml(formatCommentDate(c.createdAt))}</span>
+                ${
+                  canDelete
+                    ? `<button type="button" class="comment-delete-btn" data-delete-comment="${escapeHtml(c.id)}" title="Удалить комментарий">Удалить</button>`
+                    : ""
+                }
+              </div>
+            </div>
+            <p class="comment-text">${escapeHtml(c.text)}</p>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function openCommentsModal(trackId) {
+  state.activeCommentsTrackId = trackId;
+  const savedName = localStorage.getItem(LS_USERNAME) || "";
+  if (savedName && !commentAuthorInput.value.trim()) {
+    commentAuthorInput.value = savedName;
+  }
+  commentTextInput.value = "";
+  renderCommentsModal();
+  commentsModal.classList.remove("hidden");
+  setTimeout(() => {
+    (commentAuthorInput.value.trim() ? commentTextInput : commentAuthorInput).focus();
+  }, 40);
+}
+
+function closeCommentsModal() {
+  commentsModal.classList.add("hidden");
+  state.activeCommentsTrackId = null;
+}
+
+closeCommentsBtn.addEventListener("click", closeCommentsModal);
+commentsModal.addEventListener("click", (e) => {
+  if (e.target === commentsModal) closeCommentsModal();
+});
+
+commentsLikeBtn.addEventListener("click", () => {
+  if (state.activeCommentsTrackId) toggleFavorite(state.activeCommentsTrackId);
+});
+
+commentsList.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-delete-comment]");
+  if (!btn || !state.activeCommentsTrackId) return;
+  const commentId = btn.getAttribute("data-delete-comment");
+  const trackId = state.activeCommentsTrackId;
+
+  state.commentsMap[trackId] = getTrackComments(trackId).filter((c) => c.id !== commentId);
+  saveJSON(LS_COMMENTS_MAP, state.commentsMap);
+  renderCommentsModal();
+  renderTracks();
+  showToast("Комментарий удалён");
+
+  if (state.serverMode) {
+    try {
+      await fetch("/api/comments/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trackId, commentId, clientId: CLIENT_ID }),
+      });
+    } catch {
+      // ignore
+    }
+  } else if (FIREBASE_DB_URL) {
+    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+    const key = encodeFirebaseKey(trackId);
+    try {
+      await fetch(`${fbBase}/social/comments/${key}/${encodeURIComponent(commentId)}.json`, {
+        method: "DELETE",
+      });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+commentForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const trackId = state.activeCommentsTrackId;
+  if (!trackId) return;
+
+  const author = commentAuthorInput.value.trim() || "Гость";
+  const text = commentTextInput.value.trim();
+  if (!text) return;
+
+  try {
+    localStorage.setItem(LS_USERNAME, author);
+  } catch {
+    // ignore
+  }
+
+  let newComment = {
+    id: `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    author,
+    text,
+    createdAt: Date.now(),
+    clientId: CLIENT_ID,
+  };
+
+  commentSubmitBtn.disabled = true;
+
+  if (state.serverMode) {
+    try {
+      const res = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trackId, author, text, clientId: CLIENT_ID }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.comment) newComment = data.comment;
+      }
+    } catch {
+      // Сохраняем локально
+    }
+  } else if (FIREBASE_DB_URL) {
+    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+    const key = encodeFirebaseKey(trackId);
+    try {
+      await fetch(`${fbBase}/social/comments/${key}/${encodeURIComponent(newComment.id)}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newComment),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  const list = getTrackComments(trackId);
+  state.commentsMap[trackId] = [newComment, ...list];
+  saveJSON(LS_COMMENTS_MAP, state.commentsMap);
+
+  commentTextInput.value = "";
+  commentSubmitBtn.disabled = false;
+  renderCommentsModal();
+  renderTracks();
+  showToast("Комментарий добавлен");
+});
+
 // --- Кнопки плеера ---
 playerLikeBtn.addEventListener("click", () => {
   if (state.currentTrackId) toggleFavorite(state.currentTrackId);
+});
+
+playerCommentBtn.addEventListener("click", () => {
+  if (state.currentTrackId) openCommentsModal(state.currentTrackId);
+  else showToast("Сначала выберите трек");
 });
 
 playPauseBtn.addEventListener("click", () => {
