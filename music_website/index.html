@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SoundWave — Музыкальный сайт</title>
-  <meta name="description" content="Слушайте музыку по жанрам: Электроника, Эмбиент, Рок и Поп. Создавайте плейлисты и добавляйте любимые треки в избранное." />
-  <meta property="og:title" content="SoundWave — Музыкальный сайт" />
-  <meta property="og:description" content="Коллекция музыки по жанрам с плеером, избранным и плейлистами." />
+  <title>Моя Новая Музыка</title>
+  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Электроника, Эмбиент, Рок и Поп. Создавайте плейлисты и добавляйте любимые треки в избранное." />
+  <meta property="og:title" content="Моя Новая Музыка" />
+  <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и плейлистами." />
   <meta property="og:type" content="website" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -25,7 +25,7 @@
           </svg>
         </div>
         <div>
-          <h1 class="brand-title">SoundWave</h1>
+          <h1 class="brand-title">Моя Новая Музыка</h1>
           <p class="brand-subtitle" id="modeBadge">Коллекция музыки по жанрам</p>
         </div>
       </div>
@@ -166,24 +166,32 @@
       </div>
     </section>
 
-    <!-- Подсказка по структуре папок -->
+    <!-- Подсказка по добавлению музыки для всех друзей -->
     <section class="guide-card" aria-label="Инструкция по добавлению музыки">
       <div class="guide-header">
-        <h2>Автоматическое сканирование папок</h2>
-        <span class="guide-badge">tracks/</span>
+        <h2>Как добавить песню, чтобы её услышали друзья</h2>
+        <span class="guide-badge">Автообновление</span>
       </div>
       <div class="guide-body">
         <p>
-          Просто закиньте аудиофайлы (<code>.mp3</code>, <code>.wav</code>, <code>.ogg</code>, <code>.flac</code>, <code>.m4a</code>)
-          в нужную папку жанра — сервер автоматически найдёт их при обновлении.
-          Если положить рядом картинку с таким же именем (например, <code>song.jpg</code> для <code>song.mp3</code>), она станет обложкой трека!
-          Также можно загружать треки и обложки прямо через сайт.
+          Загрузите аудиофайл (<code>.mp3</code>, <code>.wav</code>, <code>.ogg</code>, <code>.flac</code>, <code>.m4a</code>)
+          в папку нужного жанра — песня появится на сайте у всех друзей автоматически, без редактирования кода.
+          Если назвать файл как <code>Исполнитель - Название.mp3</code>, автор и название определятся сами,
+          а картинка с таким же именем рядом (например, <code>песня.jpg</code>) станет обложкой!
         </p>
         <div class="folder-chips">
-          <span class="folder-chip"><span class="genre-dot dot-electronic"></span>tracks/electronic/</span>
-          <span class="folder-chip"><span class="genre-dot dot-ambient"></span>tracks/ambient/</span>
-          <span class="folder-chip"><span class="genre-dot dot-rock"></span>tracks/rock/</span>
-          <span class="folder-chip"><span class="genre-dot dot-pop"></span>tracks/pop/</span>
+          <a class="folder-chip folder-chip-link" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/electronic" target="_blank" rel="noopener">
+            <span class="genre-dot dot-electronic"></span>Электроника · загрузить
+          </a>
+          <a class="folder-chip folder-chip-link" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/ambient" target="_blank" rel="noopener">
+            <span class="genre-dot dot-ambient"></span>Эмбиент · загрузить
+          </a>
+          <a class="folder-chip folder-chip-link" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/rock" target="_blank" rel="noopener">
+            <span class="genre-dot dot-rock"></span>Рок · загрузить
+          </a>
+          <a class="folder-chip folder-chip-link" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/pop" target="_blank" rel="noopener">
+            <span class="genre-dot dot-pop"></span>Поп · загрузить
+          </a>
         </div>
       </div>
     </section>
@@ -211,7 +219,7 @@
         </div>
         <div class="player-meta">
           <div class="player-title" id="playerTitle">Выберите трек</div>
-          <div class="player-artist" id="playerArtist">Нажмите Play на любой карточке</div>
+          <div class="player-artist" id="playerArtist">Нажмите кнопку воспроизведения на любой карточке</div>
         </div>
         <button type="button" class="icon-btn player-like-btn" id="playerLikeBtn" title="В избранное" aria-label="Добавить текущий трек в избранное">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -307,13 +315,23 @@
   <div class="modal-backdrop hidden" id="uploadModal" role="dialog" aria-modal="true" aria-labelledby="uploadModalTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="uploadModalTitle">Загрузить трек в папку tracks/</h2>
+        <h2 id="uploadModalTitle">Добавить музыку</h2>
         <button type="button" class="icon-btn" id="closeUploadBtn" aria-label="Закрыть окно">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
+      </div>
+
+      <div class="public-upload-notice hidden" id="publicUploadNotice">
+        <p>
+          <strong>Чтобы песню увидели все друзья:</strong> выберите жанр ниже и загрузите файл в папку на GitHub — трек появится на сайте автоматически!
+        </p>
+        <a id="githubUploadLink" class="btn btn-primary btn-sm" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/electronic" target="_blank" rel="noopener">
+          Загрузить для всех друзей
+        </a>
+        <div class="notice-sub">Или добавьте файл ниже для быстрого прослушивания только на вашем устройстве:</div>
       </div>
 
       <form id="uploadForm" class="modal-form">
@@ -323,17 +341,17 @@
           <div class="dropzone-text" id="dropzoneText">
             Перетащите аудиофайлы сюда или <span>выберите на устройстве</span>
           </div>
-          <div class="dropzone-hint">MP3, WAV, OGG, FLAC, M4A · сохранятся прямо в выбранную папку жанра</div>
+          <div class="dropzone-hint">Поддерживаются форматы MP3, WAV, OGG, FLAC, M4A</div>
         </label>
 
         <div class="form-row">
           <label class="form-field">
-            <span>Жанр (папка)</span>
+            <span>Жанр</span>
             <select id="uploadGenre">
-              <option value="electronic">Электроника (tracks/electronic/)</option>
-              <option value="ambient">Эмбиент (tracks/ambient/)</option>
-              <option value="rock">Рок (tracks/rock/)</option>
-              <option value="pop">Поп (tracks/pop/)</option>
+              <option value="electronic">Электроника</option>
+              <option value="ambient">Эмбиент</option>
+              <option value="rock">Рок</option>
+              <option value="pop">Поп</option>
             </select>
           </label>
 

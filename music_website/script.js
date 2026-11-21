@@ -6,12 +6,19 @@ const GENRES = {
   pop: { label: "Поп", icon: "★", folder: "tracks/pop" },
 };
 
-// Резервный список треков (если сайт открыт статически без server.py)
+// Настройки репозитория GitHub для автообнаружения песен на GitHub Pages
+const GITHUB_OWNER = "vlad5-vlad5";
+const GITHUB_REPO = "453";
+const GITHUB_BRANCH = "main";
+const AUDIO_EXT_RE = /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm)$/i;
+const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|svg|gif)$/i;
+
+// Резервный список треков (если не удалось загрузить tracks.json и /api/tracks)
 const FALLBACK_TRACKS = [
   {
     id: "tracks/electronic/neon-pulse.wav",
-    title: "Neon Pulse",
-    artist: "SynthLab",
+    title: "Неоновый пульс",
+    artist: "СинтЛаб",
     genre: "electronic",
     src: "tracks/electronic/neon-pulse.wav",
     cover: "tracks/electronic/neon-pulse.svg",
@@ -19,8 +26,8 @@ const FALLBACK_TRACKS = [
   },
   {
     id: "tracks/ambient/northern-lights.wav",
-    title: "Northern Lights",
-    artist: "Aurora Drift",
+    title: "Северное сияние",
+    artist: "Аврора",
     genre: "ambient",
     src: "tracks/ambient/northern-lights.wav",
     cover: "tracks/ambient/northern-lights.svg",
@@ -28,8 +35,8 @@ const FALLBACK_TRACKS = [
   },
   {
     id: "tracks/rock/electric-horizon.wav",
-    title: "Electric Horizon",
-    artist: "Voltage Drive",
+    title: "Электрический горизонт",
+    artist: "Вольтаж",
     genre: "rock",
     src: "tracks/rock/electric-horizon.wav",
     cover: "tracks/rock/electric-horizon.svg",
@@ -37,8 +44,8 @@ const FALLBACK_TRACKS = [
   },
   {
     id: "tracks/pop/summer-skyline.wav",
-    title: "Summer Skyline",
-    artist: "Brightline",
+    title: "Летний горизонт",
+    artist: "Яркий Свет",
     genre: "pop",
     src: "tracks/pop/summer-skyline.wav",
     cover: "tracks/pop/summer-skyline.svg",
@@ -146,6 +153,8 @@ const coverPreviewImg = document.getElementById("coverPreviewImg");
 const coverPreviewName = document.getElementById("coverPreviewName");
 const clearCoverBtn = document.getElementById("clearCoverBtn");
 const submitUploadBtn = document.getElementById("submitUploadBtn");
+const publicUploadNotice = document.getElementById("publicUploadNotice");
+const githubUploadLink = document.getElementById("githubUploadLink");
 
 // Модалка создания/переименования плейлиста
 const playlistModal = document.getElementById("playlistModal");
@@ -273,7 +282,76 @@ function isTrackInAnyPlaylist(trackId) {
   return state.playlists.some((pl) => pl.trackIds.includes(trackId));
 }
 
-// Загрузка треков через серверное автосканирование /api/tracks
+function parseTrackFilename(filename) {
+  const stem = filename.replace(/\.[^/.]+$/, "");
+  if (stem.includes(" - ")) {
+    const [artist, ...rest] = stem.split(" - ");
+    return {
+      artist: artist.trim() || "Моя коллекция",
+      title: rest.join(" - ").trim() || stem,
+    };
+  }
+  const cleaned = cleanFileTitle(filename);
+  return {
+    artist: "Моя коллекция",
+    title: cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : stem,
+  };
+}
+
+// Дополнительная проверка новых файлов напрямую из папок на GitHub (чтобы новые песни появлялись сразу)
+async function mergeNewTracksFromGitHub() {
+  const genreKeys = Object.keys(GENRES);
+  const existingIds = new Set(state.tracks.map((t) => t.id));
+  let added = 0;
+
+  await Promise.all(
+    genreKeys.map(async (genre) => {
+      try {
+        const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/music_website/tracks/${genre}?ref=${GITHUB_BRANCH}`;
+        const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3+json" } });
+        if (!res.ok) return;
+        const items = await res.json();
+        if (!Array.isArray(items)) return;
+
+        const coverByStem = new Map();
+        for (const item of items) {
+          if (item.type === "file" && IMAGE_EXT_RE.test(item.name)) {
+            const stem = item.name.replace(/\.[^/.]+$/, "").toLowerCase();
+            coverByStem.set(stem, item.download_url || `tracks/${genre}/${encodeURIComponent(item.name)}`);
+          }
+        }
+
+        for (const item of items) {
+          if (item.type !== "file" || !AUDIO_EXT_RE.test(item.name)) continue;
+          const relId = `tracks/${genre}/${item.name}`;
+          if (existingIds.has(relId)) continue;
+
+          const { artist, title } = parseTrackFilename(item.name);
+          const stem = item.name.replace(/\.[^/.]+$/, "").toLowerCase();
+          state.tracks.unshift({
+            id: relId,
+            title,
+            artist,
+            genre,
+            src: item.download_url || `tracks/${genre}/${encodeURIComponent(item.name)}`,
+            cover: coverByStem.get(stem) || null,
+            duration: "--:--",
+          });
+          existingIds.add(relId);
+          added++;
+        }
+      } catch {
+        // Тихий пропуск, если API недоступен или достигнут лимит
+      }
+    })
+  );
+
+  if (added > 0) {
+    renderAll();
+  }
+}
+
+// Загрузка треков: сначала локальный сервер /api/tracks, затем tracks/tracks.json + GitHub
 async function loadTracksFromServer(notify = false) {
   rescanBtn.classList.add("is-spinning");
   try {
@@ -283,10 +361,10 @@ async function loadTracksFromServer(notify = false) {
     if (Array.isArray(data.tracks)) {
       state.serverMode = true;
       state.tracks = data.tracks;
-      modeBadge.textContent = "Автосканирование папок tracks/ активно";
+      modeBadge.textContent = "Автосканирование папок активно";
       rescanBtn.classList.remove("hidden");
       if (notify) {
-        showToast(`Папки просканированы · найдено треков: ${data.tracks.length}`);
+        showToast(`Папки обновлены · треков: ${data.tracks.length}`);
       }
       renderAll();
       return;
@@ -294,10 +372,28 @@ async function loadTracksFromServer(notify = false) {
   } catch {
     state.serverMode = false;
     modeBadge.textContent = "Коллекция музыки по жанрам";
-    rescanBtn.classList.add("hidden");
-    if (notify) {
-      showToast("Список треков обновлён");
+    rescanBtn.classList.remove("hidden");
+
+    // Пробуем загрузить автоматически сгенерированный tracks/tracks.json
+    try {
+      const idxRes = await fetch(`tracks/tracks.json?t=${Date.now()}`, { cache: "no-store" });
+      if (idxRes.ok) {
+        const idxData = await idxRes.json();
+        if (Array.isArray(idxData.tracks) && idxData.tracks.length > 0) {
+          state.tracks = idxData.tracks;
+        }
+      }
+    } catch {
+      // Оставляем FALLBACK_TRACKS
     }
+
+    renderAll();
+    await mergeNewTracksFromGitHub();
+
+    if (notify) {
+      showToast(`Список обновлён · треков: ${state.tracks.length}`);
+    }
+    return;
   } finally {
     setTimeout(() => rescanBtn.classList.remove("is-spinning"), 350);
   }
@@ -1021,12 +1117,26 @@ document.addEventListener("keydown", (e) => {
 });
 
 // --- Модальное окно загрузки трека и обложки ---
+function syncGithubUploadLink() {
+  if (!githubUploadLink) return;
+  const genre = uploadGenre.value || "electronic";
+  githubUploadLink.href = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/upload/${GITHUB_BRANCH}/music_website/tracks/${genre}`;
+  const label = GENRES[genre]?.label || genre;
+  githubUploadLink.textContent = `Загрузить в «${label}» для всех друзей`;
+}
+
 function openUploadModal() {
   uploadModal.classList.remove("hidden");
   if (GENRES[state.genre]) {
     uploadGenre.value = state.genre;
   }
+  syncGithubUploadLink();
+  if (publicUploadNotice) {
+    publicUploadNotice.classList.toggle("hidden", state.serverMode);
+  }
 }
+
+uploadGenre.addEventListener("change", syncGithubUploadLink);
 
 function clearCoverSelection() {
   state.selectedCoverFile = null;

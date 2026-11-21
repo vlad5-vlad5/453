@@ -1,0 +1,40 @@
+{
+  "tracks": [
+    {
+      "id": "tracks/electronic/neon-pulse.wav",
+      "title": "Неоновый пульс",
+      "artist": "СинтЛаб",
+      "genre": "electronic",
+      "src": "tracks/electronic/neon-pulse.wav",
+      "cover": "tracks/electronic/neon-pulse.svg",
+      "duration": "0:08"
+    },
+    {
+      "id": "tracks/ambient/northern-lights.wav",
+      "title": "Северное сияние",
+      "artist": "Аврора",
+      "genre": "ambient",
+      "src": "tracks/ambient/northern-lights.wav",
+      "cover": "tracks/ambient/northern-lights.svg",
+      "duration": "0:09"
+    },
+    {
+      "id": "tracks/rock/electric-horizon.wav",
+      "title": "Электрический горизонт",
+      "artist": "Вольтаж",
+      "genre": "rock",
+      "src": "tracks/rock/electric-horizon.wav",
+      "cover": "tracks/rock/electric-horizon.svg",
+      "duration": "0:08"
+    },
+    {
+      "id": "tracks/pop/summer-skyline.wav",
+      "title": "Летний горизонт",
+      "artist": "Яркий Свет",
+      "genre": "pop",
+      "src": "tracks/pop/summer-skyline.wav",
+      "cover": "tracks/pop/summer-skyline.svg",
+      "duration": "0:08"
+    }
+  ]
+}
