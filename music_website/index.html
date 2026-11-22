@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Моя Новая Музыка</title>
-  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Электроника, Эмбиент, Рок и Поп. Создавайте плейлисты и добавляйте любимые треки в избранное." />
+  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Шансон, Диско, ДипХаус и Разное. Создавайте плейлисты, ставьте лайки и оставляйте комментарии." />
   <meta property="og:title" content="Моя Новая Музыка" />
   <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и плейлистами." />
   <meta property="og:type" content="website" />
@@ -86,25 +86,25 @@
           <span>Избранное</span>
           <span class="tab-count" data-count="favorites">0</span>
         </button>
-        <button type="button" class="genre-tab" data-genre="electronic" role="tab" aria-selected="false">
-          <span class="genre-dot dot-electronic"></span>
-          <span>Электроника</span>
-          <span class="tab-count" data-count="electronic">0</span>
+        <button type="button" class="genre-tab" data-genre="chanson" role="tab" aria-selected="false">
+          <span class="genre-dot dot-chanson"></span>
+          <span>Шансон</span>
+          <span class="tab-count" data-count="chanson">0</span>
         </button>
-        <button type="button" class="genre-tab" data-genre="ambient" role="tab" aria-selected="false">
-          <span class="genre-dot dot-ambient"></span>
-          <span>Эмбиент</span>
-          <span class="tab-count" data-count="ambient">0</span>
+        <button type="button" class="genre-tab" data-genre="disco" role="tab" aria-selected="false">
+          <span class="genre-dot dot-disco"></span>
+          <span>Диско</span>
+          <span class="tab-count" data-count="disco">0</span>
         </button>
-        <button type="button" class="genre-tab" data-genre="rock" role="tab" aria-selected="false">
-          <span class="genre-dot dot-rock"></span>
-          <span>Рок</span>
-          <span class="tab-count" data-count="rock">0</span>
+        <button type="button" class="genre-tab" data-genre="deephouse" role="tab" aria-selected="false">
+          <span class="genre-dot dot-deephouse"></span>
+          <span>ДипХаус</span>
+          <span class="tab-count" data-count="deephouse">0</span>
         </button>
-        <button type="button" class="genre-tab" data-genre="pop" role="tab" aria-selected="false">
-          <span class="genre-dot dot-pop"></span>
-          <span>Поп</span>
-          <span class="tab-count" data-count="pop">0</span>
+        <button type="button" class="genre-tab" data-genre="other" role="tab" aria-selected="false">
+          <span class="genre-dot dot-other"></span>
+          <span>Разное</span>
+          <span class="tab-count" data-count="other">0</span>
         </button>
       </div>
 
@@ -303,7 +303,7 @@
         <p>
           <strong>Чтобы песню увидели все друзья:</strong> выберите жанр ниже и загрузите файл в папку на GitHub — трек появится на сайте автоматически!
         </p>
-        <a id="githubUploadLink" class="btn btn-primary btn-sm" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/electronic" target="_blank" rel="noopener">
+        <a id="githubUploadLink" class="btn btn-primary btn-sm" href="https://github.com/vlad5-vlad5/453/upload/main/music_website/tracks/chanson" target="_blank" rel="noopener">
           Загрузить для всех друзей
         </a>
         <div class="notice-sub">Или добавьте файл ниже для быстрого прослушивания только на вашем устройстве:</div>
@@ -323,10 +323,10 @@
           <label class="form-field">
             <span>Жанр</span>
             <select id="uploadGenre">
-              <option value="electronic">Электроника</option>
-              <option value="ambient">Эмбиент</option>
-              <option value="rock">Рок</option>
-              <option value="pop">Поп</option>
+              <option value="chanson">Шансон</option>
+              <option value="disco">Диско</option>
+              <option value="deephouse">ДипХаус</option>
+              <option value="other">Разное</option>
             </select>
           </label>
 

@@ -1,9 +1,9 @@
 // Справочник жанров
 const GENRES = {
-  electronic: { label: "Электроника", icon: "⚡", folder: "tracks/electronic" },
-  ambient: { label: "Эмбиент", icon: "✦", folder: "tracks/ambient" },
-  rock: { label: "Рок", icon: "🎸", folder: "tracks/rock" },
-  pop: { label: "Поп", icon: "★", folder: "tracks/pop" },
+  chanson: { label: "Шансон", icon: "🎸", folder: "tracks/chanson" },
+  disco: { label: "Диско", icon: "★", folder: "tracks/disco" },
+  deephouse: { label: "ДипХаус", icon: "⚡", folder: "tracks/deephouse" },
+  other: { label: "Разное", icon: "♫", folder: "tracks/other" },
 };
 
 // Настройки репозитория GitHub для автообнаружения песен на GitHub Pages
@@ -14,44 +14,7 @@ const AUDIO_EXT_RE = /\.(mp3|wav|ogg|flac|m4a|aac|opus|webm)$/i;
 const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|svg|gif)$/i;
 
 // Резервный список треков (если не удалось загрузить tracks.json и /api/tracks)
-const FALLBACK_TRACKS = [
-  {
-    id: "tracks/electronic/neon-pulse.wav",
-    title: "Неоновый пульс",
-    artist: "СинтЛаб",
-    genre: "electronic",
-    src: "tracks/electronic/neon-pulse.wav",
-    cover: "tracks/electronic/neon-pulse.svg",
-    duration: "0:08",
-  },
-  {
-    id: "tracks/ambient/northern-lights.wav",
-    title: "Северное сияние",
-    artist: "Аврора",
-    genre: "ambient",
-    src: "tracks/ambient/northern-lights.wav",
-    cover: "tracks/ambient/northern-lights.svg",
-    duration: "0:09",
-  },
-  {
-    id: "tracks/rock/electric-horizon.wav",
-    title: "Электрический горизонт",
-    artist: "Вольтаж",
-    genre: "rock",
-    src: "tracks/rock/electric-horizon.wav",
-    cover: "tracks/rock/electric-horizon.svg",
-    duration: "0:08",
-  },
-  {
-    id: "tracks/pop/summer-skyline.wav",
-    title: "Летний горизонт",
-    artist: "Яркий Свет",
-    genre: "pop",
-    src: "tracks/pop/summer-skyline.wav",
-    cover: "tracks/pop/summer-skyline.svg",
-    duration: "0:08",
-  },
-];
+const FALLBACK_TRACKS = [];
 
 // Необязательно: вставьте сюда ссылку на бесплатную Firebase Realtime Database
 // (например: "https://my-music-default-rtdb.europe-west1.firebasedatabase.app"),
@@ -498,7 +461,7 @@ async function loadTracksFromServer(notify = false) {
       const idxRes = await fetch(`tracks/tracks.json?t=${Date.now()}`, { cache: "no-store" });
       if (idxRes.ok) {
         const idxData = await idxRes.json();
-        if (Array.isArray(idxData.tracks) && idxData.tracks.length > 0) {
+        if (Array.isArray(idxData.tracks)) {
           state.tracks = idxData.tracks;
         }
       }
@@ -632,10 +595,10 @@ function updateCounts() {
   const counts = {
     all: state.tracks.length,
     favorites: Array.from(state.favorites).filter((id) => existingIds.has(id)).length,
-    electronic: 0,
-    ambient: 0,
-    rock: 0,
-    pop: 0,
+    chanson: 0,
+    disco: 0,
+    deephouse: 0,
+    other: 0,
   };
   for (const t of state.tracks) {
     if (counts[t.genre] !== undefined) counts[t.genre]++;
@@ -699,8 +662,8 @@ function renderTracks() {
       emptyTitle.textContent = "В избранном пока нет треков";
       emptyDesc.textContent = "Нажмите на сердечко ♥ на любой карточке, чтобы добавить трек в избранное.";
     } else {
-      emptyTitle.textContent = "Треки не найдены";
-      emptyDesc.textContent = "Попробуйте выбрать другой жанр, очистить поиск или добавить свой аудиофайл.";
+      emptyTitle.textContent = "Пока нет треков";
+      emptyDesc.textContent = "Выберите другой жанр, очистите поиск или загляните позже — музыка скоро появится.";
     }
     return;
   }
@@ -1504,7 +1467,7 @@ document.addEventListener("keydown", (e) => {
 // --- Модальное окно загрузки трека и обложки ---
 function syncGithubUploadLink() {
   if (!githubUploadLink) return;
-  const genre = uploadGenre.value || "electronic";
+  const genre = uploadGenre.value || "chanson";
   githubUploadLink.href = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/upload/${GITHUB_BRANCH}/music_website/tracks/${genre}`;
   const label = GENRES[genre]?.label || genre;
   githubUploadLink.textContent = `Загрузить в «${label}» для всех друзей`;
