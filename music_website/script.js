@@ -196,49 +196,36 @@ function showToast(message) {
   }, 2600);
 }
 
-// Web Audio визуализатор
-let audioCtx = null;
-let analyser = null;
-let dataArray = null;
+// Визуализатор эквалайзера (без перехвата аудиопотока Web Audio API, чтобы браузер никогда не глушил звук из-за CORS)
+let vizRunning = false;
 
 function initVisualizer() {
-  if (audioCtx) return;
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    audioCtx = new AudioContextClass();
-    const source = audioCtx.createMediaElementSource(audio);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 64;
-    source.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    drawVisualizer();
-  } catch {
-    // Визуализатор необязателен
-  }
+  if (vizRunning) return;
+  vizRunning = true;
+  drawVisualizer();
 }
 
 function drawVisualizer() {
   requestAnimationFrame(drawVisualizer);
   const ctx = visualizerCanvas.getContext("2d");
+  if (!ctx) return;
   const { width, height } = visualizerCanvas;
   ctx.clearRect(0, 0, width, height);
 
   const barCount = 16;
   const gap = 3;
   const barWidth = (width - gap * (barCount - 1)) / barCount;
-
-  if (analyser && dataArray && state.isPlaying) {
-    analyser.getByteFrequencyData(dataArray);
-  }
+  const t = performance.now() / 160;
 
   for (let i = 0; i < barCount; i++) {
-    let norm = 0.08;
-    if (state.isPlaying && dataArray) {
-      norm = Math.max(0.12, (dataArray[i] || 0) / 255);
+    let norm = 0.1;
+    if (state.isPlaying && !audio.paused) {
+      const wave1 = Math.sin(t * 1.15 + i * 0.65);
+      const wave2 = Math.cos(t * 0.72 - i * 0.42);
+      const wave3 = Math.sin(t * 1.9 + i * 1.15) * 0.35;
+      norm = 0.22 + 0.68 * Math.abs((wave1 + wave2 + wave3) / 2.35);
     }
-    const barH = Math.max(3, norm * height);
+    const barH = Math.max(3, Math.min(height, norm * height));
     const x = i * (barWidth + gap);
     const y = height - barH;
 
@@ -247,9 +234,29 @@ function drawVisualizer() {
     grad.addColorStop(1, "#7c5cff");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.roundRect(x, y, barWidth, barH, 3);
+    if (typeof ctx.roundRect === "function") {
+      ctx.roundRect(x, y, barWidth, barH, 3);
+    } else {
+      ctx.rect(x, y, barWidth, barH);
+    }
     ctx.fill();
   }
+}
+
+// Безопасное кодирование путей к аудио и обложкам (кириллица, пробелы, запятые, скобки)
+function encodeTrackUrl(url) {
+  if (!url) return "";
+  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+  return url
+    .split("/")
+    .map((part) => {
+      try {
+        return encodeURIComponent(decodeURIComponent(part));
+      } catch {
+        return encodeURIComponent(part);
+      }
+    })
+    .join("/");
 }
 
 // Утилиты
@@ -340,7 +347,8 @@ async function mergeNewTracksFromGitHub() {
             title,
             artist,
             genre,
-            src: item.download_url || `tracks/${genre}/${encodeURIComponent(item.name)}`,
+            src: `tracks/${genre}/${encodeURIComponent(item.name)}`,
+            fallbackSrc: item.download_url || null,
             cover: coverByStem.get(stem) || null,
             duration: "--:--",
           });
@@ -690,7 +698,7 @@ function renderTracks() {
         .join(" ");
 
       const coverHtml = track.cover
-        ? `<img class="cover-img" src="${escapeHtml(track.cover)}" alt="Обложка ${escapeHtml(track.title)}" loading="lazy" />`
+        ? `<img class="cover-img" src="${escapeHtml(encodeTrackUrl(track.cover))}" alt="Обложка ${escapeHtml(track.title)}" loading="lazy" />`
         : `<span class="cover-symbol" aria-hidden="true">${genreInfo.icon}</span>`;
 
       const coverEditHtml = showOwner
@@ -794,7 +802,7 @@ function renderTracks() {
 
               <a
                 class="download-link"
-                href="${escapeHtml(track.src)}"
+                href="${escapeHtml(encodeTrackUrl(track.src))}"
                 download="${escapeHtml(track.title)}"
                 title="Скачать трек"
                 aria-label="Скачать ${escapeHtml(track.title)}"
@@ -837,7 +845,7 @@ function updatePlayerUI() {
   playerArtist.textContent = `${track.artist} · ${genreInfo.label}`;
   playerCover.className = `player-cover cover-${track.genre}`;
   playerCover.innerHTML = track.cover
-    ? `<img src="${escapeHtml(track.cover)}" alt="" />`
+    ? `<img src="${escapeHtml(encodeTrackUrl(track.cover))}" alt="" />`
     : `<span>${genreInfo.icon}</span>`;
 
   playerLikeBtn.classList.toggle("liked", state.favorites.has(track.id));
@@ -849,13 +857,11 @@ function playTrack(trackId) {
   if (!track) return;
 
   initVisualizer();
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
 
   if (state.currentTrackId !== trackId) {
     state.currentTrackId = trackId;
-    audio.src = track.src;
+    audio.dataset.fallbackUsed = "0";
+    audio.src = encodeTrackUrl(track.src);
     audio.currentTime = 0;
   }
 
@@ -867,6 +873,23 @@ function playTrack(trackId) {
       renderTracks();
     })
     .catch((err) => {
+      // Если основной файл ещё не опубликован на GitHub Pages, пробуем запасную ссылку raw.githubusercontent.com
+      if (track.fallbackSrc && audio.dataset.fallbackUsed !== "1") {
+        audio.dataset.fallbackUsed = "1";
+        audio.src = track.fallbackSrc;
+        audio
+          .play()
+          .then(() => {
+            state.isPlaying = true;
+            updatePlayerUI();
+            renderTracks();
+          })
+          .catch((err2) => {
+            console.error("Ошибка воспроизведения:", err2);
+            showToast("Не удалось воспроизвести файл");
+          });
+        return;
+      }
       console.error("Ошибка воспроизведения:", err);
       showToast("Не удалось воспроизвести файл");
     });
@@ -1424,6 +1447,15 @@ audio.addEventListener("ended", () => {
     audio.play();
   } else {
     stepTrack(1);
+  }
+});
+
+audio.addEventListener("error", () => {
+  const track = state.tracks.find((t) => t.id === state.currentTrackId);
+  if (track?.fallbackSrc && audio.dataset.fallbackUsed !== "1") {
+    audio.dataset.fallbackUsed = "1";
+    audio.src = track.fallbackSrc;
+    audio.play().catch(() => {});
   }
 });
 

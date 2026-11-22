@@ -1,3 +1,67 @@
 {
-  "tracks": []
+  "tracks": [
+    {
+      "id": "tracks/chanson/Крестины сына (1).mp3",
+      "title": "Крестины сына (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Крестины сына (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Крестины сына (2).mp3",
+      "title": "Крестины сына (2)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Крестины сына (2).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Крестины сына.mp3",
+      "title": "Крестины сына",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Крестины сына.mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Свет в коридоре.mp3",
+      "title": "Свет в коридоре",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Свет в коридоре.mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Юбилей отца, а я за стеной (1).mp3",
+      "title": "Юбилей отца, а я за стеной (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Юбилей отца, а я за стеной (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Юбилей отца, а я за стеной.mp3",
+      "title": "Юбилей отца, а я за стеной",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Юбилей отца, а я за стеной.mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/other/Самогонка.mp3",
+      "title": "Самогонка",
+      "artist": "Моя коллекция",
+      "genre": "other",
+      "src": "tracks/other/Самогонка.mp3",
+      "cover": null,
+      "duration": "--:--"
+    }
+  ]
 }
