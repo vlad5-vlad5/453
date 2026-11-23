@@ -1,6 +1,24 @@
 {
   "tracks": [
     {
+      "id": "tracks/chanson/Билет военный [sunodownloaderpro].mp3",
+      "title": "Билет военный [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Билет военный [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Диплом в кармане [sunodownloaderpro].mp3",
+      "title": "Диплом в кармане [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Диплом в кармане [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
       "id": "tracks/chanson/Крестины сына (1).mp3",
       "title": "Крестины сына (1)",
       "artist": "Моя коллекция",
@@ -28,11 +46,173 @@
       "duration": "--:--"
     },
     {
+      "id": "tracks/chanson/Отпусти меня, осень [sunodownloaderpro] (1).mp3",
+      "title": "Отпусти меня, осень [sunodownloaderpro] (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Отпусти меня, осень [sunodownloaderpro] (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Отпусти меня, осень [sunodownloaderpro].mp3",
+      "title": "Отпусти меня, осень [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Отпусти меня, осень [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Падающая звезда [sunodownloaderpro] (1).mp3",
+      "title": "Падающая звезда [sunodownloaderpro] (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Падающая звезда [sunodownloaderpro] (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Падающая звезда [sunodownloaderpro].mp3",
+      "title": "Падающая звезда [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Падающая звезда [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Первый звонок в голове [sunodownloaderpro].mp3",
+      "title": "Первый звонок в голове [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Первый звонок в голове [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Первый шаг за воротами [sunodownloaderpro].mp3",
+      "title": "Первый шаг за воротами [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Первый шаг за воротами [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Поезд на север [sunodownloaderpro].mp3",
+      "title": "Поезд на север [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Поезд на север [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Пролети, метеор [sunodownloaderpro] (1).mp3",
+      "title": "Пролети, метеор [sunodownloaderpro] (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Пролети, метеор [sunodownloaderpro] (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Пролети, метеор [sunodownloaderpro].mp3",
+      "title": "Пролети, метеор [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Пролети, метеор [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Свадьба в крови [sunodownloaderpro] (1).mp3",
+      "title": "Свадьба в крови [sunodownloaderpro] (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Свадьба в крови [sunodownloaderpro] (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Свадьба в крови [sunodownloaderpro].mp3",
+      "title": "Свадьба в крови [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Свадьба в крови [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Свет в коридоре [sunodownloaderpro].mp3",
+      "title": "Свет в коридоре [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Свет в коридоре [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
       "id": "tracks/chanson/Свет в коридоре.mp3",
       "title": "Свет в коридоре",
       "artist": "Моя коллекция",
       "genre": "chanson",
       "src": "tracks/chanson/Свет в коридоре.mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Три куста цветов [sunodownloaderpro] (1).mp3",
+      "title": "Три куста цветов [sunodownloaderpro] (1)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Три куста цветов [sunodownloaderpro] (1).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Три куста цветов [sunodownloaderpro] (2).mp3",
+      "title": "Три куста цветов [sunodownloaderpro] (2)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Три куста цветов [sunodownloaderpro] (2).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Три куста цветов [sunodownloaderpro] (3).mp3",
+      "title": "Три куста цветов [sunodownloaderpro] (3)",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Три куста цветов [sunodownloaderpro] (3).mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Три куста цветов [sunodownloaderpro].mp3",
+      "title": "Три куста цветов [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Три куста цветов [sunodownloaderpro].mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Три куста цветов.m4a",
+      "title": "Три куста цветов",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Три куста цветов.m4a",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/chanson/Фотография в кошельке [sunodownloaderpro].mp3",
+      "title": "Фотография в кошельке [sunodownloaderpro]",
+      "artist": "Моя коллекция",
+      "genre": "chanson",
+      "src": "tracks/chanson/Фотография в кошельке [sunodownloaderpro].mp3",
       "cover": null,
       "duration": "--:--"
     },

@@ -799,20 +799,6 @@ function renderTracks() {
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
               </button>
-
-              <a
-                class="download-link"
-                href="${escapeHtml(encodeTrackUrl(track.src))}"
-                download="${escapeHtml(track.title)}"
-                title="Скачать трек"
-                aria-label="Скачать ${escapeHtml(track.title)}"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </a>
             </div>
           </div>
         </article>
@@ -960,8 +946,6 @@ playAllBtn.addEventListener("click", () => {
 });
 
 tracksGrid.addEventListener("click", (e) => {
-  if (e.target.closest(".download-link")) return;
-
   const actionEl = e.target.closest("[data-action]");
   if (!actionEl) return;
 

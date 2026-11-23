@@ -773,8 +773,7 @@ body {
   gap: 6px;
 }
 
-.card-action-btn,
-.download-link {
+.card-action-btn {
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -788,8 +787,7 @@ body {
   transition: color 0.18s, background 0.18s;
 }
 
-.card-action-btn:hover,
-.download-link:hover {
+.card-action-btn:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.14);
 }
@@ -799,8 +797,7 @@ body {
   background: rgba(56, 189, 248, 0.15);
 }
 
-.card-action-btn svg,
-.download-link svg {
+.card-action-btn svg {
   width: 15px;
   height: 15px;
 }
