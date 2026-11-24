@@ -1017,7 +1017,7 @@ function renderTracks() {
             </button>
           </div>
 
-          <div class="track-head-row">
+          <div class="track-head-row" data-action="toggle" data-id="${escapeHtml(track.id)}">
             <div class="track-info">
               <h3 class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</h3>
               <p class="track-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>

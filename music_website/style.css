@@ -2029,17 +2029,179 @@ body.music-playing .aurora-photo {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .container {
-    padding: 0 16px;
+    padding: 0 14px;
+  }
+
+  .header-inner {
+    gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
 
   .header-actions {
     width: 100%;
+    min-width: 0;
   }
 
   .search-box {
     max-width: none;
+  }
+
+  .main-content {
+    padding-top: 18px;
+  }
+
+  .filters-section {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .genre-tabs {
+    gap: 7px;
+  }
+
+  .genre-tab {
+    padding: 7px 11px;
+    font-size: 0.82rem;
+    gap: 6px;
+  }
+
+  .playlists-bar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  /* Компактный список песен на телефоне (как в Яндекс Музыке / Spotify) */
+  .tracks-grid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .track-card {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 12px;
+    row-gap: 4px;
+    align-items: center;
+    padding: 9px 11px;
+    border-radius: 14px;
+  }
+
+  .track-card:hover {
+    transform: none;
+  }
+
+  .track-cover {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 58px;
+    height: 58px;
+    margin-bottom: 0;
+    border-radius: 11px;
+  }
+
+  .cover-symbol {
+    font-size: 1.5rem;
+  }
+
+  .track-genre-badge,
+  .cover-top-actions {
+    display: none;
+  }
+
+  .cover-play-overlay {
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    background: rgba(10, 12, 20, 0.72);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  }
+
+  .cover-play-overlay:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+
+  .cover-play-overlay svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .track-card.is-playing .cover-play-overlay {
+    background: rgba(124, 92, 255, 0.92);
+  }
+
+  .eq-bars {
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    height: 11px;
+    gap: 2px;
+  }
+
+  .eq-bars span {
+    width: 2.5px;
+  }
+
+  .track-head-row {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  .track-title {
+    font-size: 0.95rem;
+    line-height: 1.25;
+  }
+
+  .track-artist {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  .card-social-bar {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 2px;
+    gap: 6px;
+  }
+
+  .social-pill {
+    padding: 3px 9px;
+    height: 26px;
+    font-size: 0.75rem;
+    gap: 5px;
+  }
+
+  .social-pill svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .track-footer {
+    grid-column: 3;
+    grid-row: 2;
+    margin-top: 2px;
+    padding-top: 0;
+    border-top: none;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .track-duration {
+    font-size: 0.75rem;
+  }
+
+  .card-action-btn {
+    width: 28px;
+    height: 28px;
   }
 
   .form-row {
