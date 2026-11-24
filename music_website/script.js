@@ -456,9 +456,9 @@ function syncEqUI() {
   }
 }
 
-// Профессиональный студийный LED-анализатор спектра с Peak Hold
+// Профессиональный студийный 12-полосный LED-анализатор спектра с тонкими столбиками и Peak Hold
 const LS_VIZ_MODE = "my_new_music_viz_mode_v1";
-const SPECTRUM_BANDS = 20;
+const SPECTRUM_BANDS = 12;
 const vizState = {
   mode: localStorage.getItem(LS_VIZ_MODE) === "neon" ? "neon" : "led",
   levels: new Float32Array(SPECTRUM_BANDS),
@@ -543,10 +543,10 @@ function drawVisualizer() {
   ctx.clearRect(0, 0, width, height);
 
   const bands = SPECTRUM_BANDS;
-  const segments = height >= 32 ? 11 : 8;
-  const colGap = width >= 200 ? 3 : 2;
-  const segGap = 1.4;
-  const barWidth = Math.max(2, (width - colGap * (bands - 1)) / bands);
+  const segments = height >= 32 ? 10 : 8;
+  const segGap = 1.6;
+  const slotWidth = width / bands;
+  const barWidth = Math.max(2.5, Math.min(4.5, slotWidth * 0.42));
   const segHeight = Math.max(1.5, (height - segGap * (segments - 1)) / segments);
   const t = performance.now() / 1000;
 
@@ -583,11 +583,11 @@ function drawVisualizer() {
         const tilt = 0.92 + (i / bands) * 0.35;
         target = Math.min(1, Math.pow(raw * tilt, 1.08));
       } else {
-        // Реалистичная студийная спектральная симуляция (бас слева, вокал в центре, тарелки справа)
-        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.8), 3.2) * Math.max(0, 1 - i / 6);
-        const snare = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + 1.5), 4) * Math.exp(-Math.pow((i - 9) / 4.2, 2));
-        const melody = (0.45 + 0.45 * Math.sin(t * 2.7 + i * 0.48) * Math.cos(t * 1.4 - i * 0.25)) * 0.65;
-        const sparkle = (0.5 + 0.5 * Math.sin(t * 11.5 + i * 1.9)) * 0.32 * (i / bands);
+        // Реалистичная студийная спектральная симуляция для 12 полос (бас слева, вокал в центре, тарелки справа)
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.8), 3.2) * Math.max(0, 1 - i / 4);
+        const snare = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + 1.5), 4) * Math.exp(-Math.pow((i - 5.5) / 2.8, 2));
+        const melody = (0.45 + 0.45 * Math.sin(t * 2.7 + i * 0.65) * Math.cos(t * 1.4 - i * 0.35)) * 0.65;
+        const sparkle = (0.5 + 0.5 * Math.sin(t * 11.5 + i * 2.1)) * 0.32 * (i / bands);
         target = Math.min(0.98, Math.max(0.08, kick * 0.82 + snare * 0.65 + melody * 0.52 + sparkle));
       }
     }
@@ -611,7 +611,7 @@ function drawVisualizer() {
       vizState.peaks[i] = Math.max(0, vizState.peaks[i] - vizState.peakVel[i]);
     }
 
-    const x = i * (barWidth + colGap);
+    const x = i * slotWidth + (slotWidth - barWidth) / 2;
     const activeSegs = Math.round(vizState.levels[i] * segments);
     const peakSeg = vizState.peaks[i] > 0.03
       ? Math.min(segments - 1, Math.floor(vizState.peaks[i] * segments))
