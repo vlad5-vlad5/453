@@ -743,7 +743,8 @@ body.music-playing .aurora-photo {
 .eq-bars span {
   width: 3px;
   border-radius: 99px;
-  background: #fff;
+  background: linear-gradient(0deg, #10b981 0%, #22d3ee 55%, #fbbf24 100%);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.7);
   height: 5px;
   animation: eqBounce 0.9s ease-in-out infinite;
 }
@@ -1224,10 +1225,55 @@ body.music-playing .aurora-photo {
   gap: 14px;
 }
 
+/* Профессиональный студийный LED-анализатор спектра */
+.pro-spectrum-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 224px;
+  padding: 5px 8px 3px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #070a13 0%, #0b1020 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pro-spectrum-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 55% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent);
+  pointer-events: none;
+}
+
+.pro-spectrum-wrap:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.85),
+    0 0 14px rgba(56, 189, 248, 0.18);
+}
+
 .visualizer {
-  width: 112px;
-  height: 30px;
-  opacity: 0.9;
+  display: block;
+  width: 100%;
+  height: 38px;
+}
+
+.spectrum-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.72);
+  line-height: 1;
 }
 
 .volume-wrap {
@@ -2018,14 +2064,34 @@ body.music-playing .aurora-photo {
 @media (max-width: 820px) {
   .player-inner {
     grid-template-columns: 1fr auto;
+    gap: 10px 14px;
   }
 
   .player-right {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .pro-spectrum-wrap {
+    width: 100%;
+    max-width: 420px;
+    padding: 4px 8px 2px;
+  }
+
+  .visualizer {
+    height: 28px;
+  }
+
+  .volume-wrap {
     display: none;
   }
 
   .cover-mini-btn {
     opacity: 1;
+  }
+
+  body {
+    padding-bottom: 150px;
   }
 }
 
@@ -2210,16 +2276,24 @@ body.music-playing .aurora-photo {
 
   .player-inner {
     grid-template-columns: 1fr;
-    gap: 8px;
-    padding-top: 10px;
-    padding-bottom: 12px;
+    gap: 6px;
+    padding-top: 8px;
+    padding-bottom: 10px;
   }
 
   .player-track {
     justify-content: center;
   }
 
+  .pro-spectrum-wrap {
+    max-width: none;
+  }
+
+  .visualizer {
+    height: 26px;
+  }
+
   body {
-    padding-bottom: 155px;
+    padding-bottom: 190px;
   }
 }
