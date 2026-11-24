@@ -627,7 +627,7 @@ function drawVisualizer() {
         ctx.fillRect(x, y, barWidth, segHeight);
       } else {
         // Незажжённые ячейки LED-матрицы
-        ctx.fillStyle = "rgba(255, 255, 255, 0.055)";
+        ctx.fillStyle = "rgba(148, 163, 184, 0.14)";
         ctx.fillRect(x, y, barWidth, segHeight);
       }
     }
