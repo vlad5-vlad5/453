@@ -1,12 +1,12 @@
 :root {
   --bg: #070912;
   --bg-elevated: #111526;
-  --bg-card: rgba(16, 21, 38, 0.66);
-  --bg-card-hover: rgba(24, 31, 56, 0.84);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  --text: #f3f6ff;
-  --text-muted: #a3aec9;
+  --bg-card: rgba(10, 13, 22, 0.84);
+  --bg-card-hover: rgba(15, 20, 34, 0.94);
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.28);
+  --text: #ffffff;
+  --text-muted: #c8d2e8;
   --accent: #7c5cff;
   --accent-2: #06b6d4;
   --rose: #f43f5e;
@@ -157,7 +157,7 @@ body.music-playing .aurora-photo {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(9, 12, 24, 0.66);
+  background: rgba(8, 10, 18, 0.86);
   backdrop-filter: blur(22px);
   border-bottom: 1px solid var(--border);
 }
@@ -239,7 +239,7 @@ body.music-playing .aurora-photo {
   padding: 0 14px 0 40px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(8, 11, 20, 0.78);
   color: var(--text);
   font-size: 0.92rem;
   outline: none;
@@ -251,9 +251,9 @@ body.music-playing .aurora-photo {
 }
 
 .search-box input:focus {
-  border-color: rgba(124, 92, 255, 0.7);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
+  border-color: rgba(124, 92, 255, 0.78);
+  background: rgba(12, 16, 28, 0.94);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.22);
 }
 
 /* Кнопки */
@@ -315,24 +315,27 @@ body.music-playing .aurora-photo {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: var(--border);
-  color: var(--text);
+  background: rgba(10, 13, 24, 0.82);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(20, 26, 44, 0.94);
+  border-color: rgba(255, 255, 255, 0.34);
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--text-muted);
-  border-color: var(--border);
+  background: rgba(10, 13, 24, 0.72);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  background: rgba(20, 26, 44, 0.9);
 }
 
 .btn-danger {
@@ -378,26 +381,28 @@ body.music-playing .aurora-photo {
   gap: 8px;
   padding: 9px 15px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 13, 22, 0.8);
+  backdrop-filter: blur(10px);
+  color: #eef2ff;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   transition: all 0.2s ease;
 }
 
 .genre-tab:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(18, 24, 42, 0.92);
 }
 
 .genre-tab.active {
   color: #fff;
-  border-color: rgba(124, 92, 255, 0.75);
-  background: linear-gradient(135deg, rgba(124, 92, 255, 0.28), rgba(6, 182, 212, 0.22));
-  box-shadow: 0 8px 22px rgba(124, 92, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.38);
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.88), rgba(6, 182, 212, 0.78));
+  box-shadow: 0 8px 22px rgba(124, 92, 255, 0.34);
 }
 
 .heart-mini {
@@ -423,8 +428,8 @@ body.music-playing .aurora-photo {
   font-size: 0.75rem;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-  color: inherit;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 
 /* Панель плейлистов */
@@ -435,24 +440,26 @@ body.music-playing .aurora-photo {
   gap: 10px;
   padding: 12px 16px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
+  background: rgba(10, 13, 22, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 .playlists-label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #f8fafc;
   margin-right: 4px;
 }
 
 .playlists-label svg {
   width: 16px;
   height: 16px;
-  color: #a78bfa;
+  color: #c4b5fd;
 }
 
 .playlists-chips {
@@ -468,9 +475,9 @@ body.music-playing .aurora-photo {
   gap: 7px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
   font-size: 0.84rem;
   font-weight: 500;
   cursor: pointer;
@@ -478,29 +485,29 @@ body.music-playing .aurora-photo {
 }
 
 .playlist-chip:hover {
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .playlist-chip.active {
-  border-color: rgba(6, 182, 212, 0.8);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(124, 92, 255, 0.25));
+  border-color: rgba(6, 182, 212, 0.9);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.65), rgba(124, 92, 255, 0.65));
   color: #fff;
 }
 
 .playlist-chip .chip-count {
   font-size: 0.74rem;
-  color: var(--text-muted);
+  color: #e2e8f0;
 }
 
 .playlist-chip.active .chip-count {
-  color: #e0f2fe;
+  color: #fff;
 }
 
 .playlists-empty-hint {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  opacity: 0.7;
+  font-size: 0.84rem;
+  color: #d7e0f2;
+  opacity: 1;
 }
 
 /* Баннер активного плейлиста */
@@ -512,8 +519,10 @@ body.music-playing .aurora-photo {
   gap: 14px;
   padding: 16px 20px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(124, 92, 255, 0.18), rgba(6, 182, 212, 0.14));
-  border: 1px solid rgba(124, 92, 255, 0.35);
+  background: rgba(12, 16, 30, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(124, 92, 255, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .playlist-banner-info {
@@ -529,13 +538,14 @@ body.music-playing .aurora-photo {
   letter-spacing: 0.06em;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(124, 92, 255, 0.35);
   color: #fff;
 }
 
 .playlist-banner h2 {
   font-size: 1.1rem;
   font-weight: 700;
+  color: #fff;
 }
 
 .playlist-banner-actions {
@@ -550,8 +560,20 @@ body.music-playing .aurora-photo {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: var(--text-muted);
+  color: #ffffff;
   font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.results-meta > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(10, 13, 22, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 /* Сетка карточек треков */
@@ -878,7 +900,8 @@ body.music-playing .aurora-photo {
   padding: 56px 24px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(10, 13, 22, 0.84);
+  backdrop-filter: blur(12px);
 }
 
 .empty-icon {
