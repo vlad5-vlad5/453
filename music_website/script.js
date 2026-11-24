@@ -332,6 +332,7 @@ function ensureAudioEngine() {
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.72;
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    const timeDataArray = new Uint8Array(analyser.fftSize);
 
     // Коммутация цепочки
     source.connect(subBassBoost);
@@ -376,6 +377,7 @@ function ensureAudioEngine() {
       surroundReverbGain,
       analyser,
       dataArray,
+      timeDataArray,
     };
 
     if (ctx.state === "suspended") {
@@ -456,11 +458,37 @@ function syncEqUI() {
   }
 }
 
-// Профессиональный студийный 12-полосный LED-анализатор спектра с тонкими столбиками и Peak Hold
-const LS_VIZ_MODE = "my_new_music_viz_mode_v1";
-const SPECTRUM_BANDS = 12;
+// Легендарная классическая индикация Winamp (Спектр + Осциллограф + Неон)
+const LS_VIZ_MODE = "my_new_music_viz_mode_v2";
+const VIZ_MODES = ["winamp", "osc", "neon"];
+const SPECTRUM_BANDS = 16;
+
+// Точная классическая 16-цветная палитра Winamp (снизу вверх: ярко-зелёный -> жёлтый -> оранжевый -> красный)
+const WINAMP_SPECTRUM_COLORS = [
+  "#188408",
+  "#1ca010",
+  "#24bc16",
+  "#2ed61d",
+  "#47e214",
+  "#7be80e",
+  "#b4ee0a",
+  "#e2f208",
+  "#f7e408",
+  "#f7c608",
+  "#f7a408",
+  "#f78208",
+  "#f25e08",
+  "#eb3b08",
+  "#e21b08",
+  "#d60000",
+];
+
+// Классические оттенки осциллографа Winamp (центр -> пик)
+const WINAMP_OSC_COLORS = ["#31ef24", "#7bff68", "#c4ffba", "#ffffff"];
+
+const savedVizMode = localStorage.getItem(LS_VIZ_MODE);
 const vizState = {
-  mode: localStorage.getItem(LS_VIZ_MODE) === "neon" ? "neon" : "led",
+  mode: VIZ_MODES.includes(savedVizMode) ? savedVizMode : "winamp",
   levels: new Float32Array(SPECTRUM_BANDS),
   peaks: new Float32Array(SPECTRUM_BANDS),
   peakHold: new Float32Array(SPECTRUM_BANDS),
@@ -469,20 +497,22 @@ const vizState = {
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
 spectrumWrapEl?.addEventListener("click", () => {
-  vizState.mode = vizState.mode === "led" ? "neon" : "led";
+  const idx = VIZ_MODES.indexOf(vizState.mode);
+  vizState.mode = VIZ_MODES[(idx + 1) % VIZ_MODES.length];
   try {
     localStorage.setItem(LS_VIZ_MODE, vizState.mode);
   } catch {
     // ignore
   }
-  showToast(
-    vizState.mode === "led"
-      ? "Индикатор: Студийный LED + Peak Hold"
-      : "Индикатор: Hi-Fi Неон + Peak Hold"
-  );
+  const labels = {
+    winamp: "Winamp: Спектр (классика)",
+    osc: "Winamp: Осциллограф (волна)",
+    neon: "Winamp: Неоновый спектр",
+  };
+  showToast(labels[vizState.mode] || "Winamp");
 });
 
-// Логарифмическое распределение 20 полос по бинам FFT (от глубокого баса 60 Гц к высоким 14 кГц)
+// Логарифмическое распределение полос по бинам FFT (от глубокого баса 60 Гц к высоким 14 кГц)
 function buildLogBandRanges(binCount, bands) {
   const ranges = [];
   const minBin = 1;
@@ -506,17 +536,89 @@ function initVisualizer() {
   drawVisualizer();
 }
 
-function getLedColor(segRatio, mode) {
+function drawWinampGrid(ctx, width, height) {
+  // Классический чёрный экранчик Winamp с фирменной пиксельной сеткой
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#181a28";
+  for (let y = 2; y < height; y += 4) {
+    for (let x = 2; x < width; x += 4) {
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+function getWinampBarColor(rowRatio, mode) {
   if (mode === "neon") {
-    if (segRatio >= 0.82) return "#fb7185";
-    if (segRatio >= 0.56) return "#a855f7";
+    if (rowRatio >= 0.82) return "#fb7185";
+    if (rowRatio >= 0.56) return "#a855f7";
     return "#22d3ee";
   }
-  // Классическая студийная LED-шкала: изумруд -> бирюза -> янтарь -> красный пик
-  if (segRatio >= 0.82) return "#ef4444";
-  if (segRatio >= 0.64) return "#f59e0b";
-  if (segRatio >= 0.42) return "#22d3ee";
-  return "#10b981";
+  const idx = Math.max(
+    0,
+    Math.min(WINAMP_SPECTRUM_COLORS.length - 1, Math.floor(rowRatio * WINAMP_SPECTRUM_COLORS.length))
+  );
+  return WINAMP_SPECTRUM_COLORS[idx];
+}
+
+function drawWinampOscilloscope(ctx, width, height, playing, t) {
+  let hasRealWave = false;
+  let waveData = null;
+
+  if (playing && audioEngine?.analyser && audioEngine.timeDataArray) {
+    audioEngine.analyser.getByteTimeDomainData(audioEngine.timeDataArray);
+    waveData = audioEngine.timeDataArray;
+    for (let i = 0; i < waveData.length; i++) {
+      if (Math.abs(waveData[i] - 128) > 2) {
+        hasRealWave = true;
+        break;
+      }
+    }
+  }
+
+  const midY = Math.floor(height / 2);
+  const steps = Math.max(36, Math.floor(width / 2));
+
+  // Центральная тонкая линия покоя
+  if (!playing) {
+    ctx.fillStyle = "#22a81c";
+    ctx.fillRect(0, midY, width, 1);
+    return;
+  }
+
+  let prevY = midY;
+  for (let i = 0; i < steps; i++) {
+    let sample = 0;
+    if (hasRealWave && waveData) {
+      const idx = Math.floor((i / steps) * waveData.length);
+      sample = (waveData[idx] - 128) / 128;
+      sample = Math.max(-1, Math.min(1, sample * 1.45));
+    } else {
+      const p = i / steps;
+      const env = Math.sin(p * Math.PI);
+      sample =
+        (Math.sin(t * 14 + p * 18) * 0.45 +
+          Math.sin(t * 27 - p * 31) * 0.3 +
+          Math.cos(t * 9 + p * 8) * 0.25) *
+        env;
+    }
+
+    const x = Math.round((i / (steps - 1)) * (width - 2));
+    const y = Math.round(midY + sample * (height * 0.44));
+    const amp = Math.min(1, Math.abs(sample) * 1.25);
+    const colorIdx = Math.min(
+      WINAMP_OSC_COLORS.length - 1,
+      Math.floor(amp * WINAMP_OSC_COLORS.length)
+    );
+    ctx.fillStyle = WINAMP_OSC_COLORS[colorIdx];
+
+    // Классический пиксельный штрих Winamp без размытия
+    const topY = Math.min(prevY, y);
+    const spanH = Math.max(2, Math.abs(y - prevY) + 1);
+    ctx.fillRect(x, topY, 2, spanH);
+    prevY = y;
+  }
 }
 
 function drawVisualizer() {
@@ -540,18 +642,29 @@ function drawVisualizer() {
   const width = rect.width;
   const height = rect.height;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, width, height);
 
-  const bands = SPECTRUM_BANDS;
-  const segments = height >= 32 ? 10 : 8;
-  const segGap = 1.8;
-  const slotWidth = width / bands;
-  const barWidth = 2;
-  const segHeight = Math.max(1.3, (height - segGap * (segments - 1)) / segments);
+  drawWinampGrid(ctx, width, height);
+
+  const playing = state.isPlaying && !audio.paused;
   const t = performance.now() / 1000;
 
+  // Режим 2: Классический осциллограф Winamp
+  if (vizState.mode === "osc") {
+    drawWinampOscilloscope(ctx, width, height, playing, t);
+    return;
+  }
+
+  // Режим 1 и 3: Классический спектр Winamp (тонкие чёткие столбики + падающие серые пики)
+  const bands = SPECTRUM_BANDS;
+  const padX = 2;
+  const usableW = Math.max(20, width - padX * 2);
+  const slotWidth = usableW / bands;
+  const barWidth = Math.max(2, Math.min(3.5, Math.floor(slotWidth * 0.48)));
+  const rows = Math.max(12, Math.floor(height / 2.2));
+  const rowStep = height / rows;
+
   let useFft = false;
-  if (state.isPlaying && !audio.paused && audioEngine?.analyser) {
+  if (playing && audioEngine?.analyser) {
     audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
     for (let k = 1; k < 48; k++) {
       if (audioEngine.dataArray[k] > 2) {
@@ -560,8 +673,6 @@ function drawVisualizer() {
       }
     }
   }
-
-  const playing = state.isPlaying && !audio.paused;
 
   for (let i = 0; i < bands; i++) {
     let target = 0;
@@ -578,70 +689,55 @@ function drawVisualizer() {
           count++;
         }
         const avg = count ? sumBin / count : 0;
-        const raw = (peakBin * 0.6 + avg * 0.4) / 255;
-        // Небольшой естественный наклон, чтобы и высокие частоты живо светились
-        const tilt = 0.92 + (i / bands) * 0.35;
-        target = Math.min(1, Math.pow(raw * tilt, 1.08));
+        const raw = (peakBin * 0.62 + avg * 0.38) / 255;
+        const tilt = 0.94 + (i / bands) * 0.38;
+        target = Math.min(1, Math.pow(raw * tilt, 1.05));
       } else {
-        // Реалистичная студийная спектральная симуляция для 12 полос (бас слева, вокал в центре, тарелки справа)
-        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.8), 3.2) * Math.max(0, 1 - i / 4);
-        const snare = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + 1.5), 4) * Math.exp(-Math.pow((i - 5.5) / 2.8, 2));
-        const melody = (0.45 + 0.45 * Math.sin(t * 2.7 + i * 0.65) * Math.cos(t * 1.4 - i * 0.35)) * 0.65;
-        const sparkle = (0.5 + 0.5 * Math.sin(t * 11.5 + i * 2.1)) * 0.32 * (i / bands);
-        target = Math.min(0.98, Math.max(0.08, kick * 0.82 + snare * 0.65 + melody * 0.52 + sparkle));
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.8), 3.0) * Math.max(0, 1 - i / 5);
+        const snare = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + 1.5), 4) * Math.exp(-Math.pow((i - 7) / 3.4, 2));
+        const melody = (0.45 + 0.45 * Math.sin(t * 2.7 + i * 0.55) * Math.cos(t * 1.4 - i * 0.3)) * 0.66;
+        const sparkle = (0.5 + 0.5 * Math.sin(t * 11.5 + i * 1.9)) * 0.34 * (i / bands);
+        target = Math.min(0.98, Math.max(0.08, kick * 0.85 + snare * 0.66 + melody * 0.52 + sparkle));
       }
     }
 
-    // Баллистика студийного измерителя: быстрый подъём, плавный спад
+    // Фирменная живая динамика Winamp: мгновенный рывок вверх, характерный линейный спад вниз
     const prev = vizState.levels[i];
     const next = target > prev
-      ? prev + (target - prev) * 0.68
-      : prev + (target - prev) * 0.19;
-    vizState.levels[i] = next < 0.008 ? 0 : next;
+      ? target
+      : Math.max(0, prev - 0.042);
+    vizState.levels[i] = next < 0.01 ? 0 : next;
 
-    // Физика пик-индикатора (Peak Hold + плавное падение)
+    // Фирменная физика падающей серой точки Peak Hold из Winamp
     if (vizState.levels[i] >= vizState.peaks[i]) {
       vizState.peaks[i] = vizState.levels[i];
-      vizState.peakHold[i] = 16;
+      vizState.peakHold[i] = 14;
       vizState.peakVel[i] = 0;
     } else if (vizState.peakHold[i] > 0) {
       vizState.peakHold[i] -= 1;
     } else {
-      vizState.peakVel[i] += 0.0022;
+      vizState.peakVel[i] += 0.0018;
       vizState.peaks[i] = Math.max(0, vizState.peaks[i] - vizState.peakVel[i]);
     }
 
-    const x = i * slotWidth + (slotWidth - barWidth) / 2;
-    const activeSegs = Math.round(vizState.levels[i] * segments);
-    const peakSeg = vizState.peaks[i] > 0.03
-      ? Math.min(segments - 1, Math.floor(vizState.peaks[i] * segments))
-      : -1;
+    const x = Math.round(padX + i * slotWidth + (slotWidth - barWidth) / 2);
+    const activeRows = Math.round(vizState.levels[i] * rows);
 
-    for (let s = 0; s < segments; s++) {
-      const y = height - (s + 1) * segHeight - s * segGap;
-      const ratio = (s + 1) / segments;
-
-      if (s < activeSegs) {
-        const color = getLedColor(ratio, vizState.mode);
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, barWidth, segHeight);
-      } else {
-        // Незажжённые ячейки LED-матрицы
-        ctx.fillStyle = "rgba(148, 163, 184, 0.14)";
-        ctx.fillRect(x, y, barWidth, segHeight);
-      }
+    // Отрисовка столбика по строкам классической палитрой Winamp (1px зазор между пиксельными полосками)
+    for (let r = 0; r < activeRows; r++) {
+      const y = Math.round(height - (r + 1) * rowStep);
+      const segH = Math.max(1, Math.round(rowStep - 0.7));
+      const ratio = r / Math.max(1, rows - 1);
+      ctx.fillStyle = getWinampBarColor(ratio, vizState.mode);
+      ctx.fillRect(x, y, barWidth, segH);
     }
 
-    // Светящаяся пиковая риска (Peak Hold Cap)
-    if (peakSeg >= 0) {
-      const py = height - (peakSeg + 1) * segHeight - peakSeg * segGap;
-      const peakRatio = (peakSeg + 1) / segments;
-      ctx.save();
-      ctx.fillStyle = peakRatio >= 0.82 ? "#fda4af" : "#f8fafc";
-      ctx.shadowColor = getLedColor(peakRatio, vizState.mode);
-      ctx.shadowBlur = 6;
-      ctx.fillRect(x, py, barWidth, Math.max(1.8, segHeight * 0.95));
-      ctx.restore();
+    // Фирменная светло-серая падающая риска Winamp над каждым столбиком
+    if (vizState.peaks[i] > 0.03) {
+      const peakRow = Math.min(rows - 1, Math.floor(vizState.peaks[i] * rows));
+      const py = Math.round(height - (peakRow + 1) * rowStep);
+      ctx.fillStyle = vizState.mode === "neon" ? "#f8fafc" : "#b8bec8";
+      ctx.fillRect(x, py, barWidth, Math.max(1.5, Math.round(rowStep * 0.8)));
     }
   }
 }
