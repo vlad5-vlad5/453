@@ -427,11 +427,24 @@ function syncEqUI() {
   }
 }
 
-// Индикация плеера: Ползунки (белые столбики + зелёные капсулы) + классический Winamp (Спектр / Осциллограф)
-const LS_VIZ_MODE = "my_new_music_viz_mode_v3";
-const VIZ_MODES = ["faders", "winamp", "osc"];
+// Индикация плеера: Цветомузыка (неподвижные разноцветные лампочки) + Ползунки + классический Winamp
+const LS_VIZ_MODE = "my_new_music_viz_mode_v4";
+const VIZ_MODES = ["bulbs", "faders", "winamp", "osc"];
+const BULB_COUNT = 8;
 const FADER_BANDS = 10;
 const SPECTRUM_BANDS = 16;
+
+// Палитра 8 неподвижных разноцветных лампочек цветомузыки (от баса к высоким)
+const BULB_PALETTE = [
+  [255, 42, 66],   // красная (глубокий бас)
+  [255, 132, 24],  // оранжевая (верхний бас)
+  [255, 224, 28],  // жёлтая (нижняя середина)
+  [56, 255, 98],   // ярко-зелёная (ритм / середина)
+  [0, 240, 214],   // бирюзовая (вокал)
+  [42, 162, 255],  // голубая (верхняя середина)
+  [108, 102, 255], // сине-индиго (высокие)
+  [232, 60, 255],  // фиолетово-розовая (тарелки)
+];
 
 // Точная классическая 16-цветная палитра Winamp (снизу вверх: ярко-зелёный -> жёлтый -> оранжевый -> красный)
 const WINAMP_SPECTRUM_COLORS = [
@@ -458,7 +471,7 @@ const WINAMP_OSC_COLORS = ["#31ef24", "#7bff68", "#c4ffba", "#ffffff"];
 
 const savedVizMode = localStorage.getItem(LS_VIZ_MODE);
 const vizState = {
-  mode: VIZ_MODES.includes(savedVizMode) ? savedVizMode : "faders",
+  mode: VIZ_MODES.includes(savedVizMode) ? savedVizMode : "bulbs",
   levels: new Float32Array(SPECTRUM_BANDS),
   peaks: new Float32Array(SPECTRUM_BANDS),
   peakHold: new Float32Array(SPECTRUM_BANDS),
@@ -468,6 +481,13 @@ const vizState = {
   faderArmed: new Uint8Array(FADER_BANDS).fill(1),
   faderLastFlash: new Float32Array(FADER_BANDS),
   lastFaderTime: 0,
+  bulbFlash: new Float32Array(BULB_COUNT),
+  bulbGlow: new Float32Array(BULB_COUNT),
+  bulbAvg: new Float32Array(BULB_COUNT),
+  bulbPrev: new Float32Array(BULB_COUNT),
+  bulbLastFlash: new Float32Array(BULB_COUNT),
+  bulbLastStep: new Int32Array(BULB_COUNT).fill(-1),
+  lastBulbTime: 0,
 };
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
@@ -480,6 +500,7 @@ spectrumWrapEl?.addEventListener("click", () => {
     // ignore
   }
   const labels = {
+    bulbs: "Индикатор: Цветомузыка (лампочки)",
     faders: "Индикатор: Ползунки",
     winamp: "Индикатор: Winamp Спектр",
     osc: "Индикатор: Winamp Осциллограф",
@@ -505,6 +526,186 @@ function buildLogBandRanges(binCount, bands) {
 
 const LOG_BAND_RANGES = buildLogBandRanges(128, SPECTRUM_BANDS);
 const FADER_LOG_RANGES = buildLogBandRanges(128, FADER_BANDS);
+const BULB_LOG_RANGES = buildLogBandRanges(128, BULB_COUNT);
+
+function drawBulbsVisualizer(ctx, width, height, playing, t) {
+  // Тёмный матовый корпус панели цветомузыки
+  ctx.fillStyle = "#0b0e13";
+  ctx.fillRect(0, 0, width, height);
+
+  const dt = vizState.lastBulbTime
+    ? Math.min(0.05, Math.max(0.004, t - vizState.lastBulbTime))
+    : 0.016;
+  vizState.lastBulbTime = t;
+
+  // Короткая резкая вспышка как на фотоаппарате (~85–100 мс) + лёгкое послесвечение линзы
+  const flashDecay = Math.exp(-dt * 27);
+  const glowDecay = Math.exp(-dt * 9.5);
+
+  let useFft = false;
+  if (playing && audioEngine?.analyser) {
+    audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
+    for (let k = 1; k < 48; k++) {
+      if (audioEngine.dataArray[k] > 2) {
+        useFft = true;
+        break;
+      }
+    }
+  }
+
+  const slotW = width / BULB_COUNT;
+  const cy = height / 2;
+  const r = Math.max(5.5, Math.min(slotW * 0.34, height * 0.32));
+
+  // Музыкальные ритмические темпы для fallback-режима (когда Web Audio отключён)
+  const fallbackRates = [2.05, 2.75, 3.4, 4.1, 3.1, 4.75, 5.4, 6.15];
+  const fallbackOffsets = [0.0, 0.35, 0.72, 0.18, 0.56, 0.84, 0.27, 0.63];
+
+  for (let i = 0; i < BULB_COUNT; i++) {
+    vizState.bulbFlash[i] *= flashDecay;
+    vizState.bulbGlow[i] *= glowDecay;
+    if (vizState.bulbFlash[i] < 0.015) vizState.bulbFlash[i] = 0;
+    if (vizState.bulbGlow[i] < 0.01) vizState.bulbGlow[i] = 0;
+
+    if (playing) {
+      const minCooldown = i < 2 ? 0.17 : 0.13;
+      if (useFft) {
+        const [start, end] = BULB_LOG_RANGES[i];
+        let peakBin = 0;
+        let sumBin = 0;
+        let count = 0;
+        for (let b = start; b < end; b++) {
+          const val = audioEngine.dataArray[b] || 0;
+          if (val > peakBin) peakBin = val;
+          sumBin += val;
+          count++;
+        }
+        const avg = count ? sumBin / count : 0;
+        const tilt = 0.92 + (i / BULB_COUNT) * 0.42;
+        const raw = Math.min(1, ((peakBin * 0.65 + avg * 0.35) / 255) * tilt);
+        vizState.bulbAvg[i] += (raw - vizState.bulbAvg[i]) * Math.min(1, dt * 4.5);
+        const delta = raw - vizState.bulbPrev[i];
+        vizState.bulbPrev[i] = raw;
+
+        const threshold = Math.max(0.24, vizState.bulbAvg[i] * 1.15);
+        if (
+          raw > threshold &&
+          delta > 0.03 &&
+          t - vizState.bulbLastFlash[i] > minCooldown
+        ) {
+          vizState.bulbFlash[i] = Math.min(1, 0.78 + raw * 0.32);
+          vizState.bulbGlow[i] = 1.0;
+          vizState.bulbLastFlash[i] = t;
+        }
+      } else {
+        // Живая ритмическая полиритмия для каждой из 8 ламп (по 1–3 короткие вспышки в такт)
+        const step = Math.floor(t * fallbackRates[i] + fallbackOffsets[i]);
+        if (step !== vizState.bulbLastStep[i]) {
+          vizState.bulbLastStep[i] = step;
+          const accent = Math.sin(step * 1.91 + i * 2.37) * Math.cos(step * 0.67 - i * 1.13);
+          const hitProb = i < 2 ? -0.08 : i < 5 ? 0.05 : 0.14;
+          if (accent > hitProb && t - vizState.bulbLastFlash[i] > minCooldown) {
+            const strength = Math.min(1, 0.8 + Math.max(0, accent) * 0.25);
+            vizState.bulbFlash[i] = strength;
+            vizState.bulbGlow[i] = 0.95;
+            vizState.bulbLastFlash[i] = t;
+          }
+        }
+      }
+    } else {
+      vizState.bulbLastStep[i] = -1;
+    }
+
+    const flash = vizState.bulbFlash[i];
+    const glow = vizState.bulbGlow[i];
+    const [cr, cg, cb] = BULB_PALETTE[i];
+    const cx = i * slotW + slotW / 2;
+
+    // 1. Внешний цветной световой ореол вспышки
+    if (glow > 0.02 || flash > 0.02) {
+      const haloR = r * (1.75 + flash * 1.65 + glow * 0.4);
+      const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, haloR);
+      haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, flash * 0.95)})`);
+      haloGrad.addColorStop(0.32, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.95, flash * 0.85 + glow * 0.42)})`);
+      haloGrad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+      ctx.fillStyle = haloGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 2. Тёмный ободок цоколя (неподвижное гнездо лампочки)
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#191e26";
+    ctx.fill();
+    ctx.lineWidth = 0.9;
+    ctx.strokeStyle = flash > 0.2
+      ? `rgba(${cr}, ${cg}, ${cb}, ${0.55 + flash * 0.45})`
+      : "rgba(255, 255, 255, 0.14)";
+    ctx.stroke();
+
+    // 3. Стеклянная цветная линза лампочки (в покое — приглушённая, при вспышке — ослепительно яркая)
+    ctx.save();
+    if (flash > 0.04 || glow > 0.04) {
+      ctx.shadowColor = flash > 0.35
+        ? `rgba(255, 255, 255, ${0.65 + flash * 0.35})`
+        : `rgba(${cr}, ${cg}, ${cb}, ${0.5 + glow * 0.45})`;
+      ctx.shadowBlur = 4 + glow * 6 + flash * 14;
+    }
+
+    const bodyGrad = ctx.createRadialGradient(
+      cx - r * 0.22,
+      cy - r * 0.22,
+      r * 0.08,
+      cx,
+      cy,
+      r
+    );
+    const coreMix = Math.min(1, flash * 1.15);
+    const rr = Math.round(cr + (255 - cr) * coreMix);
+    const rg = Math.round(cg + (255 - cg) * coreMix);
+    const rb = Math.round(cb + (255 - cb) * coreMix);
+    const centerAlpha = Math.min(1, 0.36 + glow * 0.55 + flash * 0.65);
+    const midAlpha = Math.min(1, 0.2 + glow * 0.52 + flash * 0.62);
+    const rimAlpha = Math.min(1, 0.12 + glow * 0.35 + flash * 0.45);
+
+    bodyGrad.addColorStop(0, `rgba(${rr}, ${rg}, ${rb}, ${centerAlpha})`);
+    bodyGrad.addColorStop(0.58, `rgba(${cr}, ${cg}, ${cb}, ${midAlpha})`);
+    bodyGrad.addColorStop(1, `rgba(${Math.round(cr * 0.45)}, ${Math.round(cg * 0.45)}, ${Math.round(cb * 0.45)}, ${rimAlpha})`);
+
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 4. Аккуратный стеклянный блик сверху-слева
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.24 + glow * 0.25 + flash * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(1.2, r * 0.22), 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Короткий резкий 4-лучевой блик фотовспышки
+    if (flash > 0.15) {
+      const rayH = r * (1.55 + flash * 1.1);
+      const rayV = r * (1.35 + flash * 0.95);
+      const hGrad = ctx.createLinearGradient(cx - rayH, cy, cx + rayH, cy);
+      hGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.15)})`);
+      hGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = hGrad;
+      ctx.fillRect(cx - rayH, cy - 0.8, rayH * 2, 1.6);
+
+      const vGrad = ctx.createLinearGradient(cx, cy - rayV, cx, cy + rayV);
+      vGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.05)})`);
+      vGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = vGrad;
+      ctx.fillRect(cx - 0.8, cy - rayV, 1.6, rayV * 2);
+    }
+  }
+}
 
 function fillPillRect(ctx, x, y, w, h, r) {
   const rad = Math.min(r, w / 2, h / 2);
@@ -820,7 +1021,13 @@ function drawVisualizer() {
   const playing = state.isPlaying && !audio.paused;
   const t = performance.now() / 1000;
 
-  // Режим 1 (по умолчанию): Ползунки — белые столбики с ярко-зелёными овальными капсулами
+  // Режим 1 (по умолчанию): Цветомузыка — 8 неподвижных разноцветных лампочек с короткими фотовспышками
+  if (vizState.mode === "bulbs") {
+    drawBulbsVisualizer(ctx, width, height, playing, t);
+    return;
+  }
+
+  // Режим 2: Ползунки — белые столбики с ярко-зелёными овальными капсулами
   if (vizState.mode === "faders") {
     drawFaderVisualizer(ctx, width, height, playing, t);
     return;
