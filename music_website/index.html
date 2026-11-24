@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Моя Новая Музыка</title>
-  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Шансон, Диско, ДипХаус и Разное. Создавайте плейлисты, ставьте лайки и оставляйте комментарии." />
+  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Шансон, Диско, ДипХаус и Разное. Ставьте лайки и оставляйте комментарии." />
   <meta property="og:title" content="Моя Новая Музыка" />
-  <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и плейлистами." />
+  <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и комментариями." />
   <meta property="og:type" content="website" />
   <meta name="theme-color" content="#070912" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20261124i" />
+  <link rel="stylesheet" href="style.css?v=20261124j" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющей девушкой и падающим снегом -->
@@ -102,16 +102,7 @@
     <!-- Фильтры по жанрам и избранному -->
     <section class="filters-section" aria-label="Фильтры">
       <div class="genre-tabs" id="genreTabs" role="tablist">
-        <button type="button" class="genre-tab active" data-genre="all" role="tab" aria-selected="true">
-          <span>Все жанры</span>
-          <span class="tab-count" data-count="all">0</span>
-        </button>
-        <button type="button" class="genre-tab" data-genre="favorites" role="tab" aria-selected="false">
-          <span class="heart-mini">♥</span>
-          <span>Избранное</span>
-          <span class="tab-count" data-count="favorites">0</span>
-        </button>
-        <button type="button" class="genre-tab" data-genre="chanson" role="tab" aria-selected="false">
+        <button type="button" class="genre-tab active" data-genre="chanson" role="tab" aria-selected="true">
           <span class="genre-dot dot-chanson"></span>
           <span>Шансон</span>
           <span class="tab-count" data-count="chanson">0</span>
@@ -131,41 +122,11 @@
           <span>Разное</span>
           <span class="tab-count" data-count="other">0</span>
         </button>
-      </div>
-
-      <!-- Панель плейлистов -->
-      <div class="playlists-bar" aria-label="Плейлисты">
-        <div class="playlists-label">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6" />
-            <line x1="8" y1="12" x2="21" y2="12" />
-            <line x1="8" y1="18" x2="21" y2="18" />
-            <line x1="3" y1="6" x2="3.01" y2="6" />
-            <line x1="3" y1="12" x2="3.01" y2="12" />
-            <line x1="3" y1="18" x2="3.01" y2="18" />
-          </svg>
-          <span>Плейлисты:</span>
-        </div>
-
-        <div class="playlists-chips" id="playlistsChips"></div>
-
-        <button type="button" class="btn btn-ghost btn-sm" id="newPlaylistBtn">
-          <span>+ Новый плейлист</span>
+        <button type="button" class="genre-tab" data-genre="favorites" role="tab" aria-selected="false">
+          <span class="heart-mini">♥</span>
+          <span>Избранное</span>
+          <span class="tab-count" data-count="favorites">0</span>
         </button>
-      </div>
-
-      <!-- Баннер активного плейлиста -->
-      <div class="playlist-banner hidden" id="playlistBanner">
-        <div class="playlist-banner-info">
-          <span class="playlist-banner-tag">Плейлист</span>
-          <h2 id="playlistBannerTitle">Название плейлиста</h2>
-        </div>
-        <div class="playlist-banner-actions">
-          <button type="button" class="btn btn-primary btn-sm" id="playPlaylistBtn">Слушать</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="renamePlaylistBtn">Переименовать</button>
-          <button type="button" class="btn btn-danger btn-sm" id="deletePlaylistBtn">Удалить</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="closePlaylistViewBtn">Все треки</button>
-        </div>
       </div>
 
       <div class="results-meta">
@@ -410,56 +371,6 @@
     </div>
   </div>
 
-  <!-- Модальное окно создания/переименования плейлиста -->
-  <div class="modal-backdrop hidden" id="playlistModal" role="dialog" aria-modal="true" aria-labelledby="playlistModalTitle">
-    <div class="modal-card modal-card-sm">
-      <div class="modal-header">
-        <h2 id="playlistModalTitle">Новый плейлист</h2>
-        <button type="button" class="icon-btn" id="closePlaylistModalBtn" aria-label="Закрыть окно">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
-
-      <form id="playlistForm" class="modal-form">
-        <label class="form-field">
-          <span>Название плейлиста</span>
-          <input type="text" id="playlistNameInput" placeholder="Например: Для работы или В дорогу" required maxlength="50" />
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="cancelPlaylistModalBtn">Отмена</button>
-          <button type="submit" class="btn btn-primary" id="savePlaylistBtn">Создать</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Модальное окно добавления трека в плейлисты -->
-  <div class="modal-backdrop hidden" id="addToPlaylistModal" role="dialog" aria-modal="true" aria-labelledby="addToPlaylistTitle">
-    <div class="modal-card modal-card-sm">
-      <div class="modal-header">
-        <h2 id="addToPlaylistTitle">Добавить в плейлист</h2>
-        <button type="button" class="icon-btn" id="closeAddToPlaylistBtn" aria-label="Закрыть окно">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
-
-      <p class="modal-subtitle" id="addToPlaylistTrackName"></p>
-
-      <div class="playlist-checklist" id="playlistChecklist"></div>
-
-      <form id="quickPlaylistForm" class="quick-playlist-form">
-        <input type="text" id="quickPlaylistInput" placeholder="Или создайте новый плейлист..." maxlength="50" />
-        <button type="submit" class="btn btn-primary btn-sm">Создать</button>
-      </form>
-    </div>
-  </div>
-
   <!-- Модальное окно комментариев и лайков к треку -->
   <div class="modal-backdrop hidden" id="commentsModal" role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
     <div class="modal-card comments-modal-card">
@@ -606,6 +517,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261124i"></script>
+  <script src="script.js?v=20261124j"></script>
 </body>
 </html>
