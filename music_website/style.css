@@ -129,6 +129,14 @@ body.music-playing .aurora-photo {
   );
 }
 
+.snow-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 @media (max-width: 720px) {
   .aurora-photo {
     background-position: 58% 18%;

@@ -2022,9 +2022,9 @@ uploadForm.addEventListener("submit", async (e) => {
   }
 });
 
-// Мягкие мерцающие частицы поверх живого переливающегося фона
-function initBgParticles() {
-  const canvas = document.getElementById("bgParticles");
+// Живой падающий снег поверх чёрно-белого фона (без тумана)
+function initSnowfall() {
+  const canvas = document.getElementById("snowCanvas");
   if (!canvas) return;
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
 
@@ -2033,8 +2033,8 @@ function initBgParticles() {
 
   let width = 0;
   let height = 0;
-  const count = window.innerWidth < 700 ? 18 : 30;
-  const particles = [];
+  let flakes = [];
+  let windTime = 0;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2043,52 +2043,102 @@ function initBgParticles() {
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const targetCount = width < 700 ? 52 : 95;
+    while (flakes.length < targetCount) flakes.push(spawnFlake(true));
+    if (flakes.length > targetCount) flakes.length = targetCount;
   }
 
-  function spawn(randomY = true) {
+  function spawnFlake(randomY = false) {
+    // 3 слоя глубины: дальний мелкий, средний, ближний крупный
+    const depth = Math.random();
+    const isCrystal = depth > 0.84;
+    const radius = isCrystal
+      ? 3.2 + Math.random() * 2.4
+      : 1.0 + depth * 2.4;
+
     return {
-      x: Math.random() * width,
-      y: randomY ? Math.random() * height : height + 16,
-      r: 1.2 + Math.random() * 2.8,
-      vy: 0.14 + Math.random() * 0.34,
-      vx: (Math.random() - 0.5) * 0.18,
+      x: Math.random() * (width || window.innerWidth),
+      y: randomY ? Math.random() * (height || window.innerHeight) : -14 - Math.random() * 24,
+      r: radius,
+      vy: 0.45 + depth * 1.35,
+      swayAmp: 0.25 + depth * 0.75,
+      swayFreq: 0.008 + Math.random() * 0.016,
       phase: Math.random() * Math.PI * 2,
-      speed: 0.008 + Math.random() * 0.015,
-      hueShift: Math.random(),
+      alpha: 0.35 + depth * 0.55,
+      crystal: isCrystal,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.018,
     };
+  }
+
+  function drawCrystal(x, y, r, angle, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.lineCap = "round";
+
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-r, 0);
+      ctx.lineTo(r, 0);
+      ctx.stroke();
+
+      // Маленькие веточки на концах лучей
+      const b = r * 0.58;
+      const tip = r * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(b, 0);
+      ctx.lineTo(b + tip * 0.7, -tip * 0.7);
+      ctx.moveTo(b, 0);
+      ctx.lineTo(b + tip * 0.7, tip * 0.7);
+      ctx.moveTo(-b, 0);
+      ctx.lineTo(-b - tip * 0.7, -tip * 0.7);
+      ctx.moveTo(-b, 0);
+      ctx.lineTo(-b - tip * 0.7, tip * 0.7);
+      ctx.stroke();
+
+      ctx.rotate(Math.PI / 3);
+    }
+    ctx.restore();
   }
 
   resize();
   window.addEventListener("resize", resize);
-  for (let i = 0; i < count; i++) particles.push(spawn(true));
 
   function tick() {
     requestAnimationFrame(tick);
     if (document.hidden) return;
 
     ctx.clearRect(0, 0, width, height);
-    const boost = state.isPlaying ? 1.45 : 1;
+    windTime += 0.004;
+    const breeze = Math.sin(windTime) * 0.35;
+    const speedBoost = state.isPlaying ? 1.18 : 1;
 
-    for (const p of particles) {
-      p.y -= p.vy * boost;
-      p.x += p.vx + Math.sin(p.phase) * 0.12;
-      p.phase += p.speed * boost;
+    for (const f of flakes) {
+      f.phase += f.swayFreq * speedBoost;
+      f.y += f.vy * speedBoost;
+      f.x += (breeze + Math.sin(f.phase) * f.swayAmp) * speedBoost;
+      if (f.crystal) f.angle += f.spin;
 
-      if (p.y < -16 || p.x < -20 || p.x > width + 20) {
-        Object.assign(p, spawn(false));
+      if (f.y > height + 16) {
+        Object.assign(f, spawnFlake(false));
+      } else if (f.x < -16) {
+        f.x = width + 14;
+      } else if (f.x > width + 16) {
+        f.x = -14;
       }
 
-      const alpha = (0.2 + 0.45 * (0.5 + 0.5 * Math.sin(p.phase))) * (state.isPlaying ? 1.15 : 0.9);
-      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.2);
-      const tint = p.hueShift > 0.5 ? "165, 243, 252" : "216, 180, 254";
-      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-      grad.addColorStop(0.4, `rgba(${tint}, ${alpha * 0.55})`);
-      grad.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2);
-      ctx.fill();
+      if (f.crystal) {
+        drawCrystal(f.x, f.y, f.r, f.angle, f.alpha);
+      } else {
+        ctx.fillStyle = `rgba(255, 255, 255, ${f.alpha})`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
@@ -2096,5 +2146,5 @@ function initBgParticles() {
 }
 
 // Старт приложения
-initBgParticles();
+initSnowfall();
 loadTracksFromServer(false);
