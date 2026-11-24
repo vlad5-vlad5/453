@@ -1,8 +1,8 @@
 :root {
   --bg: #070912;
   --bg-elevated: #111526;
-  --bg-card: rgba(10, 13, 22, 0.84);
-  --bg-card-hover: rgba(15, 20, 34, 0.94);
+  --bg-card: rgba(8, 11, 20, 0.42);
+  --bg-card-hover: rgba(12, 16, 30, 0.62);
   --border: rgba(255, 255, 255, 0.14);
   --border-strong: rgba(255, 255, 255, 0.28);
   --text: #ffffff;
@@ -592,11 +592,11 @@ body.music-playing .aurora-photo {
   row-gap: 5px;
   align-items: center;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 15px;
   padding: 10px 14px;
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(4px);
 }
 
 .track-card:hover {
@@ -804,6 +804,7 @@ body.music-playing .aurora-photo {
   font-weight: 700;
   line-height: 1.25;
   color: var(--text);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.88), 0 0 2px rgba(0, 0, 0, 0.75);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -812,7 +813,8 @@ body.music-playing .aurora-photo {
 .track-artist {
   font-size: 0.8rem;
   line-height: 1.25;
-  color: var(--text-muted);
+  color: #e2e8f0;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -869,6 +871,8 @@ body.music-playing .aurora-photo {
 
 .track-duration {
   font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
 }
 
 .track-actions {
@@ -1570,9 +1574,9 @@ body.music-playing .aurora-photo {
   height: 27px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(6, 9, 16, 0.52);
+  color: #f1f5f9;
   font-size: 0.77rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
