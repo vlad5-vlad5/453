@@ -27,6 +27,15 @@ const LS_LIKES_MAP = "soundwave_likes_map_v1";
 const LS_COMMENTS_MAP = "soundwave_comments_map_v1";
 const LS_USERNAME = "soundwave_username_v1";
 const LS_CLIENT_ID = "soundwave_client_id_v1";
+const LS_EQ = "soundwave_eq_v1";
+
+const EQ_PRESETS = {
+  flat: { bassBoost: false, surround: false, bass: 0, mid: 0, treble: 0 },
+  bass: { bassBoost: true, surround: false, bass: 7, mid: 0, treble: 2 },
+  surround: { bassBoost: false, surround: true, bass: 3, mid: 1, treble: 3 },
+  club: { bassBoost: true, surround: true, bass: 6.5, mid: -1, treble: 4 },
+  vocal: { bassBoost: false, surround: false, bass: 2, mid: 3.5, treble: 2.5 },
+};
 
 const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
 
@@ -83,6 +92,15 @@ const state = {
   playlistModalTrackId: null,
   activeCommentsTrackId: null,
   coverTargetTrackId: null,
+  eq: {
+    bassBoost: false,
+    surround: false,
+    bass: 0,
+    mid: 0,
+    treble: 0,
+    preset: "flat",
+    ...loadJSON(LS_EQ, {}),
+  },
 };
 
 // DOM-элементы
@@ -180,6 +198,24 @@ const commentAuthorInput = document.getElementById("commentAuthorInput");
 const commentTextInput = document.getElementById("commentTextInput");
 const commentSubmitBtn = document.getElementById("commentSubmitBtn");
 
+// Модалка настроек звука (Бас-буст / 3D / Эквалайзер)
+const openEqBtn = document.getElementById("openEqBtn");
+const eqModal = document.getElementById("eqModal");
+const closeEqBtn = document.getElementById("closeEqBtn");
+const doneEqBtn = document.getElementById("doneEqBtn");
+const resetEqBtn = document.getElementById("resetEqBtn");
+const bassBoostToggle = document.getElementById("bassBoostToggle");
+const surroundToggle = document.getElementById("surroundToggle");
+const eqPresetsEl = document.getElementById("eqPresets");
+const eqBassSlider = document.getElementById("eqBassSlider");
+const eqMidSlider = document.getElementById("eqMidSlider");
+const eqTrebleSlider = document.getElementById("eqTrebleSlider");
+const eqVolumeSlider = document.getElementById("eqVolumeSlider");
+const eqBassVal = document.getElementById("eqBassVal");
+const eqMidVal = document.getElementById("eqMidVal");
+const eqTrebleVal = document.getElementById("eqTrebleVal");
+const eqVolumeVal = document.getElementById("eqVolumeVal");
+
 const changeCoverInput = document.getElementById("changeCoverInput");
 const toastContainer = document.getElementById("toastContainer");
 
@@ -196,8 +232,228 @@ function showToast(message) {
   }, 2600);
 }
 
-// Визуализатор эквалайзера (без перехвата аудиопотока Web Audio API, чтобы браузер никогда не глушил звук из-за CORS)
+// --- Аудиодвижок: Бас-буст, Объёмный звук 3D, 3-полосный эквалайзер и лимитер ---
+let audioEngine = null;
 let vizRunning = false;
+
+function isEqActive() {
+  const { bassBoost, surround, bass, mid, treble } = state.eq;
+  return Boolean(bassBoost || surround || bass !== 0 || mid !== 0 || treble !== 0);
+}
+
+function createStudioImpulse(ctx, durationSec = 0.42) {
+  const rate = ctx.sampleRate;
+  const length = Math.floor(rate * durationSec);
+  const preDelay = Math.floor(rate * 0.012);
+  const impulse = ctx.createBuffer(2, length, rate);
+
+  for (let ch = 0; ch < 2; ch++) {
+    const data = impulse.getChannelData(ch);
+    let lp = 0;
+    for (let i = preDelay; i < length; i++) {
+      const progress = (i - preDelay) / (length - preDelay);
+      const decay = Math.pow(1 - progress, 3.2);
+      const noise = Math.random() * 2 - 1;
+      // Мягкий ФНЧ для тёплого студийного объёма без металлического звона
+      lp = lp * 0.72 + noise * 0.28;
+      data[i] = lp * decay * 0.55;
+    }
+  }
+  return impulse;
+}
+
+function ensureAudioEngine() {
+  if (audioEngine) {
+    if (audioEngine.ctx.state === "suspended") {
+      audioEngine.ctx.resume().catch(() => {});
+    }
+    return audioEngine;
+  }
+
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+
+    const ctx = new AudioCtx();
+    const source = ctx.createMediaElementSource(audio);
+
+    // 1. Отдельный фильтр для Бас-буста (68 Гц)
+    const subBassBoost = ctx.createBiquadFilter();
+    subBassBoost.type = "lowshelf";
+    subBassBoost.frequency.value = 68;
+    subBassBoost.gain.value = 0;
+
+    // 2. 3-полосный музыкальный эквалайзер
+    const bassFilter = ctx.createBiquadFilter();
+    bassFilter.type = "lowshelf";
+    bassFilter.frequency.value = 90;
+    bassFilter.gain.value = 0;
+
+    const midFilter = ctx.createBiquadFilter();
+    midFilter.type = "peaking";
+    midFilter.frequency.value = 1200;
+    midFilter.Q.value = 1.0;
+    midFilter.gain.value = 0;
+
+    const trebleFilter = ctx.createBiquadFilter();
+    trebleFilter.type = "highshelf";
+    trebleFilter.frequency.value = 6500;
+    trebleFilter.gain.value = 0;
+
+    // 3. Прямой (сухой) сигнал
+    const dryGain = ctx.createGain();
+    dryGain.gain.value = 1.0;
+
+    // 4. Объёмный звук 3D: расширение стереобазы (M/S) + студийное пространство
+    const splitter = ctx.createChannelSplitter(2);
+    const merger = ctx.createChannelMerger(2);
+    const invRToL = ctx.createGain();
+    const invLToR = ctx.createGain();
+    invRToL.gain.value = -0.38;
+    invLToR.gain.value = -0.38;
+
+    const surroundWidthGain = ctx.createGain();
+    surroundWidthGain.gain.value = 0;
+
+    const convolver = ctx.createConvolver();
+    convolver.buffer = createStudioImpulse(ctx, 0.42);
+    const surroundReverbGain = ctx.createGain();
+    surroundReverbGain.gain.value = 0;
+
+    // 5. Мягкий лимитер, чтобы усиленный бас никогда не хрипел
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -4;
+    compressor.knee.value = 12;
+    compressor.ratio.value = 4;
+    compressor.attack.value = 0.005;
+    compressor.release.value = 0.15;
+
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    // Коммутация цепочки
+    source.connect(subBassBoost);
+    subBassBoost.connect(bassFilter);
+    bassFilter.connect(midFilter);
+    midFilter.connect(trebleFilter);
+
+    // Сухой путь
+    trebleFilter.connect(dryGain);
+    dryGain.connect(compressor);
+
+    // Стерео-расширение (L - 0.38*R, R - 0.38*L)
+    trebleFilter.connect(splitter);
+    splitter.connect(merger, 0, 0);
+    splitter.connect(invRToL, 1);
+    invRToL.connect(merger, 0, 0);
+
+    splitter.connect(merger, 1, 1);
+    splitter.connect(invLToR, 0);
+    invLToR.connect(merger, 0, 1);
+
+    merger.connect(surroundWidthGain);
+    surroundWidthGain.connect(compressor);
+
+    // Мягкий объёмный ревербератор
+    trebleFilter.connect(convolver);
+    convolver.connect(surroundReverbGain);
+    surroundReverbGain.connect(compressor);
+
+    // Выход
+    compressor.connect(analyser);
+    analyser.connect(ctx.destination);
+
+    audioEngine = {
+      ctx,
+      subBassBoost,
+      bassFilter,
+      midFilter,
+      trebleFilter,
+      dryGain,
+      surroundWidthGain,
+      surroundReverbGain,
+      analyser,
+      dataArray,
+    };
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    return audioEngine;
+  } catch (err) {
+    console.warn("Эквалайзер недоступен, используется стандартное воспроизведение:", err);
+    return null;
+  }
+}
+
+function applyEqSettings(initIfNeeded = false) {
+  const { bassBoost, surround, bass, mid, treble } = state.eq;
+  const active = isEqActive();
+
+  if (active && (initIfNeeded || audioEngine)) {
+    ensureAudioEngine();
+  }
+
+  if (audioEngine) {
+    const now = audioEngine.ctx.currentTime;
+    audioEngine.subBassBoost.gain.setTargetAtTime(bassBoost ? 6.5 : 0, now, 0.03);
+    audioEngine.bassFilter.gain.setTargetAtTime(Number(bass) || 0, now, 0.03);
+    audioEngine.midFilter.gain.setTargetAtTime(Number(mid) || 0, now, 0.03);
+    audioEngine.trebleFilter.gain.setTargetAtTime(Number(treble) || 0, now, 0.03);
+
+    audioEngine.dryGain.gain.setTargetAtTime(surround ? 0.88 : 1.0, now, 0.04);
+    audioEngine.surroundWidthGain.gain.setTargetAtTime(surround ? 0.32 : 0, now, 0.04);
+    audioEngine.surroundReverbGain.gain.setTargetAtTime(surround ? 0.24 : 0, now, 0.04);
+  }
+
+  saveJSON(LS_EQ, state.eq);
+  syncEqUI();
+}
+
+function formatDb(v) {
+  const num = Number(v) || 0;
+  return `${num > 0 ? "+" : ""}${num} дБ`;
+}
+
+function syncEqUI() {
+  const { bassBoost, surround, bass, mid, treble, preset } = state.eq;
+  const active = isEqActive();
+
+  if (openEqBtn) {
+    openEqBtn.classList.toggle("active", active);
+  }
+  if (bassBoostToggle) {
+    bassBoostToggle.classList.toggle("active", Boolean(bassBoost));
+    bassBoostToggle.setAttribute("aria-pressed", String(Boolean(bassBoost)));
+  }
+  if (surroundToggle) {
+    surroundToggle.classList.toggle("active", Boolean(surround));
+    surroundToggle.setAttribute("aria-pressed", String(Boolean(surround)));
+  }
+  if (eqBassSlider) {
+    eqBassSlider.value = String(bass);
+    eqBassVal.textContent = formatDb(bass);
+  }
+  if (eqMidSlider) {
+    eqMidSlider.value = String(mid);
+    eqMidVal.textContent = formatDb(mid);
+  }
+  if (eqTrebleSlider) {
+    eqTrebleSlider.value = String(treble);
+    eqTrebleVal.textContent = formatDb(treble);
+  }
+  if (eqPresetsEl) {
+    eqPresetsEl.querySelectorAll(".eq-preset-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-preset") === preset);
+    });
+  }
+  if (eqVolumeSlider && eqVolumeVal) {
+    const vol = audio.muted ? 0 : audio.volume;
+    eqVolumeSlider.value = String(vol);
+    eqVolumeVal.textContent = `${Math.round(vol * 100)}%`;
+  }
+}
 
 function initVisualizer() {
   if (vizRunning) return;
@@ -217,13 +473,28 @@ function drawVisualizer() {
   const barWidth = (width - gap * (barCount - 1)) / barCount;
   const t = performance.now() / 160;
 
+  let useFft = false;
+  if (state.isPlaying && !audio.paused && audioEngine?.analyser) {
+    audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
+    for (let k = 0; k < barCount; k++) {
+      if (audioEngine.dataArray[k] > 2) {
+        useFft = true;
+        break;
+      }
+    }
+  }
+
   for (let i = 0; i < barCount; i++) {
     let norm = 0.1;
     if (state.isPlaying && !audio.paused) {
-      const wave1 = Math.sin(t * 1.15 + i * 0.65);
-      const wave2 = Math.cos(t * 0.72 - i * 0.42);
-      const wave3 = Math.sin(t * 1.9 + i * 1.15) * 0.35;
-      norm = 0.22 + 0.68 * Math.abs((wave1 + wave2 + wave3) / 2.35);
+      if (useFft) {
+        norm = Math.max(0.14, (audioEngine.dataArray[i] || 0) / 255);
+      } else {
+        const wave1 = Math.sin(t * 1.15 + i * 0.65);
+        const wave2 = Math.cos(t * 0.72 - i * 0.42);
+        const wave3 = Math.sin(t * 1.9 + i * 1.15) * 0.35;
+        norm = 0.22 + 0.68 * Math.abs((wave1 + wave2 + wave3) / 2.35);
+      }
     }
     const barH = Math.max(3, Math.min(height, norm * height));
     const x = i * (barWidth + gap);
@@ -287,7 +558,8 @@ function fileToDataUrl(file) {
 function cleanFileTitle(filename) {
   return filename
     .replace(/\.[^/.]+$/, "")
-    .replace(/[-_]+/g, " ")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/[_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -297,18 +569,17 @@ function isTrackInAnyPlaylist(trackId) {
 }
 
 function parseTrackFilename(filename) {
-  const stem = filename.replace(/\.[^/.]+$/, "");
-  if (stem.includes(" - ")) {
-    const [artist, ...rest] = stem.split(" - ");
+  const cleanedStem = cleanFileTitle(filename) || filename.replace(/\.[^/.]+$/, "");
+  if (cleanedStem.includes(" - ")) {
+    const [artist, ...rest] = cleanedStem.split(" - ");
     return {
       artist: artist.trim() || "Моя коллекция",
-      title: rest.join(" - ").trim() || stem,
+      title: rest.join(" - ").trim() || cleanedStem,
     };
   }
-  const cleaned = cleanFileTitle(filename);
   return {
     artist: "Моя коллекция",
-    title: cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : stem,
+    title: cleanedStem ? cleanedStem.charAt(0).toUpperCase() + cleanedStem.slice(1) : filename,
   };
 }
 
@@ -843,6 +1114,9 @@ function playTrack(trackId) {
   if (!track) return;
 
   initVisualizer();
+  if (isEqActive() || audioEngine) {
+    applyEqSettings(true);
+  }
 
   if (state.currentTrackId !== trackId) {
     state.currentTrackId = trackId;
@@ -1454,16 +1728,97 @@ function syncVolumeIcons() {
   muteBtn.querySelector(".icon-mute").classList.toggle("hidden", !muted);
 }
 
-volumeBar.addEventListener("input", () => {
-  audio.volume = Number(volumeBar.value);
-  audio.muted = audio.volume === 0;
+function setAppVolume(val) {
+  const clamped = Math.max(0, Math.min(1, Number(val)));
+  audio.volume = clamped;
+  audio.muted = clamped === 0;
+  volumeBar.value = String(clamped);
+  if (eqVolumeSlider && eqVolumeVal) {
+    eqVolumeSlider.value = String(clamped);
+    eqVolumeVal.textContent = `${Math.round(clamped * 100)}%`;
+  }
   syncVolumeIcons();
-});
+}
+
+volumeBar.addEventListener("input", () => setAppVolume(volumeBar.value));
 
 muteBtn.addEventListener("click", () => {
   audio.muted = !audio.muted;
   syncVolumeIcons();
+  syncEqUI();
 });
+
+// --- Модалка настроек звука (Бас-буст, Объёмный звук 3D, Эквалайзер) ---
+function openEqModal() {
+  syncEqUI();
+  eqModal.classList.remove("hidden");
+}
+
+function closeEqModal() {
+  eqModal.classList.add("hidden");
+}
+
+openEqBtn?.addEventListener("click", openEqModal);
+closeEqBtn?.addEventListener("click", closeEqModal);
+doneEqBtn?.addEventListener("click", closeEqModal);
+eqModal?.addEventListener("click", (e) => {
+  if (e.target === eqModal) closeEqModal();
+});
+
+bassBoostToggle?.addEventListener("click", () => {
+  state.eq.bassBoost = !state.eq.bassBoost;
+  state.eq.preset = "custom";
+  applyEqSettings(true);
+  showToast(state.eq.bassBoost ? "Бас-буст включён" : "Бас-буст выключен");
+});
+
+surroundToggle?.addEventListener("click", () => {
+  state.eq.surround = !state.eq.surround;
+  state.eq.preset = "custom";
+  applyEqSettings(true);
+  showToast(state.eq.surround ? "Объёмный звук 3D включён" : "Объёмный звук 3D выключен");
+});
+
+eqPresetsEl?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".eq-preset-btn");
+  if (!btn) return;
+  const key = btn.getAttribute("data-preset");
+  const preset = EQ_PRESETS[key];
+  if (!preset) return;
+
+  state.eq = { ...preset, preset: key };
+  applyEqSettings(key !== "flat");
+  showToast(`Режим звука: ${btn.textContent.trim()}`);
+});
+
+eqBassSlider?.addEventListener("input", () => {
+  state.eq.bass = Number(eqBassSlider.value);
+  state.eq.preset = "custom";
+  applyEqSettings(true);
+});
+
+eqMidSlider?.addEventListener("input", () => {
+  state.eq.mid = Number(eqMidSlider.value);
+  state.eq.preset = "custom";
+  applyEqSettings(true);
+});
+
+eqTrebleSlider?.addEventListener("input", () => {
+  state.eq.treble = Number(eqTrebleSlider.value);
+  state.eq.preset = "custom";
+  applyEqSettings(true);
+});
+
+eqVolumeSlider?.addEventListener("input", () => setAppVolume(eqVolumeSlider.value));
+
+resetEqBtn?.addEventListener("click", () => {
+  state.eq = { ...EQ_PRESETS.flat, preset: "flat" };
+  setAppVolume(1);
+  applyEqSettings(false);
+  showToast("Настройки звука сброшены");
+});
+
+syncEqUI();
 
 // Горячие клавиши
 document.addEventListener("keydown", (e) => {

@@ -51,12 +51,20 @@ def probe_wav_duration(path: Path) -> str | None:
     return None
 
 
+def clean_display_text(text: str) -> str:
+    # Убираем технические теги вроде [sunodownloaderpro] из отображаемого названия
+    cleaned = re.sub(r"\[[^\]]*\]", "", text)
+    cleaned = re.sub(r"[_]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def parse_name(stem: str) -> tuple[str, str]:
-    if " - " in stem:
-        artist, title = stem.split(" - ", 1)
-        return artist.strip() or "Неизвестный исполнитель", title.strip() or stem
-    cleaned = re.sub(r"[-_]+", " ", stem).strip()
-    title = cleaned[:1].upper() + cleaned[1:] if cleaned else stem
+    cleaned_stem = clean_display_text(stem) or stem
+    if " - " in cleaned_stem:
+        artist, title = cleaned_stem.split(" - ", 1)
+        return artist.strip() or "Неизвестный исполнитель", title.strip() or cleaned_stem
+    title = cleaned_stem[:1].upper() + cleaned_stem[1:] if cleaned_stem else stem
     return "Моя коллекция", title
 
 

@@ -112,12 +112,14 @@ def probe_wav_duration(path: Path) -> str | None:
 
 
 def parse_name(stem: str) -> tuple[str, str]:
-    """Разбирает 'Artist - Title' или превращает имя файла в аккуратное название."""
-    if " - " in stem:
-        artist, title = stem.split(" - ", 1)
-        return artist.strip() or "Неизвестный исполнитель", title.strip() or stem
-    cleaned = re.sub(r"[-_]+", " ", stem).strip()
-    title = cleaned[:1].upper() + cleaned[1:] if cleaned else stem
+    """Разбирает 'Artist - Title' и убирает теги вроде [sunodownloaderpro]."""
+    cleaned_stem = re.sub(r"\[[^\]]*\]", "", stem)
+    cleaned_stem = re.sub(r"[_]+", " ", cleaned_stem)
+    cleaned_stem = re.sub(r"\s+", " ", cleaned_stem).strip() or stem
+    if " - " in cleaned_stem:
+        artist, title = cleaned_stem.split(" - ", 1)
+        return artist.strip() or "Неизвестный исполнитель", title.strip() or cleaned_stem
+    title = cleaned_stem[:1].upper() + cleaned_stem[1:] if cleaned_stem else stem
     return "Моя коллекция", title
 
 
