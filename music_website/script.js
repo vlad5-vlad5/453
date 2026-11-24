@@ -465,6 +465,9 @@ const vizState = {
   peakVel: new Float32Array(SPECTRUM_BANDS),
   faderLevels: new Float32Array(FADER_BANDS),
   faderFlash: new Float32Array(FADER_BANDS),
+  faderArmed: new Uint8Array(FADER_BANDS).fill(1),
+  faderLastFlash: new Float32Array(FADER_BANDS),
+  lastFaderTime: 0,
 };
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
@@ -527,6 +530,13 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
   ctx.fillStyle = "#0d1114";
   ctx.fillRect(0, 0, width, height);
 
+  const dt = vizState.lastFaderTime
+    ? Math.min(0.05, Math.max(0.004, t - vizState.lastFaderTime))
+    : 0.016;
+  vizState.lastFaderTime = t;
+  // Мгновенное затухание фотовспышки (~80–100 мс, не зависит от герцовки экрана)
+  const flashDecay = Math.exp(-dt * 30);
+
   const bands = FADER_BANDS;
   const slotW = width / bands;
   const trackW = Math.max(3, Math.min(4.2, slotW * 0.22));
@@ -569,8 +579,8 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
         }
         const avg = count ? sumBin / count : 0;
         const raw = (peakBin * 0.62 + avg * 0.38) / 255;
-        const tilt = 0.94 + (i / bands) * 0.36;
-        target = Math.min(0.95, Math.max(0.14, Math.pow(raw * tilt, 1.05)));
+        const tilt = 0.94 + (i / bands) * 0.38;
+        target = Math.min(0.98, Math.max(0.14, Math.pow(raw * tilt, 1.05)));
       } else {
         const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.6), 2.5) * Math.max(0, 1 - i / 3.8);
         const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + i * 0.72), 2.0) * 0.68;
@@ -583,16 +593,27 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
     // Плавная физика моторизованного фейдера (быстро вверх, мягко вниз)
     const prev = vizState.faderLevels[i];
     const next = target > prev
-      ? prev + (target - prev) * 0.52
-      : prev + (target - prev) * 0.16;
+      ? prev + (target - prev) * 0.54
+      : prev + (target - prev) * 0.17;
     vizState.faderLevels[i] = next;
 
     const level = Math.max(0, Math.min(1, next));
 
-    // Яркая вспышка на пиках в самом верху (>= 78%) с плавным затуханием
-    const peakHit = playing && level >= 0.78 ? Math.min(1, (level - 0.76) / 0.18) : 0;
-    vizState.faderFlash[i] = Math.max(peakHit, vizState.faderFlash[i] * 0.84);
-    if (vizState.faderFlash[i] < 0.01) vizState.faderFlash[i] = 0;
+    // Короткая резкая вспышка как на фотоаппарате: срабатывает однократно при ударе о верхний пик
+    vizState.faderFlash[i] *= flashDecay;
+    if (vizState.faderFlash[i] < 0.02) vizState.faderFlash[i] = 0;
+
+    if (!playing || level < 0.66) {
+      vizState.faderArmed[i] = 1;
+    } else if (
+      level >= 0.81 &&
+      vizState.faderArmed[i] &&
+      t - vizState.faderLastFlash[i] > 0.24
+    ) {
+      vizState.faderFlash[i] = 1.0;
+      vizState.faderArmed[i] = 0;
+      vizState.faderLastFlash[i] = t;
+    }
     const flash = vizState.faderFlash[i];
 
     const cx = i * slotW + slotW / 2;
@@ -608,51 +629,77 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
     const whiteTop = knobY + knobH * 0.5;
     const whiteH = Math.max(trackW, padTop + trackH - whiteTop);
 
-    // 3. Ярко-белый скруглённый столбик снизу до ползунка (чуть светится при высокой громкости)
-    ctx.save();
-    if (flash > 0.05) {
-      ctx.shadowColor = `rgba(140, 255, 160, ${0.45 + flash * 0.5})`;
-      ctx.shadowBlur = 4 + flash * 8;
-    }
-    ctx.fillStyle = flash > 0.25 ? "#f5fff7" : "#ffffff";
+    // 3. Ярко-белый скруглённый столбик снизу до ползунка
+    ctx.fillStyle = "#ffffff";
     fillPillRect(ctx, trackX, whiteTop, trackW, whiteH, trackW / 2);
-    ctx.restore();
 
-    // 4. Мягкий световой ореол вспышки позади капсулы при подъёме и на самом верху
+    // 4. Плавное свечение при подъёме + короткий ослепительный ореол фотовспышки
     const knobX = cx - knobW / 2;
     const knobCenterY = knobY + knobH / 2;
-    if (level > 0.42 || flash > 0.02) {
-      const auraIntensity = Math.min(1, Math.max(0, (level - 0.42) * 0.55) + flash * 0.85);
-      const auraR = knobW * (0.95 + flash * 0.85);
-      const auraGrad = ctx.createRadialGradient(cx, knobCenterY, 0.5, cx, knobCenterY, auraR);
-      auraGrad.addColorStop(0, `rgba(220, 255, 225, ${auraIntensity * (0.45 + flash * 0.55)})`);
-      auraGrad.addColorStop(0.45, `rgba(71, 248, 104, ${auraIntensity * 0.55})`);
-      auraGrad.addColorStop(1, "rgba(71, 248, 104, 0)");
-      ctx.fillStyle = auraGrad;
+    if (level > 0.48 && flash < 0.1) {
+      const climbGlow = Math.min(0.45, (level - 0.48) * 0.85);
+      const climbR = knobW * 0.9;
+      const climbGrad = ctx.createRadialGradient(cx, knobCenterY, 0.5, cx, knobCenterY, climbR);
+      climbGrad.addColorStop(0, `rgba(110, 255, 130, ${climbGlow})`);
+      climbGrad.addColorStop(1, "rgba(71, 248, 104, 0)");
+      ctx.fillStyle = climbGrad;
       ctx.beginPath();
-      ctx.arc(cx, knobCenterY, auraR, 0, Math.PI * 2);
+      ctx.arc(cx, knobCenterY, climbR, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 5. Зелёная овальная капсула-ползунок: чем выше, тем ярче, а в самом верху — ослепительная вспышка
+    if (flash > 0.03) {
+      const flashR = knobW * (1.15 + flash * 1.1);
+      const flashGrad = ctx.createRadialGradient(cx, knobCenterY, 0.5, cx, knobCenterY, flashR);
+      flashGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, flash * 1.05)})`);
+      flashGrad.addColorStop(0.32, `rgba(215, 255, 222, ${flash * 0.85})`);
+      flashGrad.addColorStop(0.65, `rgba(80, 255, 115, ${flash * 0.42})`);
+      flashGrad.addColorStop(1, "rgba(80, 255, 115, 0)");
+      ctx.fillStyle = flashGrad;
+      ctx.beginPath();
+      ctx.arc(cx, knobCenterY, flashR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 5. Зелёная овальная капсула-ползунок: чем выше, тем ярче; на вспышке — белое ослепление
     const hue = Math.round(136 - level * 14);
-    const sat = Math.round(58 + level * 42);
-    const light = Math.min(94, Math.round(33 + level * 27 + flash * 36));
+    const sat = Math.round(56 + level * 44);
+    const light = Math.min(99, Math.round(31 + level * 29 + flash * 45));
 
     ctx.save();
-    if (level > 0.3 || flash > 0.02) {
-      ctx.shadowColor = flash > 0.25
-        ? `rgba(215, 255, 220, ${0.75 + flash * 0.25})`
-        : `rgba(71, 245, 98, ${0.35 + level * 0.55})`;
-      ctx.shadowBlur = 2 + level * 8 + flash * 14;
+    if (flash > 0.05) {
+      ctx.shadowColor = `rgba(255, 255, 255, ${Math.min(1, 0.7 + flash * 0.3)})`;
+      ctx.shadowBlur = 8 + flash * 18;
+    } else if (level > 0.35) {
+      ctx.shadowColor = `rgba(71, 245, 98, ${0.28 + level * 0.52})`;
+      ctx.shadowBlur = 2 + level * 7;
     }
-    ctx.fillStyle = `hsl(${hue}, ${sat}%, ${light}%)`;
+    ctx.fillStyle = flash > 0.55 ? "#ffffff" : `hsl(${hue}, ${sat}%, ${light}%)`;
     fillPillRect(ctx, knobX, knobY, knobW, knobH, knobH / 2);
 
-    // Яркий блик на верхней грани капсулы (усиливается на пиках)
+    // Верхний блик на капсуле
     ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.18 + level * 0.25 + flash * 0.52})`;
+    ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 0.16 + level * 0.24 + flash * 0.6)})`;
     fillPillRect(ctx, knobX + 1.2, knobY + 0.7, Math.max(2, knobW - 2.4), Math.max(1, knobH * 0.34), knobH / 2);
+
+    // Резкий крестообразный блик фотовспышки (длится доли секунды)
+    if (flash > 0.14) {
+      const rayH = knobW * (1.05 + flash * 0.85);
+      const rayV = knobH * (1.2 + flash * 1.6);
+      const hGrad = ctx.createLinearGradient(cx - rayH, knobCenterY, cx + rayH, knobCenterY);
+      hGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.1)})`);
+      hGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = hGrad;
+      ctx.fillRect(cx - rayH, knobCenterY - 0.75, rayH * 2, 1.5);
+
+      const vGrad = ctx.createLinearGradient(cx, knobCenterY - rayV, cx, knobCenterY + rayV);
+      vGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.0)})`);
+      vGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = vGrad;
+      ctx.fillRect(cx - 0.75, knobCenterY - rayV, 1.5, rayV * 2);
+    }
     ctx.restore();
   }
 }
