@@ -464,6 +464,7 @@ const vizState = {
   peakHold: new Float32Array(SPECTRUM_BANDS),
   peakVel: new Float32Array(SPECTRUM_BANDS),
   faderLevels: new Float32Array(FADER_BANDS),
+  faderFlash: new Float32Array(FADER_BANDS),
 };
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
@@ -571,20 +572,28 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
         const tilt = 0.94 + (i / bands) * 0.36;
         target = Math.min(0.95, Math.max(0.14, Math.pow(raw * tilt, 1.05)));
       } else {
-        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.4), 2.8) * Math.max(0, 1 - i / 3.5);
-        const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.8 + i * 0.7), 2.2) * 0.62;
-        const wave = (0.5 + 0.5 * Math.sin(t * 2.5 - i * 0.9) * Math.cos(t * 1.7 + i * 0.4)) * 0.55;
-        const high = (0.5 + 0.5 * Math.sin(t * 9.5 + i * 1.8)) * 0.32 * (i / bands);
-        target = Math.min(0.94, Math.max(0.16, kick * 0.72 + mid * 0.52 + wave * 0.45 + high));
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.6), 2.5) * Math.max(0, 1 - i / 3.8);
+        const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + i * 0.72), 2.0) * 0.68;
+        const wave = (0.5 + 0.5 * Math.sin(t * 2.6 - i * 0.92) * Math.cos(t * 1.8 + i * 0.44)) * 0.58;
+        const high = (0.5 + 0.5 * Math.sin(t * 9.8 + i * 1.85)) * 0.36 * (i / bands);
+        target = Math.min(0.99, Math.max(0.14, kick * 0.76 + mid * 0.56 + wave * 0.46 + high));
       }
     }
 
     // Плавная физика моторизованного фейдера (быстро вверх, мягко вниз)
     const prev = vizState.faderLevels[i];
     const next = target > prev
-      ? prev + (target - prev) * 0.46
+      ? prev + (target - prev) * 0.52
       : prev + (target - prev) * 0.16;
     vizState.faderLevels[i] = next;
+
+    const level = Math.max(0, Math.min(1, next));
+
+    // Яркая вспышка на пиках в самом верху (>= 78%) с плавным затуханием
+    const peakHit = playing && level >= 0.78 ? Math.min(1, (level - 0.76) / 0.18) : 0;
+    vizState.faderFlash[i] = Math.max(peakHit, vizState.faderFlash[i] * 0.84);
+    if (vizState.faderFlash[i] < 0.01) vizState.faderFlash[i] = 0;
+    const flash = vizState.faderFlash[i];
 
     const cx = i * slotW + slotW / 2;
     const trackX = cx - trackW / 2;
@@ -595,22 +604,56 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
 
     // 2. Положение зелёной капсулы и высота белой полосы
     const usableTravel = Math.max(4, trackH - knobH);
-    const knobY = padTop + usableTravel * (1 - next);
+    const knobY = padTop + usableTravel * (1 - level);
     const whiteTop = knobY + knobH * 0.5;
     const whiteH = Math.max(trackW, padTop + trackH - whiteTop);
 
-    // 3. Ярко-белый скруглённый столбик снизу до ползунка
-    ctx.fillStyle = "#ffffff";
+    // 3. Ярко-белый скруглённый столбик снизу до ползунка (чуть светится при высокой громкости)
+    ctx.save();
+    if (flash > 0.05) {
+      ctx.shadowColor = `rgba(140, 255, 160, ${0.45 + flash * 0.5})`;
+      ctx.shadowBlur = 4 + flash * 8;
+    }
+    ctx.fillStyle = flash > 0.25 ? "#f5fff7" : "#ffffff";
     fillPillRect(ctx, trackX, whiteTop, trackW, whiteH, trackW / 2);
+    ctx.restore();
 
-    // 4. Ярко-салатовая овальная капсула-ползунок сверху столбика
+    // 4. Мягкий световой ореол вспышки позади капсулы при подъёме и на самом верху
     const knobX = cx - knobW / 2;
-    ctx.fillStyle = "#47f25e";
+    const knobCenterY = knobY + knobH / 2;
+    if (level > 0.42 || flash > 0.02) {
+      const auraIntensity = Math.min(1, Math.max(0, (level - 0.42) * 0.55) + flash * 0.85);
+      const auraR = knobW * (0.95 + flash * 0.85);
+      const auraGrad = ctx.createRadialGradient(cx, knobCenterY, 0.5, cx, knobCenterY, auraR);
+      auraGrad.addColorStop(0, `rgba(220, 255, 225, ${auraIntensity * (0.45 + flash * 0.55)})`);
+      auraGrad.addColorStop(0.45, `rgba(71, 248, 104, ${auraIntensity * 0.55})`);
+      auraGrad.addColorStop(1, "rgba(71, 248, 104, 0)");
+      ctx.fillStyle = auraGrad;
+      ctx.beginPath();
+      ctx.arc(cx, knobCenterY, auraR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 5. Зелёная овальная капсула-ползунок: чем выше, тем ярче, а в самом верху — ослепительная вспышка
+    const hue = Math.round(136 - level * 14);
+    const sat = Math.round(58 + level * 42);
+    const light = Math.min(94, Math.round(33 + level * 27 + flash * 36));
+
+    ctx.save();
+    if (level > 0.3 || flash > 0.02) {
+      ctx.shadowColor = flash > 0.25
+        ? `rgba(215, 255, 220, ${0.75 + flash * 0.25})`
+        : `rgba(71, 245, 98, ${0.35 + level * 0.55})`;
+      ctx.shadowBlur = 2 + level * 8 + flash * 14;
+    }
+    ctx.fillStyle = `hsl(${hue}, ${sat}%, ${light}%)`;
     fillPillRect(ctx, knobX, knobY, knobW, knobH, knobH / 2);
 
-    // Лёгкий верхний блик на зелёной капсуле для объёма
-    ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
-    fillPillRect(ctx, knobX + 1.2, knobY + 0.7, Math.max(2, knobW - 2.4), Math.max(1, knobH * 0.3), knobH / 2);
+    // Яркий блик на верхней грани капсулы (усиливается на пиках)
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.18 + level * 0.25 + flash * 0.52})`;
+    fillPillRect(ctx, knobX + 1.2, knobY + 0.7, Math.max(2, knobW - 2.4), Math.max(1, knobH * 0.34), knobH / 2);
+    ctx.restore();
   }
 }
 
