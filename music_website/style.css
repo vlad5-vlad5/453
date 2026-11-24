@@ -1241,7 +1241,7 @@ body.music-playing .aurora-photo {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 168px;
+  width: 136px;
   padding: 5px 8px 3px;
   border-radius: 10px;
   background: linear-gradient(180deg, #070a13 0%, #0b1020 100%);
@@ -2099,7 +2099,7 @@ body.music-playing .aurora-photo {
 
   .pro-spectrum-wrap {
     width: 100%;
-    max-width: 240px;
+    max-width: 196px;
     min-width: 0;
     padding: 4px 8px 2px;
   }
@@ -2313,7 +2313,7 @@ body.music-playing .aurora-photo {
   }
 
   .pro-spectrum-wrap {
-    max-width: 240px;
+    max-width: 196px;
   }
 
   .visualizer {
