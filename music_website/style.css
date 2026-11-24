@@ -2062,24 +2062,33 @@ body.music-playing .aurora-photo {
 
 /* Адаптивность */
 @media (max-width: 820px) {
+  .player-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   .player-inner {
     grid-template-columns: 1fr auto;
-    gap: 10px 14px;
+    gap: 8px 14px;
   }
 
   .player-right {
+    order: -1;
     grid-column: 1 / -1;
+    display: flex !important;
+    width: 100%;
     justify-content: center;
   }
 
   .pro-spectrum-wrap {
     width: 100%;
-    max-width: 420px;
-    padding: 4px 8px 2px;
+    max-width: 520px;
+    min-width: 0;
+    padding: 5px 8px 3px;
   }
 
   .visualizer {
-    height: 28px;
+    height: 36px;
+    min-height: 36px;
   }
 
   .volume-wrap {
@@ -2091,7 +2100,7 @@ body.music-playing .aurora-photo {
   }
 
   body {
-    padding-bottom: 150px;
+    padding-bottom: 185px;
   }
 }
 
@@ -2282,7 +2291,7 @@ body.music-playing .aurora-photo {
   }
 
   .player-track {
-    justify-content: center;
+    justify-content: space-between;
   }
 
   .pro-spectrum-wrap {
@@ -2290,10 +2299,11 @@ body.music-playing .aurora-photo {
   }
 
   .visualizer {
-    height: 26px;
+    height: 36px;
+    min-height: 36px;
   }
 
   body {
-    padding-bottom: 190px;
+    padding-bottom: 215px;
   }
 }
