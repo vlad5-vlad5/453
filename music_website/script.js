@@ -75,8 +75,7 @@ const CLIENT_ID = getOrCreateClientId();
 const state = {
   serverMode: false,
   tracks: [...FALLBACK_TRACKS],
-  genre: "all",
-  activePlaylistId: null,
+  genre: "chanson",
   search: "",
   currentTrackId: null,
   isPlaying: false,
@@ -85,11 +84,8 @@ const state = {
   favorites: new Set(loadJSON(LS_FAVORITES, [])),
   likeCounts: loadJSON(LS_LIKES_MAP, {}), // { trackId: number }
   commentsMap: loadJSON(LS_COMMENTS_MAP, {}), // { trackId: [{ id, author, text, createdAt, clientId }] }
-  playlists: loadJSON(LS_PLAYLISTS, []), // [{ id, name, trackIds: [] }]
   selectedFiles: [],
   selectedCoverFile: null,
-  editingPlaylistId: null,
-  playlistModalTrackId: null,
   activeCommentsTrackId: null,
   coverTargetTrackId: null,
   eq: {
@@ -117,16 +113,6 @@ const playAllBtn = document.getElementById("playAllBtn");
 const resetFiltersBtn = document.getElementById("resetFiltersBtn");
 const rescanBtn = document.getElementById("rescanBtn");
 const shareBtn = document.getElementById("shareBtn");
-
-// Плейлисты
-const playlistsChips = document.getElementById("playlistsChips");
-const newPlaylistBtn = document.getElementById("newPlaylistBtn");
-const playlistBanner = document.getElementById("playlistBanner");
-const playlistBannerTitle = document.getElementById("playlistBannerTitle");
-const playPlaylistBtn = document.getElementById("playPlaylistBtn");
-const renamePlaylistBtn = document.getElementById("renamePlaylistBtn");
-const deletePlaylistBtn = document.getElementById("deletePlaylistBtn");
-const closePlaylistViewBtn = document.getElementById("closePlaylistViewBtn");
 
 // Плеер
 const playerCover = document.getElementById("playerCover");
@@ -166,23 +152,6 @@ const clearCoverBtn = document.getElementById("clearCoverBtn");
 const submitUploadBtn = document.getElementById("submitUploadBtn");
 const publicUploadNotice = document.getElementById("publicUploadNotice");
 const githubUploadLink = document.getElementById("githubUploadLink");
-
-// Модалка создания/переименования плейлиста
-const playlistModal = document.getElementById("playlistModal");
-const playlistModalTitle = document.getElementById("playlistModalTitle");
-const closePlaylistModalBtn = document.getElementById("closePlaylistModalBtn");
-const cancelPlaylistModalBtn = document.getElementById("cancelPlaylistModalBtn");
-const playlistForm = document.getElementById("playlistForm");
-const playlistNameInput = document.getElementById("playlistNameInput");
-const savePlaylistBtn = document.getElementById("savePlaylistBtn");
-
-// Модалка добавления трека в плейлисты
-const addToPlaylistModal = document.getElementById("addToPlaylistModal");
-const closeAddToPlaylistBtn = document.getElementById("closeAddToPlaylistBtn");
-const addToPlaylistTrackName = document.getElementById("addToPlaylistTrackName");
-const playlistChecklist = document.getElementById("playlistChecklist");
-const quickPlaylistForm = document.getElementById("quickPlaylistForm");
-const quickPlaylistInput = document.getElementById("quickPlaylistInput");
 
 // Модалка комментариев
 const commentsModal = document.getElementById("commentsModal");
@@ -1236,21 +1205,13 @@ async function toggleFavorite(trackId) {
 // Фильтрация треков
 function getFilteredTracks() {
   const q = state.search.trim().toLowerCase();
-  const activePlaylist = state.activePlaylistId
-    ? state.playlists.find((p) => p.id === state.activePlaylistId)
-    : null;
 
   return state.tracks.filter((track) => {
-    if (activePlaylist && !activePlaylist.trackIds.includes(track.id)) {
+    if (state.genre === "favorites" && !state.favorites.has(track.id)) {
       return false;
     }
-    if (!activePlaylist) {
-      if (state.genre === "favorites" && !state.favorites.has(track.id)) {
-        return false;
-      }
-      if (state.genre !== "all" && state.genre !== "favorites" && track.genre !== state.genre) {
-        return false;
-      }
+    if (state.genre !== "favorites" && track.genre !== state.genre) {
+      return false;
     }
     if (!q) return true;
     const genreName = (GENRES[track.genre]?.label || "").toLowerCase();
@@ -1266,7 +1227,6 @@ function getFilteredTracks() {
 function updateCounts() {
   const existingIds = new Set(state.tracks.map((t) => t.id));
   const counts = {
-    all: state.tracks.length,
     favorites: Array.from(state.favorites).filter((id) => existingIds.has(id)).length,
     chanson: 0,
     disco: 0,
@@ -1282,44 +1242,16 @@ function updateCounts() {
   });
 }
 
-// Отрисовка панели плейлистов
-function renderPlaylistsBar() {
-  const existingIds = new Set(state.tracks.map((t) => t.id));
-
-  if (state.playlists.length === 0) {
-    playlistsChips.innerHTML = `<span class="playlists-empty-hint">Пока нет плейлистов — создайте свой</span>`;
-  } else {
-    playlistsChips.innerHTML = state.playlists
-      .map((pl) => {
-        const count = pl.trackIds.filter((id) => existingIds.has(id)).length;
-        const active = pl.id === state.activePlaylistId;
-        return `
-          <button type="button" class="playlist-chip ${active ? "active" : ""}" data-playlist-id="${escapeHtml(pl.id)}">
-            <span>${escapeHtml(pl.name)}</span>
-            <span class="chip-count">${count}</span>
-          </button>
-        `;
-      })
-      .join("");
-  }
-
-  const activePl = state.playlists.find((p) => p.id === state.activePlaylistId);
-  if (activePl) {
-    playlistBanner.classList.remove("hidden");
-    playlistBannerTitle.textContent = activePl.name;
-  } else {
-    playlistBanner.classList.add("hidden");
-  }
-
-  // Подсветка вкладок жанров
+// Подсветка активной вкладки жанра
+function syncGenreTabs() {
   genreTabs.querySelectorAll(".genre-tab").forEach((tab) => {
-    const active = !state.activePlaylistId && tab.getAttribute("data-genre") === state.genre;
+    const active = tab.getAttribute("data-genre") === state.genre;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
 }
 
-// Отрисовка сетки треков
+// Отрисовка списка треков
 function renderTracks() {
   updateCounts();
   const list = getFilteredTracks();
@@ -1328,10 +1260,7 @@ function renderTracks() {
   if (list.length === 0) {
     tracksGrid.innerHTML = "";
     emptyState.classList.remove("hidden");
-    if (state.activePlaylistId) {
-      emptyTitle.textContent = "В этом плейлисте пока пусто";
-      emptyDesc.textContent = "Нажмите кнопку «+» на карточке любого трека, чтобы добавить его сюда.";
-    } else if (state.genre === "favorites") {
+    if (state.genre === "favorites") {
       emptyTitle.textContent = "В избранном пока нет треков";
       emptyDesc.textContent = "Нажмите на сердечко ♥ на любой карточке, чтобы добавить трек в избранное.";
     } else {
@@ -1351,7 +1280,6 @@ function renderTracks() {
       const isLiked = state.favorites.has(track.id);
       const likeCount = getLikeCount(track.id);
       const commentCount = getTrackComments(track.id).length;
-      const inPlaylist = isTrackInAnyPlaylist(track.id);
       const showOwner = state.serverMode || IS_ADMIN;
 
       const cardClass = [
@@ -1450,21 +1378,6 @@ function renderTracks() {
 
           <div class="track-footer">
             <span class="track-duration">${escapeHtml(track.duration || "--:--")}</span>
-            <div class="track-actions">
-              <button
-                type="button"
-                class="card-action-btn ${inPlaylist ? "in-playlist" : ""}"
-                data-action="playlist"
-                data-id="${escapeHtml(track.id)}"
-                title="Добавить в плейлист"
-                aria-label="Добавить ${escapeHtml(track.title)} в плейлист"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
-            </div>
           </div>
         </article>
       `;
@@ -1477,7 +1390,7 @@ function syncBackgroundMood() {
     ? state.tracks.find((t) => t.id === state.currentTrackId)
     : null;
   const theme = playingTrack ? playingTrack.genre : state.genre;
-  if (theme && theme !== "all") {
+  if (theme) {
     document.body.dataset.theme = theme;
   } else {
     delete document.body.dataset.theme;
@@ -1486,7 +1399,7 @@ function syncBackgroundMood() {
 }
 
 function renderAll() {
-  renderPlaylistsBar();
+  syncGenreTabs();
   renderTracks();
   syncBackgroundMood();
 }
@@ -1738,7 +1651,6 @@ genreTabs.addEventListener("click", (e) => {
   const genre = btn.getAttribute("data-genre");
   if (!genre) return;
 
-  state.activePlaylistId = null;
   state.genre = genre;
   renderAll();
 });
@@ -1749,8 +1661,7 @@ searchInput.addEventListener("input", (e) => {
 });
 
 resetFiltersBtn.addEventListener("click", () => {
-  state.activePlaylistId = null;
-  state.genre = "all";
+  state.genre = "chanson";
   state.search = "";
   searchInput.value = "";
   renderAll();
@@ -1777,9 +1688,6 @@ tracksGrid.addEventListener("click", (e) => {
   } else if (action === "comments") {
     e.stopPropagation();
     openCommentsModal(id);
-  } else if (action === "playlist") {
-    e.stopPropagation();
-    openAddToPlaylistModal(id);
   } else if (action === "cover") {
     e.stopPropagation();
     state.coverTargetTrackId = id;
@@ -1827,175 +1735,6 @@ changeCoverInput.addEventListener("change", async (e) => {
   } finally {
     state.coverTargetTrackId = null;
   }
-});
-
-// --- Плейлисты ---
-playlistsChips.addEventListener("click", (e) => {
-  const chip = e.target.closest(".playlist-chip");
-  if (!chip) return;
-  const plId = chip.getAttribute("data-playlist-id");
-  state.activePlaylistId = state.activePlaylistId === plId ? null : plId;
-  renderAll();
-});
-
-playPlaylistBtn.addEventListener("click", () => {
-  const list = getFilteredTracks();
-  if (list.length > 0) playTrack(list[0].id);
-  else showToast("В плейлисте нет треков");
-});
-
-closePlaylistViewBtn.addEventListener("click", () => {
-  state.activePlaylistId = null;
-  renderAll();
-});
-
-deletePlaylistBtn.addEventListener("click", () => {
-  if (!state.activePlaylistId) return;
-  const pl = state.playlists.find((p) => p.id === state.activePlaylistId);
-  if (!pl) return;
-  state.playlists = state.playlists.filter((p) => p.id !== state.activePlaylistId);
-  state.activePlaylistId = null;
-  persistPlaylists();
-  showToast(`Плейлист «${pl.name}» удалён`);
-  renderAll();
-});
-
-function openPlaylistModal(editId = null) {
-  state.editingPlaylistId = editId;
-  if (editId) {
-    const pl = state.playlists.find((p) => p.id === editId);
-    playlistModalTitle.textContent = "Переименовать плейлист";
-    savePlaylistBtn.textContent = "Сохранить";
-    playlistNameInput.value = pl ? pl.name : "";
-  } else {
-    playlistModalTitle.textContent = "Новый плейлист";
-    savePlaylistBtn.textContent = "Создать";
-    playlistNameInput.value = "";
-  }
-  playlistModal.classList.remove("hidden");
-  setTimeout(() => playlistNameInput.focus(), 40);
-}
-
-function closePlaylistModal() {
-  playlistModal.classList.add("hidden");
-  state.editingPlaylistId = null;
-}
-
-newPlaylistBtn.addEventListener("click", () => openPlaylistModal(null));
-renamePlaylistBtn.addEventListener("click", () => {
-  if (state.activePlaylistId) openPlaylistModal(state.activePlaylistId);
-});
-closePlaylistModalBtn.addEventListener("click", closePlaylistModal);
-cancelPlaylistModalBtn.addEventListener("click", closePlaylistModal);
-playlistModal.addEventListener("click", (e) => {
-  if (e.target === playlistModal) closePlaylistModal();
-});
-
-playlistForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = playlistNameInput.value.trim();
-  if (!name) return;
-
-  if (state.editingPlaylistId) {
-    const pl = state.playlists.find((p) => p.id === state.editingPlaylistId);
-    if (pl) {
-      pl.name = name;
-      showToast(`Плейлист переименован в «${name}»`);
-    }
-  } else {
-    const newPl = { id: `pl-${Date.now()}`, name, trackIds: [] };
-    state.playlists.push(newPl);
-    state.activePlaylistId = newPl.id;
-    showToast(`Плейлист «${name}» создан`);
-  }
-  persistPlaylists();
-  closePlaylistModal();
-  renderAll();
-});
-
-// Модалка «Добавить трек в плейлисты»
-function renderPlaylistChecklist() {
-  const trackId = state.playlistModalTrackId;
-  if (!trackId) return;
-
-  if (state.playlists.length === 0) {
-    playlistChecklist.innerHTML = `<p class="playlists-empty-hint">Создайте свой первый плейлист ниже</p>`;
-    return;
-  }
-
-  playlistChecklist.innerHTML = state.playlists
-    .map((pl) => {
-      const checked = pl.trackIds.includes(trackId);
-      return `
-        <label class="playlist-check-item">
-          <span class="playlist-check-left">
-            <input type="checkbox" data-pl-id="${escapeHtml(pl.id)}" ${checked ? "checked" : ""} />
-            <span class="playlist-check-name">${escapeHtml(pl.name)}</span>
-          </span>
-          <span class="playlist-check-count">${pl.trackIds.length}</span>
-        </label>
-      `;
-    })
-    .join("");
-}
-
-function openAddToPlaylistModal(trackId) {
-  const track = state.tracks.find((t) => t.id === trackId);
-  if (!track) return;
-  state.playlistModalTrackId = trackId;
-  addToPlaylistTrackName.textContent = `${track.title} — ${track.artist}`;
-  quickPlaylistInput.value = "";
-  renderPlaylistChecklist();
-  addToPlaylistModal.classList.remove("hidden");
-}
-
-function closeAddToPlaylistModal() {
-  addToPlaylistModal.classList.add("hidden");
-  state.playlistModalTrackId = null;
-}
-
-closeAddToPlaylistBtn.addEventListener("click", closeAddToPlaylistModal);
-addToPlaylistModal.addEventListener("click", (e) => {
-  if (e.target === addToPlaylistModal) closeAddToPlaylistModal();
-});
-
-playlistChecklist.addEventListener("change", (e) => {
-  const checkbox = e.target.closest("input[type='checkbox']");
-  if (!checkbox || !state.playlistModalTrackId) return;
-  const plId = checkbox.getAttribute("data-pl-id");
-  const pl = state.playlists.find((p) => p.id === plId);
-  if (!pl) return;
-
-  if (checkbox.checked) {
-    if (!pl.trackIds.includes(state.playlistModalTrackId)) {
-      pl.trackIds.push(state.playlistModalTrackId);
-    }
-    showToast(`Добавлено в «${pl.name}»`);
-  } else {
-    pl.trackIds = pl.trackIds.filter((id) => id !== state.playlistModalTrackId);
-    showToast(`Убрано из «${pl.name}»`);
-  }
-  persistPlaylists();
-  renderPlaylistChecklist();
-  renderAll();
-});
-
-quickPlaylistForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = quickPlaylistInput.value.trim();
-  if (!name || !state.playlistModalTrackId) return;
-
-  const newPl = {
-    id: `pl-${Date.now()}`,
-    name,
-    trackIds: [state.playlistModalTrackId],
-  };
-  state.playlists.push(newPl);
-  persistPlaylists();
-  quickPlaylistInput.value = "";
-  showToast(`Создан плейлист «${name}» и трек добавлен`);
-  renderPlaylistChecklist();
-  renderAll();
 });
 
 // --- Комментарии к треку ---
