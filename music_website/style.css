@@ -104,8 +104,8 @@ body {
 .aurora-photo {
   position: absolute;
   inset: 0;
-  background-image: url("assets/bg-singer.jpg");
-  background-position: 62% 20%;
+  background-image: url("assets/bg-singer.jpg?v=20261124n");
+  background-position: 54% 18%;
   background-size: cover;
   background-repeat: no-repeat;
   filter: grayscale(100%) contrast(1.12) brightness(0.92);
@@ -139,7 +139,7 @@ body.music-playing .aurora-photo {
 
 @media (max-width: 720px) {
   .aurora-photo {
-    background-position: 58% 18%;
+    background-position: 50% 18%;
   }
 }
 
