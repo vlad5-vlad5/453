@@ -1,0 +1,10 @@
+{
+  "name": "Моя Новая Музыка",
+  "short_name": "Моя Музыка",
+  "description": "Коллекция музыки по жанрам: Шансон, Диско, ДипХаус и Разное",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#070912",
+  "theme_color": "#070912",
+  "lang": "ru"
+}

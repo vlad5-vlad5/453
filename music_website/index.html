@@ -8,7 +8,13 @@
   <meta property="og:title" content="Моя Новая Музыка" />
   <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и плейлистами." />
   <meta property="og:type" content="website" />
-  <link rel="stylesheet" href="style.css?v=20261124f" />
+  <meta name="theme-color" content="#070912" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css?v=20261124h" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющей девушкой и падающим снегом -->
@@ -55,6 +61,21 @@
             <circle cx="18" cy="19" r="3" />
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        </button>
+
+        <button type="button" class="btn btn-secondary btn-icon-only btn-fullscreen" id="fullscreenBtn" title="На весь экран" aria-label="Развернуть на весь экран">
+          <svg class="icon-fs-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          <svg class="icon-fs-exit hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="14" y1="10" x2="21" y2="3" />
+            <line x1="3" y1="21" x2="10" y2="14" />
           </svg>
         </button>
 
@@ -585,6 +606,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261124g"></script>
+  <script src="script.js?v=20261124h"></script>
 </body>
 </html>

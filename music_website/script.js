@@ -1004,6 +1004,51 @@ shareBtn?.addEventListener("click", async () => {
   }
 });
 
+// Кнопка «На весь экран»
+const fullscreenBtn = document.getElementById("fullscreenBtn");
+
+function isFullscreenActive() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function syncFullscreenBtn() {
+  if (!fullscreenBtn) return;
+  const active = isFullscreenActive();
+  fullscreenBtn.classList.toggle("active", active);
+  fullscreenBtn.title = active ? "Выйти из полноэкранного режима" : "На весь экран";
+  fullscreenBtn.setAttribute(
+    "aria-label",
+    active ? "Выйти из полноэкранного режима" : "Развернуть на весь экран"
+  );
+  fullscreenBtn.querySelector(".icon-fs-enter")?.classList.toggle("hidden", active);
+  fullscreenBtn.querySelector(".icon-fs-exit")?.classList.toggle("hidden", !active);
+}
+
+fullscreenBtn?.addEventListener("click", async () => {
+  try {
+    if (isFullscreenActive()) {
+      const exitFn = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exitFn) await exitFn.call(document);
+    } else {
+      const el = document.documentElement;
+      const reqFn = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (reqFn) {
+        await reqFn.call(el);
+      } else {
+        showToast("На iPhone: нажмите «Поделиться» → «На экран Домой» для полного экрана");
+      }
+    }
+  } catch {
+    showToast("На iPhone: нажмите «Поделиться» → «На экран Домой» для полного экрана");
+  } finally {
+    syncFullscreenBtn();
+  }
+});
+
+document.addEventListener("fullscreenchange", syncFullscreenBtn);
+document.addEventListener("webkitfullscreenchange", syncFullscreenBtn);
+syncFullscreenBtn();
+
 // Сохранение лайков, комментариев и плейлистов
 function persistFavorites() {
   saveJSON(LS_FAVORITES, Array.from(state.favorites));

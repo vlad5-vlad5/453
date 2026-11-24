@@ -284,6 +284,13 @@ body.music-playing .aurora-photo {
   flex-shrink: 0;
 }
 
+.btn-fullscreen.active {
+  border-color: rgba(124, 92, 255, 0.85);
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.55), rgba(6, 182, 212, 0.45));
+  color: #fff;
+  box-shadow: 0 0 16px rgba(124, 92, 255, 0.35);
+}
+
 .btn.is-spinning svg {
   animation: spin 0.75s linear infinite;
 }
