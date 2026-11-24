@@ -579,45 +579,52 @@ body.music-playing .aurora-photo {
 /* Сетка карточек треков */
 .tracks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .track-card {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  row-gap: 5px;
+  align-items: center;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 15px;
-  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+  border-radius: 15px;
+  padding: 10px 14px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   backdrop-filter: blur(12px);
 }
 
 .track-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   background: var(--bg-card-hover);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
 }
 
 .track-card.is-playing {
-  border-color: rgba(124, 92, 255, 0.78);
-  box-shadow: 0 16px 40px rgba(124, 92, 255, 0.25);
+  border-color: rgba(124, 92, 255, 0.85);
+  box-shadow: 0 10px 28px rgba(124, 92, 255, 0.28);
 }
 
 .track-cover {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 13px;
-  margin-bottom: 14px;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 62px;
+  height: 62px;
+  border-radius: 11px;
+  margin-bottom: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .cover-chanson { background: var(--grad-chanson); }
@@ -635,42 +642,42 @@ body.music-playing .aurora-photo {
 }
 
 .track-card:hover .cover-img {
-  transform: scale(1.04);
+  transform: scale(1.06);
 }
 
 .track-cover::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, transparent 40%, rgba(0, 0, 0, 0.52) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.46) 100%);
   pointer-events: none;
 }
 
 .cover-symbol {
   position: relative;
   z-index: 1;
-  font-size: 2.8rem;
-  color: rgba(255, 255, 255, 0.88);
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  font-size: 1.55rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 .cover-top-actions {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 3;
+  top: 4px;
+  right: 4px;
+  z-index: 4;
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 
 .cover-mini-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(10, 12, 20, 0.62);
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 12, 20, 0.78);
   backdrop-filter: blur(8px);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -684,54 +691,60 @@ body.music-playing .aurora-photo {
 }
 
 .cover-mini-btn:hover {
-  background: rgba(124, 92, 255, 0.88);
+  background: rgba(124, 92, 255, 0.92);
   color: #fff;
   transform: scale(1.06);
 }
 
 .cover-mini-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
 }
 
 .cover-play-overlay {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 3;
-  width: 46px;
-  height: 46px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
-  background: rgba(10, 12, 20, 0.86);
+  background: rgba(10, 12, 20, 0.74);
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
 .cover-play-overlay:hover {
-  transform: scale(1.08);
+  transform: translate(-50%, -50%) scale(1.08);
   background: var(--accent);
 }
 
+.track-card.is-playing .cover-play-overlay {
+  background: rgba(124, 92, 255, 0.92);
+}
+
 .cover-play-overlay svg {
-  width: 19px;
-  height: 19px;
+  width: 15px;
+  height: 15px;
 }
 
 /* Эквалайзер на карточке */
 .eq-bars {
   position: absolute;
-  left: 12px;
-  bottom: 14px;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
   z-index: 3;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 18px;
+  gap: 2.5px;
+  height: 12px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -741,11 +754,11 @@ body.music-playing .aurora-photo {
 }
 
 .eq-bars span {
-  width: 3px;
+  width: 2.5px;
   border-radius: 99px;
   background: linear-gradient(0deg, #10b981 0%, #22d3ee 55%, #fbbf24 100%);
   box-shadow: 0 0 6px rgba(34, 211, 238, 0.7);
-  height: 5px;
+  height: 4px;
   animation: eqBounce 0.9s ease-in-out infinite;
 }
 
@@ -755,47 +768,41 @@ body.music-playing .aurora-photo {
 
 .track-card.is-paused .eq-bars span {
   animation-play-state: paused;
-  height: 5px;
+  height: 4px;
 }
 
 @keyframes eqBounce {
-  0%, 100% { height: 4px; }
-  50% { height: 18px; }
+  0%, 100% { height: 3px; }
+  50% { height: 12px; }
 }
 
 .track-genre-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 3;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(10, 12, 20, 0.62);
-  backdrop-filter: blur(8px);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #fff;
+  display: none;
 }
 
 .track-head-row {
+  grid-column: 2 / 4;
+  grid-row: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  cursor: pointer;
 }
 
 .track-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
   flex: 1;
 }
 
 .track-title {
-  font-size: 1.02rem;
+  font-size: 0.98rem;
   font-weight: 700;
+  line-height: 1.25;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -803,7 +810,8 @@ body.music-playing .aurora-photo {
 }
 
 .track-artist {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.25;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -846,13 +854,16 @@ body.music-playing .aurora-photo {
 }
 
 .track-footer {
+  grid-column: 3;
+  grid-row: 2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-  padding-top: 11px;
-  border-top: 1px solid var(--border);
-  font-size: 0.8rem;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 0;
+  border-top: none;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
@@ -1543,23 +1554,25 @@ body.music-playing .aurora-photo {
 
 /* Кнопки лайков и комментариев со счётчиком */
 .card-social-bar {
+  grid-column: 2;
+  grid-row: 2;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 .social-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 11px;
+  gap: 5px;
+  height: 27px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.77rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -2062,6 +2075,11 @@ body.music-playing .aurora-photo {
 
 /* Адаптивность */
 @media (max-width: 820px) {
+  .tracks-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
   .player-bar {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
