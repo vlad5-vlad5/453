@@ -458,9 +458,10 @@ function syncEqUI() {
   }
 }
 
-// Легендарная классическая индикация Winamp (Спектр + Осциллограф + Неон)
-const LS_VIZ_MODE = "my_new_music_viz_mode_v2";
-const VIZ_MODES = ["winamp", "osc", "neon"];
+// Индикация плеера: Ползунки (белые столбики + зелёные капсулы) + классический Winamp (Спектр / Осциллограф)
+const LS_VIZ_MODE = "my_new_music_viz_mode_v3";
+const VIZ_MODES = ["faders", "winamp", "osc"];
+const FADER_BANDS = 10;
 const SPECTRUM_BANDS = 16;
 
 // Точная классическая 16-цветная палитра Winamp (снизу вверх: ярко-зелёный -> жёлтый -> оранжевый -> красный)
@@ -488,11 +489,12 @@ const WINAMP_OSC_COLORS = ["#31ef24", "#7bff68", "#c4ffba", "#ffffff"];
 
 const savedVizMode = localStorage.getItem(LS_VIZ_MODE);
 const vizState = {
-  mode: VIZ_MODES.includes(savedVizMode) ? savedVizMode : "winamp",
+  mode: VIZ_MODES.includes(savedVizMode) ? savedVizMode : "faders",
   levels: new Float32Array(SPECTRUM_BANDS),
   peaks: new Float32Array(SPECTRUM_BANDS),
   peakHold: new Float32Array(SPECTRUM_BANDS),
   peakVel: new Float32Array(SPECTRUM_BANDS),
+  faderLevels: new Float32Array(FADER_BANDS),
 };
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
@@ -505,11 +507,11 @@ spectrumWrapEl?.addEventListener("click", () => {
     // ignore
   }
   const labels = {
-    winamp: "Winamp: Спектр (классика)",
-    osc: "Winamp: Осциллограф (волна)",
-    neon: "Winamp: Неоновый спектр",
+    faders: "Индикатор: Ползунки",
+    winamp: "Индикатор: Winamp Спектр",
+    osc: "Индикатор: Winamp Осциллограф",
   };
-  showToast(labels[vizState.mode] || "Winamp");
+  showToast(labels[vizState.mode] || "Индикатор");
 });
 
 // Логарифмическое распределение полос по бинам FFT (от глубокого баса 60 Гц к высоким 14 кГц)
@@ -529,6 +531,119 @@ function buildLogBandRanges(binCount, bands) {
 }
 
 const LOG_BAND_RANGES = buildLogBandRanges(128, SPECTRUM_BANDS);
+const FADER_LOG_RANGES = buildLogBandRanges(128, FADER_BANDS);
+
+function fillPillRect(ctx, x, y, w, h, r) {
+  const rad = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, rad);
+  } else {
+    ctx.moveTo(x + rad, y);
+    ctx.lineTo(x + w - rad, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+    ctx.lineTo(x + w, y + h - rad);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    ctx.lineTo(x + rad, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+    ctx.lineTo(x, y + rad);
+    ctx.quadraticCurveTo(x, y, x + rad, y);
+  }
+  ctx.fill();
+}
+
+function drawFaderVisualizer(ctx, width, height, playing, t) {
+  // Глубокий тёмно-графитовый фон, как на референсе
+  ctx.fillStyle = "#0d1114";
+  ctx.fillRect(0, 0, width, height);
+
+  const bands = FADER_BANDS;
+  const slotW = width / bands;
+  const trackW = Math.max(3, Math.min(4.2, slotW * 0.22));
+  const knobW = Math.max(8, Math.min(12, slotW * 0.62));
+  const knobH = Math.max(4, Math.min(5.2, height * 0.145));
+  const padTop = 3;
+  const padBottom = 2;
+  const trackH = Math.max(10, height - padTop - padBottom);
+
+  let useFft = false;
+  if (playing && audioEngine?.analyser) {
+    audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
+    for (let k = 1; k < 48; k++) {
+      if (audioEngine.dataArray[k] > 2) {
+        useFft = true;
+        break;
+      }
+    }
+  }
+
+  // Тонкие вертикальные разделители между 10 каналами
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  for (let i = 1; i < bands; i++) {
+    ctx.fillRect(Math.round(i * slotW), 0, 1, height);
+  }
+
+  for (let i = 0; i < bands; i++) {
+    let target = 0.12;
+    if (playing) {
+      if (useFft) {
+        const [start, end] = FADER_LOG_RANGES[i];
+        let peakBin = 0;
+        let sumBin = 0;
+        let count = 0;
+        for (let b = start; b < end; b++) {
+          const val = audioEngine.dataArray[b] || 0;
+          if (val > peakBin) peakBin = val;
+          sumBin += val;
+          count++;
+        }
+        const avg = count ? sumBin / count : 0;
+        const raw = (peakBin * 0.62 + avg * 0.38) / 255;
+        const tilt = 0.94 + (i / bands) * 0.36;
+        target = Math.min(0.95, Math.max(0.14, Math.pow(raw * tilt, 1.05)));
+      } else {
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.4), 2.8) * Math.max(0, 1 - i / 3.5);
+        const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.8 + i * 0.7), 2.2) * 0.62;
+        const wave = (0.5 + 0.5 * Math.sin(t * 2.5 - i * 0.9) * Math.cos(t * 1.7 + i * 0.4)) * 0.55;
+        const high = (0.5 + 0.5 * Math.sin(t * 9.5 + i * 1.8)) * 0.32 * (i / bands);
+        target = Math.min(0.94, Math.max(0.16, kick * 0.72 + mid * 0.52 + wave * 0.45 + high));
+      }
+    }
+
+    // Плавная физика моторизованного фейдера (быстро вверх, мягко вниз)
+    const prev = vizState.faderLevels[i];
+    const next = target > prev
+      ? prev + (target - prev) * 0.46
+      : prev + (target - prev) * 0.16;
+    vizState.faderLevels[i] = next;
+
+    const cx = i * slotW + slotW / 2;
+    const trackX = cx - trackW / 2;
+
+    // 1. Тёмно-серая вертикальная направляющая (прорезь)
+    ctx.fillStyle = "#363c42";
+    fillPillRect(ctx, trackX, padTop, trackW, trackH, trackW / 2);
+
+    // 2. Положение зелёной капсулы и высота белой полосы
+    const usableTravel = Math.max(4, trackH - knobH);
+    const knobY = padTop + usableTravel * (1 - next);
+    const whiteTop = knobY + knobH * 0.5;
+    const whiteH = Math.max(trackW, padTop + trackH - whiteTop);
+
+    // 3. Ярко-белый скруглённый столбик снизу до ползунка
+    ctx.fillStyle = "#ffffff";
+    fillPillRect(ctx, trackX, whiteTop, trackW, whiteH, trackW / 2);
+
+    // 4. Ярко-салатовая овальная капсула-ползунок сверху столбика
+    const knobX = cx - knobW / 2;
+    ctx.fillStyle = "#47f25e";
+    fillPillRect(ctx, knobX, knobY, knobW, knobH, knobH / 2);
+
+    // Лёгкий верхний блик на зелёной капсуле для объёма
+    ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+    fillPillRect(ctx, knobX + 1.2, knobY + 0.7, Math.max(2, knobW - 2.4), Math.max(1, knobH * 0.3), knobH / 2);
+  }
+}
 
 function initVisualizer() {
   if (vizRunning) return;
@@ -643,12 +758,18 @@ function drawVisualizer() {
   const height = rect.height;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  drawWinampGrid(ctx, width, height);
-
   const playing = state.isPlaying && !audio.paused;
   const t = performance.now() / 1000;
 
-  // Режим 2: Классический осциллограф Winamp
+  // Режим 1 (по умолчанию): Ползунки — белые столбики с ярко-зелёными овальными капсулами
+  if (vizState.mode === "faders") {
+    drawFaderVisualizer(ctx, width, height, playing, t);
+    return;
+  }
+
+  drawWinampGrid(ctx, width, height);
+
+  // Режим 3: Классический осциллограф Winamp
   if (vizState.mode === "osc") {
     drawWinampOscilloscope(ctx, width, height, playing, t);
     return;
