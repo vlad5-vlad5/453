@@ -544,10 +544,10 @@ function drawVisualizer() {
 
   const bands = SPECTRUM_BANDS;
   const segments = height >= 32 ? 10 : 8;
-  const segGap = 1.6;
+  const segGap = 1.8;
   const slotWidth = width / bands;
-  const barWidth = Math.max(2.5, Math.min(4.5, slotWidth * 0.42));
-  const segHeight = Math.max(1.5, (height - segGap * (segments - 1)) / segments);
+  const barWidth = 2;
+  const segHeight = Math.max(1.3, (height - segGap * (segments - 1)) / segments);
   const t = performance.now() / 1000;
 
   let useFft = false;
