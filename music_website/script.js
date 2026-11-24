@@ -329,7 +329,8 @@ function ensureAudioEngine() {
     compressor.release.value = 0.15;
 
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 64;
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.72;
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
     // Коммутация цепочки
@@ -455,28 +456,104 @@ function syncEqUI() {
   }
 }
 
+// Профессиональный студийный LED-анализатор спектра с Peak Hold
+const LS_VIZ_MODE = "my_new_music_viz_mode_v1";
+const SPECTRUM_BANDS = 20;
+const vizState = {
+  mode: localStorage.getItem(LS_VIZ_MODE) === "neon" ? "neon" : "led",
+  levels: new Float32Array(SPECTRUM_BANDS),
+  peaks: new Float32Array(SPECTRUM_BANDS),
+  peakHold: new Float32Array(SPECTRUM_BANDS),
+  peakVel: new Float32Array(SPECTRUM_BANDS),
+};
+
+const spectrumWrapEl = document.getElementById("spectrumWrap");
+spectrumWrapEl?.addEventListener("click", () => {
+  vizState.mode = vizState.mode === "led" ? "neon" : "led";
+  try {
+    localStorage.setItem(LS_VIZ_MODE, vizState.mode);
+  } catch {
+    // ignore
+  }
+  showToast(
+    vizState.mode === "led"
+      ? "Индикатор: Студийный LED + Peak Hold"
+      : "Индикатор: Hi-Fi Неон + Peak Hold"
+  );
+});
+
+// Логарифмическое распределение 20 полос по бинам FFT (от глубокого баса 60 Гц к высоким 14 кГц)
+function buildLogBandRanges(binCount, bands) {
+  const ranges = [];
+  const minBin = 1;
+  const maxBin = Math.max(minBin + bands, Math.min(binCount - 1, 96));
+  for (let i = 0; i < bands; i++) {
+    const start = Math.floor(minBin * Math.pow(maxBin / minBin, i / bands));
+    const end = Math.max(
+      start + 1,
+      Math.floor(minBin * Math.pow(maxBin / minBin, (i + 1) / bands))
+    );
+    ranges.push([start, Math.min(binCount, end)]);
+  }
+  return ranges;
+}
+
+const LOG_BAND_RANGES = buildLogBandRanges(128, SPECTRUM_BANDS);
+
 function initVisualizer() {
   if (vizRunning) return;
   vizRunning = true;
   drawVisualizer();
 }
 
+function getLedColor(segRatio, mode) {
+  if (mode === "neon") {
+    if (segRatio >= 0.82) return "#fb7185";
+    if (segRatio >= 0.56) return "#a855f7";
+    return "#22d3ee";
+  }
+  // Классическая студийная LED-шкала: изумруд -> бирюза -> янтарь -> красный пик
+  if (segRatio >= 0.82) return "#ef4444";
+  if (segRatio >= 0.64) return "#f59e0b";
+  if (segRatio >= 0.42) return "#22d3ee";
+  return "#10b981";
+}
+
 function drawVisualizer() {
   requestAnimationFrame(drawVisualizer);
+  if (document.hidden || !visualizerCanvas) return;
+
+  const rect = visualizerCanvas.getBoundingClientRect();
+  if (rect.width < 20 || rect.height < 10) return;
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const targetW = Math.round(rect.width * dpr);
+  const targetH = Math.round(rect.height * dpr);
+  if (visualizerCanvas.width !== targetW || visualizerCanvas.height !== targetH) {
+    visualizerCanvas.width = targetW;
+    visualizerCanvas.height = targetH;
+  }
+
   const ctx = visualizerCanvas.getContext("2d");
   if (!ctx) return;
-  const { width, height } = visualizerCanvas;
+
+  const width = rect.width;
+  const height = rect.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const barCount = 16;
-  const gap = 3;
-  const barWidth = (width - gap * (barCount - 1)) / barCount;
-  const t = performance.now() / 160;
+  const bands = SPECTRUM_BANDS;
+  const segments = height >= 32 ? 11 : 8;
+  const colGap = width >= 200 ? 3 : 2;
+  const segGap = 1.4;
+  const barWidth = Math.max(2, (width - colGap * (bands - 1)) / bands);
+  const segHeight = Math.max(1.5, (height - segGap * (segments - 1)) / segments);
+  const t = performance.now() / 1000;
 
   let useFft = false;
   if (state.isPlaying && !audio.paused && audioEngine?.analyser) {
     audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
-    for (let k = 0; k < barCount; k++) {
+    for (let k = 1; k < 48; k++) {
       if (audioEngine.dataArray[k] > 2) {
         useFft = true;
         break;
@@ -484,33 +561,88 @@ function drawVisualizer() {
     }
   }
 
-  for (let i = 0; i < barCount; i++) {
-    let norm = 0.1;
-    if (state.isPlaying && !audio.paused) {
+  const playing = state.isPlaying && !audio.paused;
+
+  for (let i = 0; i < bands; i++) {
+    let target = 0;
+    if (playing) {
       if (useFft) {
-        norm = Math.max(0.14, (audioEngine.dataArray[i] || 0) / 255);
+        const [start, end] = LOG_BAND_RANGES[i];
+        let peakBin = 0;
+        let sumBin = 0;
+        let count = 0;
+        for (let b = start; b < end; b++) {
+          const val = audioEngine.dataArray[b] || 0;
+          if (val > peakBin) peakBin = val;
+          sumBin += val;
+          count++;
+        }
+        const avg = count ? sumBin / count : 0;
+        const raw = (peakBin * 0.6 + avg * 0.4) / 255;
+        // Небольшой естественный наклон, чтобы и высокие частоты живо светились
+        const tilt = 0.92 + (i / bands) * 0.35;
+        target = Math.min(1, Math.pow(raw * tilt, 1.08));
       } else {
-        const wave1 = Math.sin(t * 1.15 + i * 0.65);
-        const wave2 = Math.cos(t * 0.72 - i * 0.42);
-        const wave3 = Math.sin(t * 1.9 + i * 1.15) * 0.35;
-        norm = 0.22 + 0.68 * Math.abs((wave1 + wave2 + wave3) / 2.35);
+        // Реалистичная студийная спектральная симуляция (бас слева, вокал в центре, тарелки справа)
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.8), 3.2) * Math.max(0, 1 - i / 6);
+        const snare = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + 1.5), 4) * Math.exp(-Math.pow((i - 9) / 4.2, 2));
+        const melody = (0.45 + 0.45 * Math.sin(t * 2.7 + i * 0.48) * Math.cos(t * 1.4 - i * 0.25)) * 0.65;
+        const sparkle = (0.5 + 0.5 * Math.sin(t * 11.5 + i * 1.9)) * 0.32 * (i / bands);
+        target = Math.min(0.98, Math.max(0.08, kick * 0.82 + snare * 0.65 + melody * 0.52 + sparkle));
       }
     }
-    const barH = Math.max(3, Math.min(height, norm * height));
-    const x = i * (barWidth + gap);
-    const y = height - barH;
 
-    const grad = ctx.createLinearGradient(0, y, 0, height);
-    grad.addColorStop(0, "#38bdf8");
-    grad.addColorStop(1, "#7c5cff");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    if (typeof ctx.roundRect === "function") {
-      ctx.roundRect(x, y, barWidth, barH, 3);
+    // Баллистика студийного измерителя: быстрый подъём, плавный спад
+    const prev = vizState.levels[i];
+    const next = target > prev
+      ? prev + (target - prev) * 0.68
+      : prev + (target - prev) * 0.19;
+    vizState.levels[i] = next < 0.008 ? 0 : next;
+
+    // Физика пик-индикатора (Peak Hold + плавное падение)
+    if (vizState.levels[i] >= vizState.peaks[i]) {
+      vizState.peaks[i] = vizState.levels[i];
+      vizState.peakHold[i] = 16;
+      vizState.peakVel[i] = 0;
+    } else if (vizState.peakHold[i] > 0) {
+      vizState.peakHold[i] -= 1;
     } else {
-      ctx.rect(x, y, barWidth, barH);
+      vizState.peakVel[i] += 0.0022;
+      vizState.peaks[i] = Math.max(0, vizState.peaks[i] - vizState.peakVel[i]);
     }
-    ctx.fill();
+
+    const x = i * (barWidth + colGap);
+    const activeSegs = Math.round(vizState.levels[i] * segments);
+    const peakSeg = vizState.peaks[i] > 0.03
+      ? Math.min(segments - 1, Math.floor(vizState.peaks[i] * segments))
+      : -1;
+
+    for (let s = 0; s < segments; s++) {
+      const y = height - (s + 1) * segHeight - s * segGap;
+      const ratio = (s + 1) / segments;
+
+      if (s < activeSegs) {
+        const color = getLedColor(ratio, vizState.mode);
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, barWidth, segHeight);
+      } else {
+        // Незажжённые ячейки LED-матрицы
+        ctx.fillStyle = "rgba(255, 255, 255, 0.055)";
+        ctx.fillRect(x, y, barWidth, segHeight);
+      }
+    }
+
+    // Светящаяся пиковая риска (Peak Hold Cap)
+    if (peakSeg >= 0) {
+      const py = height - (peakSeg + 1) * segHeight - peakSeg * segGap;
+      const peakRatio = (peakSeg + 1) / segments;
+      ctx.save();
+      ctx.fillStyle = peakRatio >= 0.82 ? "#fda4af" : "#f8fafc";
+      ctx.shadowColor = getLedColor(peakRatio, vizState.mode);
+      ctx.shadowBlur = 6;
+      ctx.fillRect(x, py, barWidth, Math.max(1.8, segHeight * 0.95));
+      ctx.restore();
+    }
   }
 }
 
@@ -1129,9 +1261,8 @@ function playTrack(trackId) {
   if (!track) return;
 
   initVisualizer();
-  if (isEqActive() || audioEngine) {
-    applyEqSettings(true);
-  }
+  ensureAudioEngine();
+  applyEqSettings(true);
 
   if (state.currentTrackId !== trackId) {
     state.currentTrackId = trackId;
@@ -2147,4 +2278,5 @@ function initSnowfall() {
 
 // Старт приложения
 initSnowfall();
+initVisualizer();
 loadTracksFromServer(false);
