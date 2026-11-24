@@ -1078,9 +1078,23 @@ function renderTracks() {
     .join("");
 }
 
+function syncBackgroundMood() {
+  const playingTrack = state.isPlaying
+    ? state.tracks.find((t) => t.id === state.currentTrackId)
+    : null;
+  const theme = playingTrack ? playingTrack.genre : state.genre;
+  if (theme && theme !== "all") {
+    document.body.dataset.theme = theme;
+  } else {
+    delete document.body.dataset.theme;
+  }
+  document.body.classList.toggle("music-playing", Boolean(state.isPlaying));
+}
+
 function renderAll() {
   renderPlaylistsBar();
   renderTracks();
+  syncBackgroundMood();
 }
 
 // Обновление нижнего плеера
@@ -1091,6 +1105,7 @@ function updatePlayerUI() {
 
   iconPlay.classList.toggle("hidden", state.isPlaying);
   iconPause.classList.toggle("hidden", !state.isPlaying);
+  syncBackgroundMood();
 
   if (!track) {
     playerLikeBtn.classList.remove("liked");
@@ -2007,5 +2022,79 @@ uploadForm.addEventListener("submit", async (e) => {
   }
 });
 
+// Мягкие мерцающие частицы поверх живого переливающегося фона
+function initBgParticles() {
+  const canvas = document.getElementById("bgParticles");
+  if (!canvas) return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  let width = 0;
+  let height = 0;
+  const count = window.innerWidth < 700 ? 18 : 30;
+  const particles = [];
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function spawn(randomY = true) {
+    return {
+      x: Math.random() * width,
+      y: randomY ? Math.random() * height : height + 16,
+      r: 1.2 + Math.random() * 2.8,
+      vy: 0.14 + Math.random() * 0.34,
+      vx: (Math.random() - 0.5) * 0.18,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.008 + Math.random() * 0.015,
+      hueShift: Math.random(),
+    };
+  }
+
+  resize();
+  window.addEventListener("resize", resize);
+  for (let i = 0; i < count; i++) particles.push(spawn(true));
+
+  function tick() {
+    requestAnimationFrame(tick);
+    if (document.hidden) return;
+
+    ctx.clearRect(0, 0, width, height);
+    const boost = state.isPlaying ? 1.45 : 1;
+
+    for (const p of particles) {
+      p.y -= p.vy * boost;
+      p.x += p.vx + Math.sin(p.phase) * 0.12;
+      p.phase += p.speed * boost;
+
+      if (p.y < -16 || p.x < -20 || p.x > width + 20) {
+        Object.assign(p, spawn(false));
+      }
+
+      const alpha = (0.2 + 0.45 * (0.5 + 0.5 * Math.sin(p.phase))) * (state.isPlaying ? 1.15 : 0.9);
+      const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.2);
+      const tint = p.hueShift > 0.5 ? "165, 243, 252" : "216, 180, 254";
+      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+      grad.addColorStop(0.4, `rgba(${tint}, ${alpha * 0.55})`);
+      grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  requestAnimationFrame(tick);
+}
+
 // Старт приложения
+initBgParticles();
 loadTracksFromServer(false);
