@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20261124p" />
+  <link rel="stylesheet" href="style.css?v=20261124q" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -566,8 +566,60 @@
 
       <div class="owner-list" id="ownerList"></div>
 
+      <div class="owner-token">
+        <label class="owner-token-label" for="ownerTokenInput">
+          Токен GitHub для удаления треков
+        </label>
+        <div class="owner-token-row">
+          <input
+            type="password"
+            id="ownerTokenInput"
+            class="owner-token-input"
+            placeholder="ghp_… (хранится только в этом браузере)"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" class="btn btn-secondary btn-sm" id="ownerTokenSaveBtn">Сохранить</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ownerTokenClearBtn">Забыть</button>
+        </div>
+        <p class="owner-token-hint" id="ownerTokenHint">
+          Токен нужен только для удаления песен на GitHub Pages. Создать:
+          <a href="https://github.com/settings/tokens/new?scopes=repo&description=Моя%20Новая%20Музыка" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
+          галочка <code>repo</code>. Токен не сохраняется в коде сайта.
+        </p>
+      </div>
+
       <div class="owner-hint">
         Подсказка: панель открывается по адресу <code>?admin=1</code> — не делитесь этой ссылкой с друзьями.
+      </div>
+    </div>
+  </div>
+
+  <!-- Подтверждение удаления трека (только владельцу) -->
+  <div class="modal-backdrop hidden" id="deleteTrackModal" role="dialog" aria-modal="true" aria-labelledby="deleteTrackTitle">
+    <div class="modal-card delete-modal-card">
+      <div class="modal-header">
+        <h2 id="deleteTrackTitle">Удалить песню?</h2>
+        <button type="button" class="icon-btn" id="cancelDeleteTrackBtn" aria-label="Отмена">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="delete-track-name" id="deleteTrackName">—</div>
+      <p class="delete-warning">
+        Файл песни и её обложка будут удалены из репозитория GitHub, запись уберётся из
+        <code>tracks.json</code>. Действие необратимо — восстановить можно только через историю
+        коммитов GitHub.
+      </p>
+
+      <div class="delete-progress" id="deleteProgress"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cancelDeleteTrackBtn2">Отмена</button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteTrackBtn">Удалить</button>
       </div>
     </div>
   </div>
@@ -579,6 +631,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261124x"></script>
+  <script src="script.js?v=20261124y"></script>
 </body>
 </html>
