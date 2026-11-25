@@ -557,6 +557,8 @@ const vizState = {
   faderArmed: new Uint8Array(FADER_BANDS).fill(1),
   faderLastFlash: new Float32Array(FADER_BANDS),
   faderPeak: new Float32Array(FADER_BANDS).fill(0.35),
+  faderPrevLevel: new Float32Array(FADER_BANDS),
+  faderHighSince: new Float32Array(FADER_BANDS),
   lastFaderTime: 0,
   bulbFlash: new Float32Array(BULB_COUNT),
   bulbGlow: new Float32Array(BULB_COUNT),
@@ -1027,7 +1029,10 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
   vizState.lastFaderTime = t;
 
   if (!playing) {
-    for (let i = 0; i < FADER_BANDS; i++) vizState.faderPeak[i] = 0.35;
+    for (let i = 0; i < FADER_BANDS; i++) {
+      vizState.faderPeak[i] = 0.35;
+      vizState.faderHighSince[i] = 0;
+    }
   }
   // Мгновенное затухание фотовспышки (~80–100 мс, не зависит от герцовки экрана)
   const flashDecay = Math.exp(-dt * 30);
@@ -1077,24 +1082,23 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
         const tilt = 0.94 + (i / bands) * 0.38;
         const boosted = Math.min(1, raw * tilt);
 
-        // Авто-нормализация по пику: громкость трека не влияет на амплитуду хода.
-        // Пик плавно подтягивается к максимуму и медленно опускается.
+        // Мягкая авто-нормализация: опорный уровень подтягивается к сигналу медленно
+        // (0.45 с), поэтому ползунки качаются в середине хода, а не залипают у потолка.
         const peakRef = vizState.faderPeak[i];
-        if (boosted > peakRef) {
-          vizState.faderPeak[i] = boosted;
-        } else {
-          vizState.faderPeak[i] = Math.max(0.12, peakRef - dt * 0.12);
-        }
-        const norm = Math.min(1, boosted / Math.max(0.12, vizState.faderPeak[i]));
+        const follow = Math.min(1, dt * 2.2);
+        vizState.faderPeak[i] = Math.max(0.1, peakRef + (boosted - peakRef) * follow);
 
-        // Растянутая динамика: ползунки ходят по всему ходу, а не в узком коридоре
-        target = Math.min(0.98, Math.max(0.05, Math.pow(norm, 0.55)));
+        // Деление на опорный уровень, но не выше 1.55 — оставляем «голову» для ударов
+        const norm = Math.min(1, boosted / Math.max(0.1, vizState.faderPeak[i]));
+
+        // Динамика: середина диапазона, удары добивают до верха
+        target = Math.min(0.95, Math.max(0.06, Math.pow(norm, 0.62) * 0.78));
       } else {
         const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.6), 1.7) * Math.max(0, 1 - i / 3.8);
         const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + i * 0.72), 1.4) * 0.85;
         const wave = (0.5 + 0.5 * Math.sin(t * 2.6 - i * 0.92) * Math.cos(t * 1.8 + i * 0.44)) * 0.8;
         const high = (0.5 + 0.5 * Math.sin(t * 9.8 + i * 1.85)) * 0.55 * (i / bands);
-        target = Math.min(0.99, Math.max(0.05, kick * 0.85 + mid * 0.7 + wave * 0.62 + high));
+        target = Math.min(0.95, Math.max(0.06, (kick * 0.85 + mid * 0.7 + wave * 0.62 + high) * 0.8));
       }
     }
 
@@ -1111,16 +1115,32 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
     vizState.faderFlash[i] *= flashDecay;
     if (vizState.faderFlash[i] < 0.02) vizState.faderFlash[i] = 0;
 
-    if (!playing || level < 0.66) {
+    // Вспышка ловит РЕЗКИЙ РЫВОК вверх (удар), а не факт «стоять у потолка».
+    // Плюс страховка: если ползунок держится наверху дольше 0,4 с, готовность
+    // восстанавливается сама — вспышки не могут заклинить на громком треке.
+    const prevLevel = vizState.faderPrevLevel[i];
+    const jump = level - prevLevel;
+    vizState.faderPrevLevel[i] = level;
+
+    if (!playing || level < 0.5) {
       vizState.faderArmed[i] = 1;
-    } else if (
-      level >= 0.81 &&
-      vizState.faderArmed[i] &&
-      t - vizState.faderLastFlash[i] > 0.24
+      vizState.faderHighSince[i] = 0;
+    } else if (level >= 0.62) {
+      if (vizState.faderHighSince[i] === 0) vizState.faderHighSince[i] = t;
+      if (t - vizState.faderHighSince[i] > 0.4) vizState.faderArmed[i] = 1;
+    } else {
+      vizState.faderHighSince[i] = 0;
+    }
+
+    if (
+      playing &&
+      ((jump > 0.1 && level > 0.42) || (level >= 0.88 && vizState.faderArmed[i])) &&
+      t - vizState.faderLastFlash[i] > 0.16
     ) {
       vizState.faderFlash[i] = 1.0;
-      vizState.faderArmed[i] = 0;
       vizState.faderLastFlash[i] = t;
+      vizState.faderArmed[i] = 0;
+      vizState.faderHighSince[i] = t;
     }
     const flash = vizState.faderFlash[i];
 
