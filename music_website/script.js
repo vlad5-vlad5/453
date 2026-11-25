@@ -322,7 +322,7 @@ function ensureAudioEngine() {
 
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.72;
+    analyser.smoothingTimeConstant = 0.45;
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     const timeDataArray = new Uint8Array(analyser.fftSize);
 
@@ -556,6 +556,7 @@ const vizState = {
   faderFlash: new Float32Array(FADER_BANDS),
   faderArmed: new Uint8Array(FADER_BANDS).fill(1),
   faderLastFlash: new Float32Array(FADER_BANDS),
+  faderPeak: new Float32Array(FADER_BANDS).fill(0.35),
   lastFaderTime: 0,
   bulbFlash: new Float32Array(BULB_COUNT),
   bulbGlow: new Float32Array(BULB_COUNT),
@@ -1024,6 +1025,10 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
     ? Math.min(0.05, Math.max(0.004, t - vizState.lastFaderTime))
     : 0.016;
   vizState.lastFaderTime = t;
+
+  if (!playing) {
+    for (let i = 0; i < FADER_BANDS; i++) vizState.faderPeak[i] = 0.35;
+  }
   // Мгновенное затухание фотовспышки (~80–100 мс, не зависит от герцовки экрана)
   const flashDecay = Math.exp(-dt * 30);
 
@@ -1054,7 +1059,7 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
   }
 
   for (let i = 0; i < bands; i++) {
-    let target = 0.12;
+    let target = 0.06;
     if (playing) {
       if (useFft) {
         const [start, end] = FADER_LOG_RANGES[i];
@@ -1070,21 +1075,34 @@ function drawFaderVisualizer(ctx, width, height, playing, t) {
         const avg = count ? sumBin / count : 0;
         const raw = (peakBin * 0.62 + avg * 0.38) / 255;
         const tilt = 0.94 + (i / bands) * 0.38;
-        target = Math.min(0.98, Math.max(0.14, Math.pow(raw * tilt, 1.05)));
+        const boosted = Math.min(1, raw * tilt);
+
+        // Авто-нормализация по пику: громкость трека не влияет на амплитуду хода.
+        // Пик плавно подтягивается к максимуму и медленно опускается.
+        const peakRef = vizState.faderPeak[i];
+        if (boosted > peakRef) {
+          vizState.faderPeak[i] = boosted;
+        } else {
+          vizState.faderPeak[i] = Math.max(0.12, peakRef - dt * 0.12);
+        }
+        const norm = Math.min(1, boosted / Math.max(0.12, vizState.faderPeak[i]));
+
+        // Растянутая динамика: ползунки ходят по всему ходу, а не в узком коридоре
+        target = Math.min(0.98, Math.max(0.05, Math.pow(norm, 0.55)));
       } else {
-        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.6), 2.5) * Math.max(0, 1 - i / 3.8);
-        const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + i * 0.72), 2.0) * 0.68;
-        const wave = (0.5 + 0.5 * Math.sin(t * 2.6 - i * 0.92) * Math.cos(t * 1.8 + i * 0.44)) * 0.58;
-        const high = (0.5 + 0.5 * Math.sin(t * 9.8 + i * 1.85)) * 0.36 * (i / bands);
-        target = Math.min(0.99, Math.max(0.14, kick * 0.76 + mid * 0.56 + wave * 0.46 + high));
+        const kick = Math.pow(0.5 + 0.5 * Math.sin(t * 7.6), 1.7) * Math.max(0, 1 - i / 3.8);
+        const mid = Math.pow(0.5 + 0.5 * Math.sin(t * 3.9 + i * 0.72), 1.4) * 0.85;
+        const wave = (0.5 + 0.5 * Math.sin(t * 2.6 - i * 0.92) * Math.cos(t * 1.8 + i * 0.44)) * 0.8;
+        const high = (0.5 + 0.5 * Math.sin(t * 9.8 + i * 1.85)) * 0.55 * (i / bands);
+        target = Math.min(0.99, Math.max(0.05, kick * 0.85 + mid * 0.7 + wave * 0.62 + high));
       }
     }
 
-    // Плавная физика моторизованного фейдера (быстро вверх, мягко вниз)
+    // Живая физика моторизованного фейдера: резкий рывок вверх, быстрый возврат вниз
     const prev = vizState.faderLevels[i];
     const next = target > prev
-      ? prev + (target - prev) * 0.54
-      : prev + (target - prev) * 0.17;
+      ? prev + (target - prev) * 0.72
+      : prev + (target - prev) * 0.34;
     vizState.faderLevels[i] = next;
 
     const level = Math.max(0, Math.min(1, next));
