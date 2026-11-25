@@ -596,37 +596,41 @@ const STAGE_BANDS = [
 const STAGE_PATTERNS = ["all", "sweep", "odd-even", "wave"];
 
 const stageState = {
-  fast: new Float32Array(4),
-  slow: new Float32Array(4),
+  prevLevel: new Float32Array(4),
+  fluxAvg: new Float32Array(4),
   lastHit: new Float32Array(4),
   lastBulb: new Float32Array(BULB_COUNT),
   kickCount: 0,
   hatCount: 0,
   pattern: 0,
-  beatInterval: 0.5, // оценка периода удара (для синхронного fallback)
+  beatInterval: 0.55, // оценка периода бочки (109 BPM по умолчанию)
+  nextBeat: 0,        // момент следующей восьмой доли такта
+  clockStep: 0,       // номер восьмой доли
   lastKick: 0,
-  synthStep: -1,
+  detectedKicks: 0,
+  syntheticKicks: 0,
   energy: 0,
 };
 
-const STAGE_COOLDOWN = [0.11, 0.1, 0.095, 0.075];
+const STAGE_COOLDOWN = [0.09, 0.09, 0.085, 0.07];
 
-// Детектор атаки (onset): быстрая огибающая резко обгоняет медленную — значит был удар
-function stageOnset(bandIndex, level, dt, t) {
+// Детектор атаки по спектральному потоку: важна не громкость, а ПРИРОСТ энергии
+// относительно предыдущего кадра. Именно так ловят удар барабана — и не «привыкают»
+// к плотному басовитому мастерингу, из-за которого старый детектор молчал.
+function stageFlux(bandIndex, level, dt, t) {
   const i = bandIndex;
-  stageState.fast[i] += (level - stageState.fast[i]) * Math.min(1, dt * 26);
-  stageState.slow[i] += (level - stageState.slow[i]) * Math.min(1, dt * 3.0);
-  const fast = stageState.fast[i];
-  const slow = stageState.slow[i];
-  // Порог подобран так, чтобы ловить даже негромкую бочку, но не мигать на шум
-  const threshold = Math.max(0.042, slow * 1.16);
-  if (
-    fast > threshold &&
-    fast > slow * 1.05 &&
-    t - stageState.lastHit[i] > STAGE_COOLDOWN[i]
-  ) {
+  const prev = stageState.prevLevel[i];
+  const rise = Math.max(0, level - prev);
+  stageState.prevLevel[i] = level;
+
+  const mean = stageState.fluxAvg[i];
+  stageState.fluxAvg[i] = mean + (rise - mean) * Math.min(1, dt * 2.2);
+
+  // Адаптивный порог: заметно выше «обычного» шума, но не выше самой атаки
+  const threshold = Math.max(0.014, mean * 1.25 + 0.008);
+  if (rise > threshold && t - stageState.lastHit[i] > STAGE_COOLDOWN[i]) {
     stageState.lastHit[i] = t;
-    return fast;
+    return Math.min(1, 0.45 + level * 0.65);
   }
   return 0;
 }
@@ -643,7 +647,9 @@ function stageBandLevel(range) {
     count++;
   }
   const avg = count ? sum / count : 0;
-  return Math.min(1, ((peak * 0.7 + avg * 0.3) / 255) * 1.15);
+  // Лёгкая компрессия динамики: тихие удары тоже добивают до видимого уровня
+  const raw = (peak * 0.7 + avg * 0.3) / 255;
+  return Math.min(1, Math.pow(raw, 0.72) * 1.05);
 }
 
 // Зажечь лампочку короткой фотовспышкой (force — даже если только что горела)
@@ -655,11 +661,15 @@ function stageFireBulb(index, strength, t, force = false) {
   vizState.bulbGlow[index] = 1;
 }
 
-// Раскладка удара бочки по концертному паттерну
+// Раскладка удара бочки по концертному паттерну.
+// Паттерн меняется раз в такт (8 восьмых), а не на каждый удар — так шоу
+// выглядит осмысленно, как у настоящего световика.
 function stageKick(t, power) {
   const step = stageState.kickCount++;
-  const pattern = STAGE_PATTERNS[Math.floor(step / 4) % STAGE_PATTERNS.length];
+  const bar = Math.floor(stageState.clockStep / 8);
+  const pattern = STAGE_PATTERNS[bar % STAGE_PATTERNS.length];
   stageState.pattern = pattern;
+  stageState.barIndex = bar;
   const strength = Math.min(1, 0.82 + power * 0.35);
   const head = (step * 2) % BULB_COUNT;
 
@@ -684,7 +694,7 @@ function stageKick(t, power) {
 
 function stageSnare(t, power) {
   const strength = Math.min(1, 0.6 + power * 0.4);
-  const bar = Math.floor(stageState.kickCount / 4) % STAGE_PATTERNS.length;
+  const bar = (stageState.barIndex || 0) % STAGE_PATTERNS.length;
   if (bar === 1) {
     // в «перебежке» снейр бьёт по краям
     stageFireBulb(0, strength, t);
@@ -703,65 +713,90 @@ function stageHat(t, power) {
   stageFireBulb(idx, Math.min(0.62, 0.3 + power * 0.35), t);
 }
 
+// Часы сцены: каждый тик — восьмая доля такта 4/4 (сильная доля = бочка).
+// Движок никогда не «замолкает»: даже если детектор что-то пропустил,
+// лампочки продолжают бить в такт, а пойманные удары лишь поджигают свет ярче.
+function stageClockTick(t, power) {
+  const step = stageState.clockStep++;
+  stageState.lastClockTick = t;
+  const beatInBar = step % 8;
+  // Классическая сетка 4/4: бочка на 1 и 3, снейр на 2 и 4, хэт на слабых долях
+  if (beatInBar === 0 || beatInBar === 4) {
+    stageState.syntheticKicks++;
+    stageKick(t, Math.max(0.62, power));
+  } else if (beatInBar === 2 || beatInBar === 6) {
+    stageSnare(t, Math.max(0.58, power * 0.9));
+  } else {
+    stageHat(t, Math.max(0.5, power * 0.8));
+  }
+}
+
 // Полный проход сценического движка за кадр
 function updateStageEngine(dt, t, playing, useFft) {
   if (!playing) {
     stageState.kickCount = 0;
     stageState.hatCount = 0;
-    stageState.synthStep = -1;
+    stageState.clockStep = 0;
+    stageState.nextBeat = 0;
     stageState.energy = 0;
+    stageState.detectedKicks = 0;
+    stageState.syntheticKicks = 0;
+    stageState.beatInterval = 0.55;
     for (let i = 0; i < 4; i++) {
-      stageState.fast[i] = 0;
-      stageState.slow[i] = 0;
+      stageState.prevLevel[i] = 0;
+      stageState.fluxAvg[i] = 0;
       stageState.lastHit[i] = 0;
     }
     stageState.lastKick = 0;
     return;
   }
 
-  if (useFft) {
-    stageState.synthStep = -1;
-    const kickPower = stageOnset(0, stageBandLevel(STAGE_BANDS[0]), dt, t);
-    const bassPower = stageOnset(1, stageBandLevel(STAGE_BANDS[1]), dt, t);
-    const snarePower = stageOnset(2, stageBandLevel(STAGE_BANDS[2]), dt, t);
-    const hatPower = stageOnset(3, stageBandLevel(STAGE_BANDS[3]), dt, t);
-
-    stageState.energy =
-      stageState.energy * 0.9 +
-      ((audioEngine.beatData[0] || 0) / 255) * 0.1;
-
-    if (kickPower) {
-      // Оценка периода удара для синхронного резерва
-      if (stageState.lastKick && t - stageState.lastKick > 0.25 && t - stageState.lastKick < 1.2) {
-        stageState.beatInterval +=
-          (t - stageState.lastKick - stageState.beatInterval) * 0.25;
-      }
-      stageState.lastKick = t;
-      stageKick(t, kickPower);
-    } else if (bassPower && bassPower > 0.22) {
-      // Сильные басовые ноты без бочки тоже подсвечивают низ
-      stageFireBulb(0, 0.65, t);
-      stageFireBulb(1, 0.55, t);
-    }
-
-    if (snarePower) stageSnare(t, snarePower);
-    if (hatPower) stageHat(t, hatPower);
-  } else {
-    // Резерв без анализатора: ровный такт 4/4 со сценическими паттернами
-    const bpm = 120;
-    const stepLen = 60 / bpm / 2; // восьмые
-    const step = Math.floor(t / stepLen);
-    if (step !== stageState.synthStep) {
-      stageState.synthStep = step;
-      if (step % 4 === 0) {
-        stageKick(t, 0.8);
-      } else if (step % 4 === 2) {
-        stageSnare(t, 0.55);
-      } else {
-        stageHat(t, 0.4);
-      }
-    }
+  // Всегда идёт тактовый ход сцены (восьмые доли).
+  // Темп подстраивается под пойманную бочку, но не может «встать».
+  const eighth = Math.max(0.185, Math.min(0.42, stageState.beatInterval / 2));
+  if (!stageState.nextBeat) {
+    stageState.nextBeat = t + eighth;
   }
+  let guard = 0;
+  while (t >= stageState.nextBeat && guard++ < 4) {
+    stageClockTick(stageState.nextBeat, 0.7);
+    stageState.nextBeat += eighth;
+  }
+
+  if (!useFft) return;
+
+  const kickPower = stageFlux(0, stageBandLevel(STAGE_BANDS[0]), dt, t);
+  const bassPower = stageFlux(1, stageBandLevel(STAGE_BANDS[1]), dt, t);
+  const snarePower = stageFlux(2, stageBandLevel(STAGE_BANDS[2]), dt, t);
+  const hatPower = stageFlux(3, stageBandLevel(STAGE_BANDS[3]), dt, t);
+
+  stageState.energy =
+    stageState.energy * 0.9 + ((audioEngine.beatData[0] || 0) / 255) * 0.1;
+
+  if (kickPower) {
+    // Живая бочка: уточняем темп и поджигаем свет поверх тактового хода
+    if (
+      stageState.lastKick &&
+      t - stageState.lastKick > 0.22 &&
+      t - stageState.lastKick < 1.4
+    ) {
+      const period = t - stageState.lastKick;
+      stageState.beatInterval += (period - stageState.beatInterval) * 0.22;
+      stageState.nextBeat = t + Math.max(0.185, Math.min(0.42, stageState.beatInterval / 2));
+    }
+    stageState.lastKick = t;
+    stageState.detectedKicks++;
+    // Не дублируем свет, если тактовый ход только что ударил по этому же удару
+    const recentClock = t - (stageState.lastClockTick || 0) < 0.07;
+    if (!recentClock) stageKick(t, kickPower);
+  } else if (bassPower && bassPower > 0.3) {
+    // Сильные басовые ноты без бочки тоже подсвечивают низ
+    stageFireBulb(0, 0.7, t);
+    stageFireBulb(1, 0.58, t);
+  }
+
+  if (snarePower) stageSnare(t, snarePower);
+  if (hatPower) stageHat(t, hatPower);
 }
 
 function drawBulbsVisualizer(ctx, width, height, playing, t) {
