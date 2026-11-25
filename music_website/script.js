@@ -588,14 +588,14 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         const delta = raw - vizState.bulbPrev[i];
         vizState.bulbPrev[i] = raw;
 
-        // Порог срабатывания снижен на 20%; у первых двух лампочек слева — ещё на 20%
+        // Порог срабатывания снижен на 20%; у первых двух лампочек слева — суммарно на 40%
         const lowBulb = i < 2;
         const threshold = lowBulb
-          ? Math.max(0.152, vizState.bulbAvg[i] * 0.736)
+          ? Math.max(0.1216, vizState.bulbAvg[i] * 0.5888)
           : Math.max(0.19, vizState.bulbAvg[i] * 0.92);
         if (
           raw > threshold &&
-          delta > (lowBulb ? 0.0192 : 0.024) &&
+          delta > (lowBulb ? 0.01536 : 0.024) &&
           t - vizState.bulbLastFlash[i] > minCooldown
         ) {
           vizState.bulbFlash[i] = Math.min(1, 0.82 + raw * 0.28);
@@ -608,8 +608,8 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         if (step !== vizState.bulbLastStep[i]) {
           vizState.bulbLastStep[i] = step;
           const accent = Math.sin(step * 1.91 + i * 2.37) * Math.cos(step * 0.67 - i * 1.13);
-          // Первые две лампочки (низкие частоты) — ещё на 20% чувствительнее
-          const hitProb = i < 2 ? -0.424 : i < 5 ? -0.15 : -0.06;
+          // Первые две лампочки (низкие частоты) — суммарно на 40% чувствительнее
+          const hitProb = i < 2 ? -0.5392 : i < 5 ? -0.15 : -0.06;
           if (accent > hitProb && t - vizState.bulbLastFlash[i] > minCooldown) {
             const strength = Math.min(1, 0.84 + Math.max(0, accent) * 0.22);
             vizState.bulbFlash[i] = strength;
