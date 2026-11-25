@@ -174,9 +174,6 @@ const confirmDeleteTrackBtn = document.getElementById("confirmDeleteTrackBtn");
 const cancelDeleteTrackBtn = document.getElementById("cancelDeleteTrackBtn");
 const cancelDeleteTrackBtn2 = document.getElementById("cancelDeleteTrackBtn2");
 
-// Переключатель качества графики
-const vizQualityBtn = document.getElementById("vizQualityBtn");
-
 // Панель владельца (статистика лайков и комментариев)
 const ownerStatsBtn = document.getElementById("ownerStatsBtn");
 const ownerPanel = document.getElementById("ownerPanel");
@@ -574,7 +571,7 @@ const vizState = {
 // Адаптивное качество графики: слабые телефоны не должны тормозить
 // Уровень 2 — полное качество, 1 — облегчённое, 0 — минимальное (только при просадке)
 // ============================================================================
-const LS_VIZ_QUALITY = "soundwave_viz_quality_v1";
+const LS_VIZ_QUALITY = "soundwave_viz_quality_v2";
 
 const IS_MOBILE =
   /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(navigator.userAgent) ||
@@ -621,31 +618,9 @@ function trackPerformance(dt) {
       perfMonitor.lastDrop = now;
       vizQuality -= 1;
       saveVizQuality();
-      updateVizQualityUI();
     }
   }
 }
-
-function updateVizQualityUI() {
-  if (!vizQualityBtn) return;
-  const labels = { 2: "Качество: высокое", 1: "Качество: среднее", 0: "Качество: экономное" };
-  vizQualityBtn.textContent = labels[vizQuality] || labels[1];
-  vizQualityBtn.setAttribute("data-quality", String(vizQuality));
-}
-
-vizQualityBtn?.addEventListener("click", () => {
-  // Цикл: высокое → среднее → экономное → высокое
-  vizQuality = (vizQuality + 2) % 3;
-  saveVizQuality();
-  updateVizQualityUI();
-  const labels = { 2: "Качество графики: высокое", 1: "Качество графики: среднее", 0: "Качество графики: экономное" };
-  showToast(labels[vizQuality]);
-  // Даём снегу пересоздаться под новое разрешение
-  window.dispatchEvent(new Event("resize"));
-});
-
-// Стартовая установка подписи
-setTimeout(() => updateVizQualityUI(), 0);
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
 spectrumWrapEl?.addEventListener("click", () => {
