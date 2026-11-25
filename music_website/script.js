@@ -588,11 +588,14 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         const delta = raw - vizState.bulbPrev[i];
         vizState.bulbPrev[i] = raw;
 
-        // Порог срабатывания снижен на 20% для более чувствительной реакции
-        const threshold = Math.max(0.19, vizState.bulbAvg[i] * 0.92);
+        // Порог срабатывания снижен на 20%; у первых двух лампочек слева — ещё на 20%
+        const lowBulb = i < 2;
+        const threshold = lowBulb
+          ? Math.max(0.152, vizState.bulbAvg[i] * 0.736)
+          : Math.max(0.19, vizState.bulbAvg[i] * 0.92);
         if (
           raw > threshold &&
-          delta > 0.024 &&
+          delta > (lowBulb ? 0.0192 : 0.024) &&
           t - vizState.bulbLastFlash[i] > minCooldown
         ) {
           vizState.bulbFlash[i] = Math.min(1, 0.82 + raw * 0.28);
@@ -605,7 +608,8 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         if (step !== vizState.bulbLastStep[i]) {
           vizState.bulbLastStep[i] = step;
           const accent = Math.sin(step * 1.91 + i * 2.37) * Math.cos(step * 0.67 - i * 1.13);
-          const hitProb = i < 2 ? -0.28 : i < 5 ? -0.15 : -0.06;
+          // Первые две лампочки (низкие частоты) — ещё на 20% чувствительнее
+          const hitProb = i < 2 ? -0.424 : i < 5 ? -0.15 : -0.06;
           if (accent > hitProb && t - vizState.bulbLastFlash[i] > minCooldown) {
             const strength = Math.min(1, 0.84 + Math.max(0, accent) * 0.22);
             vizState.bulbFlash[i] = strength;
@@ -623,9 +627,9 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     const [cr, cg, cb] = BULB_PALETTE[i];
     const cx = i * slotW + slotW / 2;
 
-    // 1. Внешний цветной световой ореол вспышки
+    // 1. Внешний цветной световой ореол вспышки (радиус уменьшен в 2 раза)
     if (glow > 0.02 || flash > 0.02) {
-      const haloR = r * (2.6 + flash * 3.4 + glow * 0.8);
+      const haloR = r * (1.3 + flash * 1.7 + glow * 0.4);
       const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, haloR);
       haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, flash * 0.98)})`);
       haloGrad.addColorStop(0.3, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.95, flash * 0.88 + glow * 0.45)})`);
@@ -653,7 +657,7 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
       ctx.shadowColor = flash > 0.35
         ? `rgba(255, 255, 255, ${0.7 + flash * 0.3})`
         : `rgba(${cr}, ${cg}, ${cb}, ${0.55 + glow * 0.45})`;
-      ctx.shadowBlur = 3 + glow * 5 + flash * 12;
+      ctx.shadowBlur = 1.5 + glow * 2.5 + flash * 6;
     }
 
     const bodyGrad = ctx.createRadialGradient(
@@ -688,10 +692,10 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(0.55, r * 0.25), 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. Короткий резкий 4-лучевой блик фотовспышки
+    // 5. Короткий резкий 4-лучевой блик фотовспышки (радиус уменьшен в 2 раза)
     if (flash > 0.15) {
-      const rayH = r * (2.4 + flash * 2.8);
-      const rayV = r * (2.1 + flash * 2.4);
+      const rayH = r * (1.2 + flash * 1.4);
+      const rayV = r * (1.05 + flash * 1.2);
       const hGrad = ctx.createLinearGradient(cx - rayH, cy, cx + rayH, cy);
       hGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
       hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.15)})`);
