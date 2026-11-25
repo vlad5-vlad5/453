@@ -528,6 +528,11 @@ const LOG_BAND_RANGES = buildLogBandRanges(128, SPECTRUM_BANDS);
 const FADER_LOG_RANGES = buildLogBandRanges(128, FADER_BANDS);
 const BULB_LOG_RANGES = buildLogBandRanges(128, BULB_COUNT);
 
+// Детектор удара бочки для первых двух лампочек (бин 0 анализатора = 0–172 Гц при fftSize 256)
+let bulbKickFast = 0;
+let bulbKickSlow = 0;
+let bulbKickLastHit = 0;
+
 function drawBulbsVisualizer(ctx, width, height, playing, t) {
   // Тёмный матовый корпус панели цветомузыки
   ctx.fillStyle = "#0b0e13";
@@ -545,12 +550,36 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
   let useFft = false;
   if (playing && audioEngine?.analyser) {
     audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
-    for (let k = 1; k < 48; k++) {
+    for (let k = 0; k < 48; k++) {
       if (audioEngine.dataArray[k] > 2) {
         useFft = true;
         break;
       }
     }
+  }
+
+  // Отдельный детектор бочки по низам (бины 0–2) — самый низ спектра
+  let kickHit = false;
+  if (useFft) {
+    const bins = audioEngine.dataArray;
+    let sub = 0;
+    for (let b = 0; b <= 2; b++) {
+      if (bins[b] > sub) sub = bins[b];
+    }
+    const subNorm = Math.min(1, sub / 255);
+    bulbKickFast += (subNorm - bulbKickFast) * Math.min(1, dt * 30);
+    bulbKickSlow += (subNorm - bulbKickSlow) * Math.min(1, dt * 4.5);
+    if (
+      bulbKickFast > 0.1 &&
+      bulbKickFast > bulbKickSlow * 1.12 &&
+      t - bulbKickLastHit > 0.1
+    ) {
+      kickHit = true;
+      bulbKickLastHit = t;
+    }
+  } else {
+    bulbKickFast = 0;
+    bulbKickSlow = 0;
   }
 
   const slotW = width / BULB_COUNT;
@@ -569,9 +598,12 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     if (vizState.bulbGlow[i] < 0.01) vizState.bulbGlow[i] = 0;
 
     if (playing) {
-      const minCooldown = i < 2 ? 0.14 : 0.105;
+      const minCooldown = i < 2 ? 0.1 : 0.105;
       if (useFft) {
-        const [start, end] = BULB_LOG_RANGES[i];
+        // Первые две лампочки захватывают самый низ спектра (бочку), остальные — по лог-полосам
+        const lowBulb = i < 2;
+        const range = i === 0 ? [0, 3] : i === 1 ? [2, 6] : BULB_LOG_RANGES[i];
+        const [start, end] = range;
         let peakBin = 0;
         let sumBin = 0;
         let count = 0;
@@ -588,14 +620,24 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         const delta = raw - vizState.bulbPrev[i];
         vizState.bulbPrev[i] = raw;
 
-        // Порог срабатывания снижен на 20%; у первых двух лампочек слева — суммарно на 40%
-        const lowBulb = i < 2;
+        // Удар бочки сразу зажигает первую лампочку (вторая — чуть слабее)
+        if (i === 0 && kickHit) {
+          vizState.bulbFlash[0] = 1;
+          vizState.bulbGlow[0] = 1;
+          vizState.bulbLastFlash[0] = t;
+        } else if (i === 1 && kickHit && t - vizState.bulbLastFlash[1] > 0.1) {
+          vizState.bulbFlash[1] = 0.88;
+          vizState.bulbGlow[1] = 1;
+          vizState.bulbLastFlash[1] = t;
+        }
+
+        // Порог срабатывания: у первых двух лампочек слева — в 2 раза ниже
         const threshold = lowBulb
-          ? Math.max(0.1216, vizState.bulbAvg[i] * 0.5888)
+          ? Math.max(0.095, vizState.bulbAvg[i] * 0.5)
           : Math.max(0.19, vizState.bulbAvg[i] * 0.92);
         if (
           raw > threshold &&
-          delta > (lowBulb ? 0.01536 : 0.024) &&
+          delta > (lowBulb ? 0.012 : 0.024) &&
           t - vizState.bulbLastFlash[i] > minCooldown
         ) {
           vizState.bulbFlash[i] = Math.min(1, 0.82 + raw * 0.28);
@@ -608,8 +650,8 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
         if (step !== vizState.bulbLastStep[i]) {
           vizState.bulbLastStep[i] = step;
           const accent = Math.sin(step * 1.91 + i * 2.37) * Math.cos(step * 0.67 - i * 1.13);
-          // Первые две лампочки (низкие частоты) — суммарно на 40% чувствительнее
-          const hitProb = i < 2 ? -0.5392 : i < 5 ? -0.15 : -0.06;
+          // Первые две лампочки (низкие частоты) вспыхивают практически на каждый шаг ритма
+          const hitProb = i < 2 ? -0.86 : i < 5 ? -0.15 : -0.06;
           if (accent > hitProb && t - vizState.bulbLastFlash[i] > minCooldown) {
             const strength = Math.min(1, 0.84 + Math.max(0, accent) * 0.22);
             vizState.bulbFlash[i] = strength;
