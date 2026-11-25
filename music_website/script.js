@@ -16,10 +16,9 @@ const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|svg|gif)$/i;
 // Резервный список треков (если не удалось загрузить tracks.json и /api/tracks)
 const FALLBACK_TRACKS = [];
 
-// Необязательно: вставьте сюда ссылку на бесплатную Firebase Realtime Database
-// (например: "https://my-music-default-rtdb.europe-west1.firebasedatabase.app"),
-// чтобы лайки и комментарии были общими для всех друзей на GitHub Pages.
-const FIREBASE_DB_URL = "";
+// Общая база Firebase Realtime Database: лайки и комментарии видны всем друзьям
+// на GitHub Pages. Правила доступа открывают только ветку /social.
+const FIREBASE_DB_URL = "https://moya-novaya-muzyka-default-rtdb.firebaseio.com";
 
 const LS_FAVORITES = "soundwave_favorites_v1";
 const LS_PLAYLISTS = "soundwave_playlists_v1";
@@ -1557,37 +1556,110 @@ async function loadSocialData() {
     return;
   }
 
-  const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
-  if (!fbBase) return;
+  if (!getFirebaseBase()) return;
 
   try {
-    const res = await fetch(`${fbBase}/social.json`, { cache: "no-store" });
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await fetchFirebaseSocial();
     if (!data) return;
-
-    const likes = {};
-    const comments = {};
-    for (const track of state.tracks) {
-      const key = encodeFirebaseKey(track.id);
-      if (data.likes && typeof data.likes[key] === "number") {
-        likes[track.id] = data.likes[key];
-      }
-      if (data.comments && data.comments[key]) {
-        const rawObj = data.comments[key];
-        const list = Array.isArray(rawObj) ? rawObj.filter(Boolean) : Object.values(rawObj);
-        comments[track.id] = list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      }
-    }
-    state.likeCounts = { ...state.likeCounts, ...likes };
-    state.commentsMap = { ...state.commentsMap, ...comments };
-    saveJSON(LS_LIKES_MAP, state.likeCounts);
-    saveJSON(LS_COMMENTS_MAP, state.commentsMap);
-    renderTracks();
-    if (state.activeCommentsTrackId) renderCommentsModal();
+    applyFirebaseSocial(data, true);
   } catch {
     // Тихий fallback на localStorage
   }
+}
+
+function getFirebaseBase() {
+  return (FIREBASE_DB_URL || "").replace(/\/+$/, "");
+}
+
+// Читаем общие лайки и комментарии из Firebase
+async function fetchFirebaseSocial() {
+  const fbBase = getFirebaseBase();
+  if (!fbBase) return null;
+  const res = await fetch(`${fbBase}/social.json?t=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data && typeof data === "object" ? data : {};
+}
+
+// Счётчик лайков: теперь это СПИСОК тех, кто лайкнул (лайки не теряются при совпадении)
+function countLikeList(raw) {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return Math.max(0, Math.round(raw));
+  if (Array.isArray(raw)) return raw.filter(Boolean).length;
+  if (typeof raw === "object") return Object.keys(raw).length;
+  return 0;
+}
+
+function hasOwnLike(raw) {
+  if (!raw) return false;
+  if (Array.isArray(raw)) return raw.includes(CLIENT_ID);
+  if (typeof raw === "object") return Object.prototype.hasOwnProperty.call(raw, CLIENT_ID);
+  return false;
+}
+
+// Применяем данные из Firebase к локальному состоянию и перерисовываем интерфейс
+function applyFirebaseSocial(data, rerender) {
+  const likes = {};
+  const comments = {};
+  let myLikesChanged = false;
+
+  for (const track of state.tracks) {
+    const key = encodeFirebaseKey(track.id);
+
+    const rawLikes = data.likes ? data.likes[key] : null;
+    likes[track.id] = countLikeList(rawLikes);
+    const mine = hasOwnLike(rawLikes);
+    if (mine && !state.favorites.has(track.id)) {
+      state.favorites.add(track.id);
+      myLikesChanged = true;
+    } else if (!mine && rawLikes != null && state.favorites.has(track.id)) {
+      state.favorites.delete(track.id);
+      myLikesChanged = true;
+    }
+
+    if (data.comments && data.comments[key]) {
+      const rawObj = data.comments[key];
+      const list = Array.isArray(rawObj) ? rawObj.filter(Boolean) : Object.values(rawObj);
+      comments[track.id] = list
+        .filter((c) => c && typeof c === "object")
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
+  }
+
+  state.likeCounts = likes;
+  state.commentsMap = comments;
+  saveJSON(LS_LIKES_MAP, state.likeCounts);
+  saveJSON(LS_COMMENTS_MAP, state.commentsMap);
+  if (myLikesChanged) persistFavorites();
+
+  if (rerender) {
+    renderAll();
+    if (state.activeCommentsTrackId) renderCommentsModal();
+  }
+}
+
+// Тихая синхронизация каждые 20 секунд: новые лайки и комментарии друзей
+// появляются без перезагрузки страницы
+let socialSyncTimer = null;
+
+function startSocialSync() {
+  if (!getFirebaseBase() || state.serverMode) return;
+  if (socialSyncTimer) return;
+
+  const tick = async () => {
+    if (document.hidden) return;
+    try {
+      const data = await fetchFirebaseSocial();
+      if (data) applyFirebaseSocial(data, true);
+    } catch {
+      // сеть недоступна — просто ждём следующего раза
+    }
+  };
+
+  socialSyncTimer = setInterval(tick, 20000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tick();
+  });
 }
 
 // Загрузка треков: сначала локальный сервер /api/tracks, затем tracks/tracks.json + GitHub
@@ -1750,17 +1822,21 @@ async function toggleFavorite(trackId) {
     } catch {
       // Локальное состояние уже обновлено
     }
-  } else if (FIREBASE_DB_URL) {
-    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+  } else if (getFirebaseBase()) {
+    // Ставим/снимаем СВОЙ лайк в общем списке — чужие лайки при этом не затираются
+    const fbBase = getFirebaseBase();
     const key = encodeFirebaseKey(trackId);
+    const path = `${fbBase}/social/likes/${key}/${CLIENT_ID}.json`;
     try {
-      await fetch(`${fbBase}/social/likes/${key}.json`, {
-        method: "PUT",
+      await fetch(path, {
+        method: alreadyLiked ? "DELETE" : "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextCount),
+        body: alreadyLiked ? undefined : JSON.stringify(Date.now()),
       });
+      const data = await fetchFirebaseSocial();
+      if (data) applyFirebaseSocial(data, true);
     } catch {
-      // ignore
+      // локальное состояние уже обновлено
     }
   }
 }
@@ -2415,8 +2491,8 @@ commentsList.addEventListener("click", async (e) => {
     } catch {
       // ignore
     }
-  } else if (FIREBASE_DB_URL) {
-    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+  } else if (getFirebaseBase()) {
+    const fbBase = getFirebaseBase();
     const key = encodeFirebaseKey(trackId);
     try {
       await fetch(`${fbBase}/social/comments/${key}/${encodeURIComponent(commentId)}.json`, {
@@ -2467,8 +2543,8 @@ commentForm.addEventListener("submit", async (e) => {
     } catch {
       // Сохраняем локально
     }
-  } else if (FIREBASE_DB_URL) {
-    const fbBase = FIREBASE_DB_URL.replace(/\/+$/, "");
+  } else if (getFirebaseBase()) {
+    const fbBase = getFirebaseBase();
     const key = encodeFirebaseKey(trackId);
     try {
       await fetch(`${fbBase}/social/comments/${key}/${encodeURIComponent(newComment.id)}.json`, {
@@ -2490,6 +2566,16 @@ commentForm.addEventListener("submit", async (e) => {
   renderCommentsModal();
   renderTracks();
   showToast("Комментарий добавлен");
+
+  // Подтягиваем свежий список из общей базы, чтобы комментарий точно сохранился
+  if (!state.serverMode && getFirebaseBase()) {
+    try {
+      const data = await fetchFirebaseSocial();
+      if (data) applyFirebaseSocial(data, true);
+    } catch {
+      // локальная копия уже показана
+    }
+  }
 });
 
 // --- Кнопки плеера ---
@@ -3013,3 +3099,4 @@ initMediaSessionHandlers();
 initSnowfall();
 initVisualizer();
 loadTracksFromServer(false);
+startSocialSync();
