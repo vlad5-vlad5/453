@@ -303,6 +303,13 @@ function ensureAudioEngine() {
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     const timeDataArray = new Uint8Array(analyser.fftSize);
 
+    // Отдельный «быстрый» анализатор для сценического светового движка:
+    // меньше сглаживания и выше разрешение — атаки барабанов ловятся чётко
+    const beatAnalyser = ctx.createAnalyser();
+    beatAnalyser.fftSize = 512;
+    beatAnalyser.smoothingTimeConstant = 0.35;
+    const beatData = new Uint8Array(beatAnalyser.frequencyBinCount);
+
     // Коммутация цепочки
     source.connect(subBassBoost);
     subBassBoost.connect(bassFilter);
@@ -334,6 +341,8 @@ function ensureAudioEngine() {
     // Выход
     compressor.connect(analyser);
     analyser.connect(ctx.destination);
+    // Параллельная ветка только для анализа ударов (в колонки не идёт)
+    compressor.connect(beatAnalyser);
 
     audioEngine = {
       ctx,
@@ -347,6 +356,9 @@ function ensureAudioEngine() {
       analyser,
       dataArray,
       timeDataArray,
+      beatAnalyser,
+      beatData,
+      compressor,
     };
 
     if (ctx.state === "suspended") {
@@ -357,6 +369,39 @@ function ensureAudioEngine() {
     console.warn("Эквалайзер недоступен, используется стандартное воспроизведение:", err);
     return null;
   }
+}
+
+// Анализатор спектра нужен постоянно для цветомузыки, даже когда эквалайзер выключен.
+// Цепочка при этом полностью прозрачна: Bass Boost / EQ / 3D стоят в нуле, сухой сигнал = 1.0,
+// поэтому звук звучит ровно так же, как через нативный <audio>.
+function ensureSpectrumAnalyser() {
+  if (!audioEngine) {
+    ensureAudioEngine();
+  }
+  if (!audioEngine) return null;
+
+  if (audioEngine.ctx.state === "suspended") {
+    audioEngine.ctx.resume().catch(() => {});
+  }
+
+  // Пока эквалайзер не включён — гарантируем нейтральные усиления (звук не тронут)
+  if (!isEqActive()) {
+    const now = audioEngine.ctx.currentTime;
+    audioEngine.subBassBoost.gain.setTargetAtTime(0, now, 0.02);
+    audioEngine.bassFilter.gain.setTargetAtTime(0, now, 0.02);
+    audioEngine.midFilter.gain.setTargetAtTime(0, now, 0.02);
+    audioEngine.trebleFilter.gain.setTargetAtTime(0, now, 0.02);
+    audioEngine.dryGain.gain.setTargetAtTime(1.0, now, 0.02);
+    audioEngine.surroundWidthGain.gain.setTargetAtTime(0, now, 0.02);
+    audioEngine.surroundReverbGain.gain.setTargetAtTime(0, now, 0.02);
+    // Лимитер в режиме «звук как есть» полностью прозрачен
+    if (audioEngine.compressor) {
+      audioEngine.compressor.threshold.setTargetAtTime(0, now, 0.02);
+      audioEngine.compressor.ratio.setTargetAtTime(1, now, 0.02);
+      audioEngine.compressor.knee.setTargetAtTime(0, now, 0.02);
+    }
+  }
+  return audioEngine;
 }
 
 function applyEqSettings(initIfNeeded = false) {
@@ -377,6 +422,14 @@ function applyEqSettings(initIfNeeded = false) {
     audioEngine.dryGain.gain.setTargetAtTime(surround ? 0.88 : 1.0, now, 0.04);
     audioEngine.surroundWidthGain.gain.setTargetAtTime(surround ? 0.32 : 0, now, 0.04);
     audioEngine.surroundReverbGain.gain.setTargetAtTime(surround ? 0.24 : 0, now, 0.04);
+
+    // Лимитер жёстко работает только при включённом эквалайзере,
+    // иначе он полностью прозрачен и не подкрашивает звук
+    if (audioEngine.compressor) {
+      audioEngine.compressor.threshold.setTargetAtTime(active ? -4 : 0, now, 0.03);
+      audioEngine.compressor.knee.setTargetAtTime(active ? 12 : 0, now, 0.03);
+      audioEngine.compressor.ratio.setTargetAtTime(active ? 4 : 1, now, 0.03);
+    }
   }
 
   saveJSON(LS_EQ, state.eq);
@@ -483,10 +536,6 @@ const vizState = {
   lastFaderTime: 0,
   bulbFlash: new Float32Array(BULB_COUNT),
   bulbGlow: new Float32Array(BULB_COUNT),
-  bulbAvg: new Float32Array(BULB_COUNT),
-  bulbPrev: new Float32Array(BULB_COUNT),
-  bulbLastFlash: new Float32Array(BULB_COUNT),
-  bulbLastStep: new Int32Array(BULB_COUNT).fill(-1),
   lastBulbTime: 0,
 };
 
@@ -526,12 +575,194 @@ function buildLogBandRanges(binCount, bands) {
 
 const LOG_BAND_RANGES = buildLogBandRanges(128, SPECTRUM_BANDS);
 const FADER_LOG_RANGES = buildLogBandRanges(128, FADER_BANDS);
-const BULB_LOG_RANGES = buildLogBandRanges(128, BULB_COUNT);
 
-// Детектор удара бочки для первых двух лампочек (бин 0 анализатора = 0–172 Гц при fftSize 256)
-let bulbKickFast = 0;
-let bulbKickSlow = 0;
-let bulbKickLastHit = 0;
+// ============================================================================
+// Сценический световой движок («как у артиста на сцене»)
+// Лампочки больше не привязаны к полосам эквалайзера: движок ловит удары
+// барабанов и раскладывает их в концертные световые паттерны, сменяющиеся
+// каждый такт (4 удара бочки).
+// ============================================================================
+
+// Диапазоны бинов быстрого анализатора (fftSize 512, бин ≈ 86–94 Гц):
+// 0–2 ≈ 0–260 Гц, 2–6 ≈ 170–560 Гц, 8–40 ≈ 0.7–3.7 кГц, 55–175 ≈ 4.7–15 кГц
+const STAGE_BANDS = [
+  [0, 3],     // 0: бочка (kick) — самый низ
+  [3, 7],     // 1: низкий бас / томы
+  [8, 40],    // 2: снейр, хлопки, вокал
+  [55, 175],  // 3: хэт, тарелки
+];
+
+// Концертные световые схемы, сменяющиеся каждый такт
+const STAGE_PATTERNS = ["all", "sweep", "odd-even", "wave"];
+
+const stageState = {
+  fast: new Float32Array(4),
+  slow: new Float32Array(4),
+  lastHit: new Float32Array(4),
+  lastBulb: new Float32Array(BULB_COUNT),
+  kickCount: 0,
+  hatCount: 0,
+  pattern: 0,
+  beatInterval: 0.5, // оценка периода удара (для синхронного fallback)
+  lastKick: 0,
+  synthStep: -1,
+  energy: 0,
+};
+
+const STAGE_COOLDOWN = [0.11, 0.1, 0.095, 0.075];
+
+// Детектор атаки (onset): быстрая огибающая резко обгоняет медленную — значит был удар
+function stageOnset(bandIndex, level, dt, t) {
+  const i = bandIndex;
+  stageState.fast[i] += (level - stageState.fast[i]) * Math.min(1, dt * 26);
+  stageState.slow[i] += (level - stageState.slow[i]) * Math.min(1, dt * 3.0);
+  const fast = stageState.fast[i];
+  const slow = stageState.slow[i];
+  // Порог подобран так, чтобы ловить даже негромкую бочку, но не мигать на шум
+  const threshold = Math.max(0.042, slow * 1.16);
+  if (
+    fast > threshold &&
+    fast > slow * 1.05 &&
+    t - stageState.lastHit[i] > STAGE_COOLDOWN[i]
+  ) {
+    stageState.lastHit[i] = t;
+    return fast;
+  }
+  return 0;
+}
+
+function stageBandLevel(range) {
+  const bins = audioEngine.beatData;
+  let peak = 0;
+  let sum = 0;
+  let count = 0;
+  for (let b = range[0]; b < range[1]; b++) {
+    const val = bins[b] || 0;
+    if (val > peak) peak = val;
+    sum += val;
+    count++;
+  }
+  const avg = count ? sum / count : 0;
+  return Math.min(1, ((peak * 0.7 + avg * 0.3) / 255) * 1.15);
+}
+
+// Зажечь лампочку короткой фотовспышкой (force — даже если только что горела)
+function stageFireBulb(index, strength, t, force = false) {
+  if (index < 0 || index >= BULB_COUNT) return;
+  if (!force && t - stageState.lastBulb[index] < 0.055) return;
+  stageState.lastBulb[index] = t;
+  vizState.bulbFlash[index] = Math.max(vizState.bulbFlash[index], Math.min(1, strength));
+  vizState.bulbGlow[index] = 1;
+}
+
+// Раскладка удара бочки по концертному паттерну
+function stageKick(t, power) {
+  const step = stageState.kickCount++;
+  const pattern = STAGE_PATTERNS[Math.floor(step / 4) % STAGE_PATTERNS.length];
+  stageState.pattern = pattern;
+  const strength = Math.min(1, 0.82 + power * 0.35);
+  const head = (step * 2) % BULB_COUNT;
+
+  if (pattern === "all") {
+    for (let i = 0; i < BULB_COUNT; i++) stageFireBulb(i, strength, t, true);
+  } else if (pattern === "sweep") {
+    stageFireBulb(head, strength, t, true);
+    stageFireBulb((head + 1) % BULB_COUNT, strength * 0.9, t, true);
+  } else if (pattern === "odd-even") {
+    const parity = step % 2;
+    for (let i = parity; i < BULB_COUNT; i += 2) stageFireBulb(i, strength, t, true);
+  } else {
+    stageFireBulb(head, strength, t, true);
+    stageFireBulb((head + 3) % BULB_COUNT, strength * 0.45, t);
+    stageFireBulb((head + 5) % BULB_COUNT, strength * 0.38, t);
+  }
+
+  // Первые две лампочки всегда отмечают саму бочку — как низкие стробоскопы на сцене
+  stageFireBulb(0, 1, t, true);
+  if (pattern !== "sweep") stageFireBulb(1, Math.min(1, strength * 0.9), t);
+}
+
+function stageSnare(t, power) {
+  const strength = Math.min(1, 0.6 + power * 0.4);
+  const bar = Math.floor(stageState.kickCount / 4) % STAGE_PATTERNS.length;
+  if (bar === 1) {
+    // в «перебежке» снейр бьёт по краям
+    stageFireBulb(0, strength, t);
+    stageFireBulb(BULB_COUNT - 1, strength, t);
+  } else if (bar === 2) {
+    stageFireBulb(2, strength, t);
+    stageFireBulb(5, strength, t);
+  } else {
+    stageFireBulb(3, strength, t);
+    stageFireBulb(4, strength, t, true);
+  }
+}
+
+function stageHat(t, power) {
+  const idx = stageState.hatCount++ % BULB_COUNT;
+  stageFireBulb(idx, Math.min(0.62, 0.3 + power * 0.35), t);
+}
+
+// Полный проход сценического движка за кадр
+function updateStageEngine(dt, t, playing, useFft) {
+  if (!playing) {
+    stageState.kickCount = 0;
+    stageState.hatCount = 0;
+    stageState.synthStep = -1;
+    stageState.energy = 0;
+    for (let i = 0; i < 4; i++) {
+      stageState.fast[i] = 0;
+      stageState.slow[i] = 0;
+      stageState.lastHit[i] = 0;
+    }
+    stageState.lastKick = 0;
+    return;
+  }
+
+  if (useFft) {
+    stageState.synthStep = -1;
+    const kickPower = stageOnset(0, stageBandLevel(STAGE_BANDS[0]), dt, t);
+    const bassPower = stageOnset(1, stageBandLevel(STAGE_BANDS[1]), dt, t);
+    const snarePower = stageOnset(2, stageBandLevel(STAGE_BANDS[2]), dt, t);
+    const hatPower = stageOnset(3, stageBandLevel(STAGE_BANDS[3]), dt, t);
+
+    stageState.energy =
+      stageState.energy * 0.9 +
+      ((audioEngine.beatData[0] || 0) / 255) * 0.1;
+
+    if (kickPower) {
+      // Оценка периода удара для синхронного резерва
+      if (stageState.lastKick && t - stageState.lastKick > 0.25 && t - stageState.lastKick < 1.2) {
+        stageState.beatInterval +=
+          (t - stageState.lastKick - stageState.beatInterval) * 0.25;
+      }
+      stageState.lastKick = t;
+      stageKick(t, kickPower);
+    } else if (bassPower && bassPower > 0.22) {
+      // Сильные басовые ноты без бочки тоже подсвечивают низ
+      stageFireBulb(0, 0.65, t);
+      stageFireBulb(1, 0.55, t);
+    }
+
+    if (snarePower) stageSnare(t, snarePower);
+    if (hatPower) stageHat(t, hatPower);
+  } else {
+    // Резерв без анализатора: ровный такт 4/4 со сценическими паттернами
+    const bpm = 120;
+    const stepLen = 60 / bpm / 2; // восьмые
+    const step = Math.floor(t / stepLen);
+    if (step !== stageState.synthStep) {
+      stageState.synthStep = step;
+      if (step % 4 === 0) {
+        stageKick(t, 0.8);
+      } else if (step % 4 === 2) {
+        stageSnare(t, 0.55);
+      } else {
+        stageHat(t, 0.4);
+      }
+    }
+  }
+}
 
 function drawBulbsVisualizer(ctx, width, height, playing, t) {
   // Тёмный матовый корпус панели цветомузыки
@@ -548,121 +779,35 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
   const glowDecay = Math.exp(-dt * 9.5);
 
   let useFft = false;
-  if (playing && audioEngine?.analyser) {
-    audioEngine.analyser.getByteFrequencyData(audioEngine.dataArray);
-    for (let k = 0; k < 48; k++) {
-      if (audioEngine.dataArray[k] > 2) {
+  if (playing && audioEngine?.beatAnalyser) {
+    audioEngine.beatAnalyser.getByteFrequencyData(audioEngine.beatData);
+    for (let k = 0; k < 60; k++) {
+      if ((audioEngine.beatData[k] || 0) > 2) {
         useFft = true;
         break;
       }
     }
   }
 
-  // Отдельный детектор бочки по низам (бины 0–2) — самый низ спектра
-  let kickHit = false;
-  if (useFft) {
-    const bins = audioEngine.dataArray;
-    let sub = 0;
-    for (let b = 0; b <= 2; b++) {
-      if (bins[b] > sub) sub = bins[b];
-    }
-    const subNorm = Math.min(1, sub / 255);
-    bulbKickFast += (subNorm - bulbKickFast) * Math.min(1, dt * 30);
-    bulbKickSlow += (subNorm - bulbKickSlow) * Math.min(1, dt * 4.5);
-    if (
-      bulbKickFast > 0.1 &&
-      bulbKickFast > bulbKickSlow * 1.12 &&
-      t - bulbKickLastHit > 0.1
-    ) {
-      kickHit = true;
-      bulbKickLastHit = t;
-    }
-  } else {
-    bulbKickFast = 0;
-    bulbKickSlow = 0;
+  // Страховка: если браузер «усыпил» аудиоконтекст, возвращаем его к жизни,
+  // чтобы звук и цветомузыка не пропадали после свёрнутой вкладки или блокировки экрана
+  if (playing && audioEngine && audioEngine.ctx.state !== "running") {
+    audioEngine.ctx.resume().catch(() => {});
   }
+
+  // Сценический движок сам зажигает лампочки по ударам барабанов и паттернам
+  updateStageEngine(dt, t, playing, useFft);
 
   const slotW = width / BULB_COUNT;
   const cy = height / 2;
   // Миниатюрные лампочки (в 4 раза меньше прежних) с ярким ореолом вспышки
   const r = Math.max(1.8, Math.min(slotW * 0.09, height * 0.085));
 
-  // Музыкальные ритмические темпы для fallback-режима (когда Web Audio отключён)
-  const fallbackRates = [2.05, 2.75, 3.4, 4.1, 3.1, 4.75, 5.4, 6.15];
-  const fallbackOffsets = [0.0, 0.35, 0.72, 0.18, 0.56, 0.84, 0.27, 0.63];
-
   for (let i = 0; i < BULB_COUNT; i++) {
     vizState.bulbFlash[i] *= flashDecay;
     vizState.bulbGlow[i] *= glowDecay;
     if (vizState.bulbFlash[i] < 0.015) vizState.bulbFlash[i] = 0;
     if (vizState.bulbGlow[i] < 0.01) vizState.bulbGlow[i] = 0;
-
-    if (playing) {
-      const minCooldown = i < 2 ? 0.1 : 0.105;
-      if (useFft) {
-        // Первые две лампочки захватывают самый низ спектра (бочку), остальные — по лог-полосам
-        const lowBulb = i < 2;
-        const range = i === 0 ? [0, 3] : i === 1 ? [2, 6] : BULB_LOG_RANGES[i];
-        const [start, end] = range;
-        let peakBin = 0;
-        let sumBin = 0;
-        let count = 0;
-        for (let b = start; b < end; b++) {
-          const val = audioEngine.dataArray[b] || 0;
-          if (val > peakBin) peakBin = val;
-          sumBin += val;
-          count++;
-        }
-        const avg = count ? sumBin / count : 0;
-        const tilt = 0.92 + (i / BULB_COUNT) * 0.42;
-        const raw = Math.min(1, ((peakBin * 0.65 + avg * 0.35) / 255) * tilt);
-        vizState.bulbAvg[i] += (raw - vizState.bulbAvg[i]) * Math.min(1, dt * 4.5);
-        const delta = raw - vizState.bulbPrev[i];
-        vizState.bulbPrev[i] = raw;
-
-        // Удар бочки сразу зажигает первую лампочку (вторая — чуть слабее)
-        if (i === 0 && kickHit) {
-          vizState.bulbFlash[0] = 1;
-          vizState.bulbGlow[0] = 1;
-          vizState.bulbLastFlash[0] = t;
-        } else if (i === 1 && kickHit && t - vizState.bulbLastFlash[1] > 0.1) {
-          vizState.bulbFlash[1] = 0.88;
-          vizState.bulbGlow[1] = 1;
-          vizState.bulbLastFlash[1] = t;
-        }
-
-        // Порог срабатывания: у первых двух лампочек слева — в 2 раза ниже
-        const threshold = lowBulb
-          ? Math.max(0.095, vizState.bulbAvg[i] * 0.5)
-          : Math.max(0.19, vizState.bulbAvg[i] * 0.92);
-        if (
-          raw > threshold &&
-          delta > (lowBulb ? 0.012 : 0.024) &&
-          t - vizState.bulbLastFlash[i] > minCooldown
-        ) {
-          vizState.bulbFlash[i] = Math.min(1, 0.82 + raw * 0.28);
-          vizState.bulbGlow[i] = 1.0;
-          vizState.bulbLastFlash[i] = t;
-        }
-      } else {
-        // Живая ритмическая полиритмия для каждой из 8 ламп (порог снижен на 20%)
-        const step = Math.floor(t * fallbackRates[i] + fallbackOffsets[i]);
-        if (step !== vizState.bulbLastStep[i]) {
-          vizState.bulbLastStep[i] = step;
-          const accent = Math.sin(step * 1.91 + i * 2.37) * Math.cos(step * 0.67 - i * 1.13);
-          // Первые две лампочки (низкие частоты) вспыхивают практически на каждый шаг ритма
-          const hitProb = i < 2 ? -0.86 : i < 5 ? -0.15 : -0.06;
-          if (accent > hitProb && t - vizState.bulbLastFlash[i] > minCooldown) {
-            const strength = Math.min(1, 0.84 + Math.max(0, accent) * 0.22);
-            vizState.bulbFlash[i] = strength;
-            vizState.bulbGlow[i] = 0.95;
-            vizState.bulbLastFlash[i] = t;
-          }
-        }
-      }
-    } else {
-      vizState.bulbLastStep[i] = -1;
-    }
 
     const flash = vizState.bulbFlash[i];
     const glow = vizState.bulbGlow[i];
@@ -1902,11 +2047,10 @@ function playTrack(trackId) {
   const seq = ++playSeq;
   initVisualizer();
 
-  if (isEqActive() || audioEngine) {
+  // Анализатор подключаем всегда (это не меняет звук, пока эквалайзер выключен)
+  ensureSpectrumAnalyser();
+  if (isEqActive()) {
     applyEqSettings(true);
-    if (audioEngine?.ctx?.state === "suspended") {
-      audioEngine.ctx.resume().catch(() => {});
-    }
   }
 
   const isSwitching = state.currentTrackId !== trackId;
@@ -2321,6 +2465,8 @@ audio.addEventListener("loadedmetadata", () => {
 
 audio.addEventListener("play", () => {
   state.isPlaying = true;
+  // Анализатор для цветомузыки подключаем всегда (звук при выключенном EQ не меняется)
+  ensureSpectrumAnalyser();
   updatePlayerUI();
   syncPlayingCardUI();
   const track = state.tracks.find((t) => t.id === state.currentTrackId);
