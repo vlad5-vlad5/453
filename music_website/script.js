@@ -670,30 +670,30 @@ function stageKick(t, power) {
   const pattern = STAGE_PATTERNS[bar % STAGE_PATTERNS.length];
   stageState.pattern = pattern;
   stageState.barIndex = bar;
-  const strength = Math.min(1, 0.82 + power * 0.35);
+  const strength = 1;
   const head = (step * 2) % BULB_COUNT;
 
   if (pattern === "all") {
-    for (let i = 0; i < BULB_COUNT; i++) stageFireBulb(i, strength, t, true);
+    for (let i = 0; i < BULB_COUNT; i++) stageFireBulb(i, 1, t, true);
   } else if (pattern === "sweep") {
-    stageFireBulb(head, strength, t, true);
-    stageFireBulb((head + 1) % BULB_COUNT, strength * 0.9, t, true);
+    stageFireBulb(head, 1, t, true);
+    stageFireBulb((head + 1) % BULB_COUNT, 1, t, true);
   } else if (pattern === "odd-even") {
     const parity = step % 2;
-    for (let i = parity; i < BULB_COUNT; i += 2) stageFireBulb(i, strength, t, true);
+    for (let i = parity; i < BULB_COUNT; i += 2) stageFireBulb(i, 1, t, true);
   } else {
-    stageFireBulb(head, strength, t, true);
-    stageFireBulb((head + 3) % BULB_COUNT, strength * 0.45, t);
-    stageFireBulb((head + 5) % BULB_COUNT, strength * 0.38, t);
+    stageFireBulb(head, 1, t, true);
+    stageFireBulb((head + 3) % BULB_COUNT, 1, t);
+    stageFireBulb((head + 5) % BULB_COUNT, 1, t);
   }
 
   // Первые две лампочки всегда отмечают саму бочку — как низкие стробоскопы на сцене
   stageFireBulb(0, 1, t, true);
-  if (pattern !== "sweep") stageFireBulb(1, Math.min(1, strength * 0.9), t);
+  if (pattern !== "sweep") stageFireBulb(1, 1, t);
 }
 
 function stageSnare(t, power) {
-  const strength = Math.min(1, 0.6 + power * 0.4);
+  const strength = 1;
   const bar = (stageState.barIndex || 0) % STAGE_PATTERNS.length;
   if (bar === 1) {
     // в «перебежке» снейр бьёт по краям
@@ -710,7 +710,7 @@ function stageSnare(t, power) {
 
 function stageHat(t, power) {
   const idx = stageState.hatCount++ % BULB_COUNT;
-  stageFireBulb(idx, Math.min(0.62, 0.3 + power * 0.35), t);
+  stageFireBulb(idx, 1, t);
 }
 
 // Часы сцены: каждый тик — восьмая доля такта 4/4 (сильная доля = бочка).
@@ -853,21 +853,26 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
 
     // Кривая яркости: в покое лампа полностью потушена, при ударе — ослепительная вспышка.
     // flash^0.62 вытягивает середину вверх, поэтому вспышка «щёлкает» ярко, а не вязнет в полутонах.
-    const punch = Math.pow(flash, 0.62);
-    const afterglow = glow * 0.5;
+    // Максимально «выкрученная» кривая: почти любой удар выходит на 85–100% яркости
+    const punch = Math.pow(flash, 0.32);
+    const afterglow = glow * 0.6;
 
-    // 1. Мощный цветной ореол вспышки (ярко и заметно, но коротко)
+    // 1. Мощный цветной ореол вспышки — аддитивное свечение, как настоящий прожектор
     if (punch > 0.01 || afterglow > 0.01) {
-      const haloR = r * (1.5 + punch * 3.4 + afterglow * 0.9);
-      const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, haloR);
-      haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, punch * 1.1)})`);
-      haloGrad.addColorStop(0.26, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, punch * 0.95 + afterglow * 0.5)})`);
-      haloGrad.addColorStop(0.6, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.55, punch * 0.42 + afterglow * 0.22)})`);
+      const haloR = r * (1.7 + punch * 4.2 + afterglow * 1.1);
+      const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.12, cx, cy, haloR);
+      haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, 0.35 + punch * 0.9)})`);
+      haloGrad.addColorStop(0.22, `rgba(255, 255, 255, ${Math.min(1, punch * 0.85)})`);
+      haloGrad.addColorStop(0.42, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, punch * 0.95 + afterglow * 0.45)})`);
+      haloGrad.addColorStop(0.72, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.7, punch * 0.55 + afterglow * 0.25)})`);
       haloGrad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = haloGrad;
       ctx.beginPath();
       ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     // 2. Тонкий тёмный ободок цоколя (неподвижное гнездо лампочки, виден всегда)
@@ -883,11 +888,13 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
 
     // 3. Стеклянная линза: в покое — почти чёрное стекло, при вспышке — раскалённая до белого
     ctx.save();
-    if (punch > 0.03 || afterglow > 0.03) {
-      ctx.shadowColor = punch > 0.45
-        ? `rgba(255, 255, 255, ${Math.min(1, 0.6 + punch * 0.4)})`
-        : `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.4 + afterglow * 0.6)})`;
-      ctx.shadowBlur = 2 + punch * 16 + afterglow * 3;
+    if (punch > 0.02 || afterglow > 0.02) {
+      ctx.shadowColor = punch > 0.3
+        ? `rgba(255, 255, 255, ${Math.min(1, 0.7 + punch * 0.3)})`
+        : `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.5 + afterglow * 0.5)})`;
+      ctx.shadowBlur = 3 + punch * 26 + afterglow * 5;
+      // Вспышка светится аддитивно — свет складывается и выглядит по-настоящему ярко
+      ctx.globalCompositeOperation = "lighter";
     }
 
     const bodyGrad = ctx.createRadialGradient(
@@ -898,15 +905,15 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
       cy,
       r
     );
-    // В покое — приглушённое ЦВЕТНОЕ стекло (без белёсой примеси), при ударе — чистое белое каление
-    const coreMix = Math.min(1, Math.pow(punch, 0.9) * 0.95);
+    // В покое — приглушённое ЦВЕТНОЕ стекло, при ударе — чистое белое каление на полной яркости
+    const coreMix = Math.min(1, Math.pow(punch, 0.55));
     const rr = Math.round(cr * 0.34 + (255 - cr * 0.34) * coreMix);
     const rg = Math.round(cg * 0.34 + (255 - cg * 0.34) * coreMix);
     const rb = Math.round(cb * 0.34 + (255 - cb * 0.34) * coreMix);
-    // В покое лампа практически полностью погашена (только намёк на цветное стекло)
-    const centerAlpha = Math.min(1, 0.09 + punch * 0.96 + afterglow * 0.26);
-    const midAlpha = Math.min(1, 0.055 + punch * 0.9 + afterglow * 0.3);
-    const rimAlpha = Math.min(1, 0.035 + punch * 0.6 + afterglow * 0.18);
+    // В покое лампа погашена, при вспышке сразу выходит на 100%
+    const centerAlpha = Math.min(1, 0.09 + punch * 1.6 + afterglow * 0.35);
+    const midAlpha = Math.min(1, 0.055 + punch * 1.5 + afterglow * 0.4);
+    const rimAlpha = Math.min(1, 0.035 + punch * 1.1 + afterglow * 0.25);
 
     bodyGrad.addColorStop(0, `rgba(${rr}, ${rg}, ${rb}, ${centerAlpha})`);
     bodyGrad.addColorStop(0.55, `rgba(${cr}, ${cg}, ${cb}, ${midAlpha})`);
@@ -916,33 +923,52 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
+
+    // Белое раскалённое ядро по центру — «пересвет» как у настоящей фотовспышки
+    if (punch > 0.08) {
+      const coreR = r * (0.32 + punch * 0.4);
+      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+      coreGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, punch * 1.2)})`);
+      coreGrad.addColorStop(0.55, `rgba(255, 255, 255, ${Math.min(0.9, punch * 0.8)})`);
+      coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
 
     // 4. Стеклянный блик сверху-слева (проявляется только на вспышке)
     if (punch > 0.05) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 0.15 + punch * 0.85)})`;
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 0.2 + punch * 0.8)})`;
       ctx.beginPath();
       ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(0.55, r * 0.26), 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
-    // 5. Короткий резкий 4-лучевой блик фотовспышки
-    if (punch > 0.2) {
-      const rayH = r * (1.3 + punch * 2.6);
-      const rayV = r * (1.1 + punch * 2.2);
+    // 5. Короткий резкий 4-лучевой блик фотовспышки (тоже аддитивно — лучи «прожигают» кадр)
+    if (punch > 0.15) {
+      const rayH = r * (1.8 + punch * 4.2);
+      const rayV = r * (1.5 + punch * 3.6);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       const hGrad = ctx.createLinearGradient(cx - rayH, cy, cx + rayH, cy);
       hGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.2)})`);
+      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.35)})`);
       hGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
       ctx.fillStyle = hGrad;
-      ctx.fillRect(cx - rayH, cy - 0.6, rayH * 2, 1.2);
+      ctx.fillRect(cx - rayH, cy - 0.75, rayH * 2, 1.5);
 
       const vGrad = ctx.createLinearGradient(cx, cy - rayV, cx, cy + rayV);
       vGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.1)})`);
+      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.25)})`);
       vGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
       ctx.fillStyle = vGrad;
-      ctx.fillRect(cx - 0.6, cy - rayV, 1.2, rayV * 2);
+      ctx.fillRect(cx - 0.75, cy - rayV, 1.5, rayV * 2);
+      ctx.restore();
     }
   }
 }
