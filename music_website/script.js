@@ -166,6 +166,18 @@ const commentAuthorInput = document.getElementById("commentAuthorInput");
 const commentTextInput = document.getElementById("commentTextInput");
 const commentSubmitBtn = document.getElementById("commentSubmitBtn");
 
+// Панель владельца (статистика лайков и комментариев)
+const ownerStatsBtn = document.getElementById("ownerStatsBtn");
+const ownerPanel = document.getElementById("ownerPanel");
+const closeOwnerPanelBtn = document.getElementById("closeOwnerPanelBtn");
+const ownerList = document.getElementById("ownerList");
+const ownerSyncStatus = document.getElementById("ownerSyncStatus");
+const ownerRefreshBtn = document.getElementById("ownerRefreshBtn");
+const ownerTracksCount = document.getElementById("ownerTracksCount");
+const ownerLikesCount = document.getElementById("ownerLikesCount");
+const ownerCommentsCount = document.getElementById("ownerCommentsCount");
+const ownerLikedTracksCount = document.getElementById("ownerLikedTracksCount");
+
 // Модалка настроек звука (Бас-буст / 3D / Эквалайзер)
 const openEqBtn = document.getElementById("openEqBtn");
 const eqModal = document.getElementById("eqModal");
@@ -1535,6 +1547,8 @@ function getTrackComments(trackId) {
 function syncOwnerControls() {
   const showOwner = state.serverMode || IS_ADMIN;
   openUploadBtn.classList.toggle("hidden", !showOwner);
+  // Панель владельца доступна только владельцу (server.py или ?admin=1)
+  ownerStatsBtn?.classList.toggle("hidden", !showOwner);
 }
 
 async function loadSocialData() {
@@ -1651,6 +1665,8 @@ function startSocialSync() {
     try {
       const data = await fetchFirebaseSocial();
       if (data) applyFirebaseSocial(data, true);
+      // Если панель владельца открыта — обновляем и её
+      if (typeof ownerPanelOpen !== "undefined" && ownerPanelOpen) renderOwnerPanel();
     } catch {
       // сеть недоступна — просто ждём следующего раза
     }
@@ -1661,6 +1677,210 @@ function startSocialSync() {
     if (!document.hidden) tick();
   });
 }
+
+
+// ============================================================================
+// Панель владельца: статистика лайков и комментариев по каждому треку
+// Открывается только по ссылке с ?admin=1 (или на локальном server.py)
+// ============================================================================
+
+let ownerPanelOpen = false;
+let ownerActiveTab = "likes";
+let ownerSocialCache = null;
+
+function formatOwnerDate(ts) {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function renderOwnerStats() {
+  const tracks = state.tracks;
+  let totalLikes = 0;
+  let totalComments = 0;
+  let likedTracks = 0;
+
+  for (const track of tracks) {
+    const likes = getLikeCount(track.id);
+    const comments = getTrackComments(track.id).length;
+    totalLikes += likes;
+    totalComments += comments;
+    if (likes > 0) likedTracks += 1;
+  }
+
+  if (ownerTracksCount) ownerTracksCount.textContent = String(tracks.length);
+  if (ownerLikesCount) ownerLikesCount.textContent = String(totalLikes);
+  if (ownerCommentsCount) ownerCommentsCount.textContent = String(totalComments);
+  if (ownerLikedTracksCount) ownerLikedTracksCount.textContent = String(likedTracks);
+}
+
+function ownerTrackRow(track) {
+  const cover = track.cover
+    ? `<img src="${escapeHtml(track.cover)}" alt="" loading="lazy" />`
+    : "♪";
+  const genre = GENRES[track.genre]?.label || "Разное";
+  return `
+    <div class="owner-row-cover">${cover}</div>
+    <div class="owner-row-body">
+      <div class="owner-row-title">${escapeHtml(track.title)}</div>
+      <div class="owner-row-sub">${escapeHtml(track.artist || "Неизвестный исполнитель")} · ${escapeHtml(genre)}</div>
+    </div>
+  `;
+}
+
+function renderOwnerPanel() {
+  renderOwnerStats();
+  if (!ownerList) return;
+
+  const tracks = state.tracks;
+
+  if (!tracks.length) {
+    ownerList.innerHTML = `<div class="owner-empty">Треки пока не загружены.</div>`;
+    return;
+  }
+
+  if (ownerActiveTab === "likes") {
+    const rows = tracks
+      .map((track) => ({ track, likes: getLikeCount(track.id) }))
+      .sort((a, b) => b.likes - a.likes || a.track.title.localeCompare(b.track.title, "ru"));
+
+    const active = rows.filter((r) => r.likes > 0);
+
+    if (!active.length) {
+      ownerList.innerHTML = `<div class="owner-empty">Лайков пока нет. Как только друг нажмёт ♥, трек появится здесь.</div>`;
+      return;
+    }
+
+    ownerList.innerHTML = active
+      .map(
+        ({ track, likes }) => `
+        <div class="owner-row">
+          ${ownerTrackRow(track)}
+          <div class="owner-row-badges">
+            <span class="owner-badge is-likes">♥ ${likes}</span>
+          </div>
+        </div>`
+      )
+      .join("");
+    return;
+  }
+
+  // Вкладка «Комментарии»: последние комментарии по всем трекам
+  const feed = [];
+  for (const track of tracks) {
+    for (const comment of getTrackComments(track.id)) {
+      feed.push({ track, comment });
+    }
+  }
+  feed.sort((a, b) => (b.comment.createdAt || 0) - (a.comment.createdAt || 0));
+
+  if (!feed.length) {
+    ownerList.innerHTML = `<div class="owner-empty">Комментариев пока нет.</div>`;
+    return;
+  }
+
+  ownerList.innerHTML = feed
+    .slice(0, 100)
+    .map(
+      ({ track, comment }) => `
+      <div class="owner-row">
+        ${ownerTrackRow(track)}
+        <div class="owner-row-body">
+          <div class="owner-row-title">${escapeHtml(comment.author || "Гость")}</div>
+          <div class="owner-row-sub">${escapeHtml(track.title)} · ${escapeHtml(formatOwnerDate(comment.createdAt))}</div>
+          <div class="owner-comment-text">${escapeHtml(comment.text || "")}</div>
+        </div>
+      </div>`
+    )
+    .join("");
+}
+
+function setOwnerSyncStatus(text, kind = "") {
+  if (!ownerSyncStatus) return;
+  ownerSyncStatus.textContent = text;
+  ownerSyncStatus.classList.toggle("is-warn", kind === "warn");
+  ownerSyncStatus.classList.toggle("is-ok", kind === "ok");
+}
+
+async function refreshOwnerPanel() {
+  setOwnerSyncStatus("Обновляем данные из общей базы…");
+  renderOwnerPanel();
+
+  if (state.serverMode) {
+    await loadSocialData();
+    renderOwnerPanel();
+    setOwnerSyncStatus("Данные с локального сервера обновлены.", "ok");
+    return;
+  }
+
+  if (!getFirebaseBase()) {
+    setOwnerSyncStatus(
+      "Общая база не подключена — видны только лайки и комментарии этого браузера.",
+      "warn"
+    );
+    return;
+  }
+
+  try {
+    const data = await fetchFirebaseSocial();
+    if (!data) throw new Error("no data");
+    ownerSocialCache = data;
+    applyFirebaseSocial(data, false);
+    renderOwnerPanel();
+    setOwnerSyncStatus(`Данные из общей базы обновлены · ${new Date().toLocaleTimeString("ru-RU")}`, "ok");
+  } catch {
+    setOwnerSyncStatus(
+      "Не удалось связаться с общей базой. Проверьте подключение к интернету и правила Firebase.",
+      "warn"
+    );
+    renderOwnerPanel();
+  }
+}
+
+function openOwnerPanel() {
+  if (!ownerPanel) return;
+  ownerPanelOpen = true;
+  ownerPanel.classList.remove("hidden");
+  renderOwnerPanel();
+  refreshOwnerPanel();
+}
+
+function closeOwnerPanel() {
+  if (!ownerPanel) return;
+  ownerPanelOpen = false;
+  ownerPanel.classList.add("hidden");
+}
+
+ownerStatsBtn?.addEventListener("click", openOwnerPanel);
+closeOwnerPanelBtn?.addEventListener("click", closeOwnerPanel);
+ownerPanel?.addEventListener("click", (e) => {
+  if (e.target === ownerPanel) closeOwnerPanel();
+});
+ownerRefreshBtn?.addEventListener("click", () => refreshOwnerPanel());
+
+document.querySelectorAll(".owner-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    ownerActiveTab = tab.dataset.ownerTab === "comments" ? "comments" : "likes";
+    document.querySelectorAll(".owner-tab").forEach((t) => {
+      const active = t === tab;
+      t.classList.toggle("active", active);
+      t.setAttribute("aria-selected", String(active));
+    });
+    renderOwnerPanel();
+  });
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && ownerPanelOpen) closeOwnerPanel();
+});
 
 // Загрузка треков: сначала локальный сервер /api/tracks, затем tracks/tracks.json + GitHub
 async function loadTracksFromServer(notify = false) {

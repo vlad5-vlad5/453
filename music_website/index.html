@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20261124n" />
+  <link rel="stylesheet" href="style.css?v=20261124p" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -83,6 +83,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-2.64-6.36" />
             <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+
+        <button type="button" class="btn btn-secondary btn-icon-only hidden" id="ownerStatsBtn" title="Панель владельца: лайки и комментарии" aria-label="Открыть панель владельца">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="20" x2="4" y2="11" />
+            <line x1="10" y1="20" x2="10" y2="4" />
+            <line x1="16" y1="20" x2="16" y2="14" />
+            <line x1="21" y1="20" x2="21" y2="8" />
           </svg>
         </button>
 
@@ -510,6 +519,59 @@
     </div>
   </div>
 
+  <!-- Панель владельца: статистика лайков и комментариев -->
+  <div class="modal-backdrop hidden" id="ownerPanel" role="dialog" aria-modal="true" aria-labelledby="ownerPanelTitle">
+    <div class="modal-card owner-panel-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="ownerPanelTitle">Панель владельца</h2>
+          <p class="eq-subtitle">Лайки и комментарии друзей на сайте</p>
+        </div>
+        <button type="button" class="icon-btn" id="closeOwnerPanelBtn" aria-label="Закрыть панель">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="owner-stats" id="ownerStats">
+        <div class="owner-stat">
+          <span class="owner-stat-value" id="ownerTracksCount">0</span>
+          <span class="owner-stat-label">Треков на сайте</span>
+        </div>
+        <div class="owner-stat">
+          <span class="owner-stat-value" id="ownerLikesCount">0</span>
+          <span class="owner-stat-label">Всего лайков</span>
+        </div>
+        <div class="owner-stat">
+          <span class="owner-stat-value" id="ownerCommentsCount">0</span>
+          <span class="owner-stat-label">Всего комментариев</span>
+        </div>
+        <div class="owner-stat">
+          <span class="owner-stat-value" id="ownerLikedTracksCount">0</span>
+          <span class="owner-stat-label">Треков с лайками</span>
+        </div>
+      </div>
+
+      <div class="owner-status" id="ownerSyncStatus">Загрузка данных…</div>
+
+      <div class="owner-toolbar">
+        <div class="owner-tabs" role="tablist">
+          <button type="button" class="owner-tab active" data-owner-tab="likes" role="tab" aria-selected="true">Лайки</button>
+          <button type="button" class="owner-tab" data-owner-tab="comments" role="tab" aria-selected="false">Комментарии</button>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="ownerRefreshBtn">Обновить</button>
+      </div>
+
+      <div class="owner-list" id="ownerList"></div>
+
+      <div class="owner-hint">
+        Подсказка: панель открывается по адресу <code>?admin=1</code> — не делитесь этой ссылкой с друзьями.
+      </div>
+    </div>
+  </div>
+
   <!-- Скрытый input для быстрой смены обложки любого трека -->
   <input type="file" id="changeCoverInput" accept="image/*" hidden />
 
@@ -517,6 +579,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261124w"></script>
+  <script src="script.js?v=20261124x"></script>
 </body>
 </html>

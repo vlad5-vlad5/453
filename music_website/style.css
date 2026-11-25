@@ -2332,3 +2332,217 @@ body.music-playing .aurora-photo {
     padding-bottom: 215px;
   }
 }
+
+/* ===== Панель владельца: статистика лайков и комментариев ===== */
+.owner-panel-card {
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+.owner-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.owner-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.owner-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.owner-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.owner-status {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.owner-status.is-warn {
+  color: #fbbf24;
+}
+
+.owner-status.is-ok {
+  color: #34d399;
+}
+
+.owner-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.owner-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.owner-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.owner-tab.active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.owner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1;
+  min-height: 120px;
+}
+
+.owner-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.owner-row-cover {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1rem;
+  color: #fff;
+}
+
+.owner-row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.owner-row-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.owner-row-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.owner-row-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.owner-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.owner-badge {
+  font-size: 0.7rem;
+  font-weight: 650;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid transparent;
+}
+
+.owner-badge.is-likes {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.36);
+}
+
+.owner-badge.is-comments {
+  color: #bae6fd;
+  background: rgba(56, 189, 248, 0.13);
+  border-color: rgba(56, 189, 248, 0.34);
+}
+
+.owner-comment-text {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.42;
+  color: #e2e8f0;
+  word-break: break-word;
+}
+
+.owner-empty {
+  padding: 22px 10px;
+  text-align: center;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.owner-hint {
+  margin-top: 14px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.owner-hint code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 720px) {
+  .owner-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .owner-panel-card {
+    max-height: 92vh;
+  }
+}
