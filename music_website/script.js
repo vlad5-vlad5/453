@@ -809,9 +809,10 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     : 0.016;
   vizState.lastBulbTime = t;
 
-  // Короткая резкая вспышка как на фотоаппарате (~85–100 мс) + лёгкое послесвечение линзы
-  const flashDecay = Math.exp(-dt * 27);
-  const glowDecay = Math.exp(-dt * 9.5);
+  // Короткая резкая вспышка как на фотоаппарате (~70–90 мс) + очень короткое послесвечение,
+  // после которого лампа гаснет в полную темноту
+  const flashDecay = Math.exp(-dt * 34);
+  const glowDecay = Math.exp(-dt * 17);
 
   let useFft = false;
   if (playing && audioEngine?.beatAnalyser) {
@@ -839,22 +840,29 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
   const r = Math.max(1.8, Math.min(slotW * 0.09, height * 0.085));
 
   for (let i = 0; i < BULB_COUNT; i++) {
+    // Чуть выше порог обнуления — лампа гарантированно уходит в абсолютно тёмное состояние
     vizState.bulbFlash[i] *= flashDecay;
     vizState.bulbGlow[i] *= glowDecay;
-    if (vizState.bulbFlash[i] < 0.015) vizState.bulbFlash[i] = 0;
-    if (vizState.bulbGlow[i] < 0.01) vizState.bulbGlow[i] = 0;
+    if (vizState.bulbFlash[i] < 0.06) vizState.bulbFlash[i] = 0;
+    if (vizState.bulbGlow[i] < 0.05) vizState.bulbGlow[i] = 0;
 
     const flash = vizState.bulbFlash[i];
     const glow = vizState.bulbGlow[i];
     const [cr, cg, cb] = BULB_PALETTE[i];
     const cx = i * slotW + slotW / 2;
 
-    // 1. Внешний цветной световой ореол вспышки (радиус уменьшен в 2 раза)
-    if (glow > 0.02 || flash > 0.02) {
-      const haloR = r * (1.3 + flash * 1.7 + glow * 0.4);
-      const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, haloR);
-      haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, flash * 0.98)})`);
-      haloGrad.addColorStop(0.3, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.95, flash * 0.88 + glow * 0.45)})`);
+    // Кривая яркости: в покое лампа полностью потушена, при ударе — ослепительная вспышка.
+    // flash^0.62 вытягивает середину вверх, поэтому вспышка «щёлкает» ярко, а не вязнет в полутонах.
+    const punch = Math.pow(flash, 0.62);
+    const afterglow = glow * 0.5;
+
+    // 1. Мощный цветной ореол вспышки (ярко и заметно, но коротко)
+    if (punch > 0.01 || afterglow > 0.01) {
+      const haloR = r * (1.5 + punch * 3.4 + afterglow * 0.9);
+      const haloGrad = ctx.createRadialGradient(cx, cy, r * 0.15, cx, cy, haloR);
+      haloGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, punch * 1.1)})`);
+      haloGrad.addColorStop(0.26, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, punch * 0.95 + afterglow * 0.5)})`);
+      haloGrad.addColorStop(0.6, `rgba(${cr}, ${cg}, ${cb}, ${Math.min(0.55, punch * 0.42 + afterglow * 0.22)})`);
       haloGrad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
       ctx.fillStyle = haloGrad;
       ctx.beginPath();
@@ -862,45 +870,47 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
       ctx.fill();
     }
 
-    // 2. Тонкий тёмный ободок цоколя (неподвижное гнездо лампочки)
+    // 2. Тонкий тёмный ободок цоколя (неподвижное гнездо лампочки, виден всегда)
     ctx.beginPath();
     ctx.arc(cx, cy, r + 0.7, 0, Math.PI * 2);
-    ctx.fillStyle = "#191e26";
+    ctx.fillStyle = "#12161d";
     ctx.fill();
     ctx.lineWidth = 0.6;
-    ctx.strokeStyle = flash > 0.2
-      ? `rgba(${cr}, ${cg}, ${cb}, ${0.55 + flash * 0.45})`
-      : "rgba(255, 255, 255, 0.16)";
+    ctx.strokeStyle = punch > 0.12
+      ? `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.5 + punch * 0.5)})`
+      : "rgba(255, 255, 255, 0.10)";
     ctx.stroke();
 
-    // 3. Стеклянная цветная линза мини-лампочки
+    // 3. Стеклянная линза: в покое — почти чёрное стекло, при вспышке — раскалённая до белого
     ctx.save();
-    if (flash > 0.04 || glow > 0.04) {
-      ctx.shadowColor = flash > 0.35
-        ? `rgba(255, 255, 255, ${0.7 + flash * 0.3})`
-        : `rgba(${cr}, ${cg}, ${cb}, ${0.55 + glow * 0.45})`;
-      ctx.shadowBlur = 1.5 + glow * 2.5 + flash * 6;
+    if (punch > 0.03 || afterglow > 0.03) {
+      ctx.shadowColor = punch > 0.45
+        ? `rgba(255, 255, 255, ${Math.min(1, 0.6 + punch * 0.4)})`
+        : `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.4 + afterglow * 0.6)})`;
+      ctx.shadowBlur = 2 + punch * 16 + afterglow * 3;
     }
 
     const bodyGrad = ctx.createRadialGradient(
-      cx - r * 0.22,
-      cy - r * 0.22,
-      r * 0.08,
+      cx - r * 0.24,
+      cy - r * 0.24,
+      r * 0.06,
       cx,
       cy,
       r
     );
-    const coreMix = Math.min(1, flash * 1.15);
-    const rr = Math.round(cr + (255 - cr) * coreMix);
-    const rg = Math.round(cg + (255 - cg) * coreMix);
-    const rb = Math.round(cb + (255 - cb) * coreMix);
-    const centerAlpha = Math.min(1, 0.42 + glow * 0.52 + flash * 0.62);
-    const midAlpha = Math.min(1, 0.24 + glow * 0.5 + flash * 0.6);
-    const rimAlpha = Math.min(1, 0.14 + glow * 0.35 + flash * 0.45);
+    // В покое — приглушённое ЦВЕТНОЕ стекло (без белёсой примеси), при ударе — чистое белое каление
+    const coreMix = Math.min(1, Math.pow(punch, 0.9) * 0.95);
+    const rr = Math.round(cr * 0.34 + (255 - cr * 0.34) * coreMix);
+    const rg = Math.round(cg * 0.34 + (255 - cg * 0.34) * coreMix);
+    const rb = Math.round(cb * 0.34 + (255 - cb * 0.34) * coreMix);
+    // В покое лампа практически полностью погашена (только намёк на цветное стекло)
+    const centerAlpha = Math.min(1, 0.09 + punch * 0.96 + afterglow * 0.26);
+    const midAlpha = Math.min(1, 0.055 + punch * 0.9 + afterglow * 0.3);
+    const rimAlpha = Math.min(1, 0.035 + punch * 0.6 + afterglow * 0.18);
 
     bodyGrad.addColorStop(0, `rgba(${rr}, ${rg}, ${rb}, ${centerAlpha})`);
-    bodyGrad.addColorStop(0.58, `rgba(${cr}, ${cg}, ${cb}, ${midAlpha})`);
-    bodyGrad.addColorStop(1, `rgba(${Math.round(cr * 0.45)}, ${Math.round(cg * 0.45)}, ${Math.round(cb * 0.45)}, ${rimAlpha})`);
+    bodyGrad.addColorStop(0.55, `rgba(${cr}, ${cg}, ${cb}, ${midAlpha})`);
+    bodyGrad.addColorStop(1, `rgba(${Math.round(cr * 0.35)}, ${Math.round(cg * 0.35)}, ${Math.round(cb * 0.35)}, ${rimAlpha})`);
 
     ctx.fillStyle = bodyGrad;
     ctx.beginPath();
@@ -908,29 +918,31 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     ctx.fill();
     ctx.restore();
 
-    // 4. Аккуратный стеклянный блик сверху-слева
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.28 + glow * 0.25 + flash * 0.5})`;
-    ctx.beginPath();
-    ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(0.55, r * 0.25), 0, Math.PI * 2);
-    ctx.fill();
+    // 4. Стеклянный блик сверху-слева (проявляется только на вспышке)
+    if (punch > 0.05) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 0.15 + punch * 0.85)})`;
+      ctx.beginPath();
+      ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(0.55, r * 0.26), 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // 5. Короткий резкий 4-лучевой блик фотовспышки (радиус уменьшен в 2 раза)
-    if (flash > 0.15) {
-      const rayH = r * (1.2 + flash * 1.4);
-      const rayV = r * (1.05 + flash * 1.2);
+    // 5. Короткий резкий 4-лучевой блик фотовспышки
+    if (punch > 0.2) {
+      const rayH = r * (1.3 + punch * 2.6);
+      const rayV = r * (1.1 + punch * 2.2);
       const hGrad = ctx.createLinearGradient(cx - rayH, cy, cx + rayH, cy);
       hGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.15)})`);
+      hGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.2)})`);
       hGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
       ctx.fillStyle = hGrad;
-      ctx.fillRect(cx - rayH, cy - 0.55, rayH * 2, 1.1);
+      ctx.fillRect(cx - rayH, cy - 0.6, rayH * 2, 1.2);
 
       const vGrad = ctx.createLinearGradient(cx, cy - rayV, cx, cy + rayV);
       vGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, flash * 1.05)})`);
+      vGrad.addColorStop(0.5, `rgba(255, 255, 255, ${Math.min(1, punch * 1.1)})`);
       vGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
       ctx.fillStyle = vGrad;
-      ctx.fillRect(cx - 0.55, cy - rayV, 1.1, rayV * 2);
+      ctx.fillRect(cx - 0.6, cy - rayV, 1.2, rayV * 2);
     }
   }
 }
