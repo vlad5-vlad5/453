@@ -290,6 +290,9 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/comments/delete":
             self.handle_delete_comment()
             return
+        if parsed.path == "/api/delete-track":
+            self.handle_delete_track()
+            return
         self.send_json(404, {"error": "Маршрут не найден."})
 
     def handle_like(self) -> None:
@@ -348,6 +351,69 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         ]
         save_social(social)
         self.send_json(200, {"ok": True})
+
+    def handle_delete_track(self) -> None:
+        """Удаляет файл трека (и парную обложку) с диска и обновляет tracks.json."""
+        data = self.read_json_body()
+        if data is None:
+            return
+
+        track_id = str(data.get("trackId", "")).strip()
+        if not track_id:
+            self.send_json(400, {"error": "Не указан трек."})
+            return
+
+        # Разрешаем только пути внутри music_website/tracks/<жанр>/<файл>
+        try:
+            rel = urllib.parse.unquote(track_id).replace("\\", "/")
+            if rel.startswith("music_website/"):
+                rel = rel[len("music_website/"):]
+            candidate = (BASE_DIR / rel).resolve()
+            tracks_root = TRACKS_DIR.resolve()
+            if tracks_root not in candidate.parents and candidate != tracks_root:
+                self.send_json(403, {"error": "Путь вне папки треков."})
+                return
+            if candidate.suffix.lower() not in AUDIO_EXTS:
+                self.send_json(400, {"error": "Это не аудиофайл."})
+                return
+            if not candidate.is_file():
+                self.send_json(404, {"error": "Файл не найден — возможно, уже удалён."})
+                return
+        except Exception:
+            self.send_json(400, {"error": "Некорректный путь трека."})
+            return
+
+        try:
+            candidate.unlink()
+        except Exception as exc:  # noqa: BLE001
+            self.send_json(500, {"error": f"Не удалось удалить файл: {exc}"})
+            return
+
+        # Обложка с тем же именем (cover.jpg / <stem>.jpg)
+        stem = candidate.stem
+        for img in IMAGE_EXTS:
+            for name in (f"{stem}{img}", f"cover{img}"):
+                cover_path = candidate.parent / name
+                if cover_path.is_file():
+                    try:
+                        cover_path.unlink()
+                    except Exception:
+                        pass
+
+        # Чистим метаданные и пересобираем индекс
+        meta = load_metadata()
+        removed_keys = [k for k in meta if k == rel or k.endswith("/" + candidate.name)]
+        for key in removed_keys:
+            meta.pop(key, None)
+        if removed_keys:
+            save_metadata(meta)
+
+        try:
+            sync_tracks_index()
+        except Exception:
+            pass
+
+        self.send_json(200, {"ok": True, "deleted": rel})
 
     def handle_upload(self) -> None:
         data = self.read_json_body()

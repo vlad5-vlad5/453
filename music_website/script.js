@@ -166,6 +166,14 @@ const commentAuthorInput = document.getElementById("commentAuthorInput");
 const commentTextInput = document.getElementById("commentTextInput");
 const commentSubmitBtn = document.getElementById("commentSubmitBtn");
 
+// Удаление трека (только владельцу)
+const deleteTrackModal = document.getElementById("deleteTrackModal");
+const deleteTrackName = document.getElementById("deleteTrackName");
+const deleteProgress = document.getElementById("deleteProgress");
+const confirmDeleteTrackBtn = document.getElementById("confirmDeleteTrackBtn");
+const cancelDeleteTrackBtn = document.getElementById("cancelDeleteTrackBtn");
+const cancelDeleteTrackBtn2 = document.getElementById("cancelDeleteTrackBtn2");
+
 // Панель владельца (статистика лайков и комментариев)
 const ownerStatsBtn = document.getElementById("ownerStatsBtn");
 const ownerPanel = document.getElementById("ownerPanel");
@@ -177,6 +185,10 @@ const ownerTracksCount = document.getElementById("ownerTracksCount");
 const ownerLikesCount = document.getElementById("ownerLikesCount");
 const ownerCommentsCount = document.getElementById("ownerCommentsCount");
 const ownerLikedTracksCount = document.getElementById("ownerLikedTracksCount");
+const ownerTokenInput = document.getElementById("ownerTokenInput");
+const ownerTokenSaveBtn = document.getElementById("ownerTokenSaveBtn");
+const ownerTokenClearBtn = document.getElementById("ownerTokenClearBtn");
+const ownerTokenHint = document.getElementById("ownerTokenHint");
 
 // Модалка настроек звука (Бас-буст / 3D / Эквалайзер)
 const openEqBtn = document.getElementById("openEqBtn");
@@ -1882,6 +1894,304 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && ownerPanelOpen) closeOwnerPanel();
 });
 
+
+// ============================================================================
+// Удаление трека владельцем
+// Локальный server.py — удаляет файл с диска.
+// GitHub Pages — удаляет .mp3, обложку и запись в tracks.json через GitHub API
+// с личным токеном, который хранится только в этом браузере (localStorage).
+// ============================================================================
+
+const LS_GH_TOKEN = "soundwave_gh_token_v1";
+
+let pendingDeleteTrackId = null;
+let deletingInFlight = false;
+
+function getGithubToken() {
+  try {
+    return localStorage.getItem(LS_GH_TOKEN) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setGithubToken(token) {
+  try {
+    if (token) localStorage.setItem(LS_GH_TOKEN, token);
+    else localStorage.removeItem(LS_GH_TOKEN);
+  } catch {
+    // приватный режим — токен проживёт только до перезагрузки
+  }
+}
+
+function syncOwnerTokenUI() {
+  const token = getGithubToken();
+  if (ownerTokenInput) {
+    ownerTokenInput.value = token ? "•".repeat(Math.min(24, token.length)) : "";
+  }
+  document.querySelector(".owner-token")?.classList.toggle("is-saved", Boolean(token));
+  if (ownerTokenHint) {
+    ownerTokenHint.innerHTML = token
+      ? "Токен сохранён в этом браузере — кнопки удаления работают. Чтобы стереть, нажмите «Забыть»."
+      : `Токен нужен только для удаления песен на GitHub Pages. Создать:
+         <a href="https://github.com/settings/tokens/new?scopes=repo&description=Моя%20Новая%20Музыка" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
+         галочка <code>repo</code>. Токен не сохраняется в коде сайта.`;
+  }
+}
+
+ownerTokenSaveBtn?.addEventListener("click", () => {
+  const raw = ownerTokenInput?.value.trim() || "";
+  // Если в поле маскировка, значит токен уже сохранён — не перезаписываем
+  if (raw && !raw.startsWith("•")) {
+    setGithubToken(raw);
+    showToast("Токен GitHub сохранён");
+  } else if (!raw) {
+    showToast("Вставьте токен в поле");
+    return;
+  }
+  syncOwnerTokenUI();
+});
+
+ownerTokenClearBtn?.addEventListener("click", () => {
+  setGithubToken("");
+  syncOwnerTokenUI();
+  showToast("Токен удалён из браузера");
+});
+
+// --- GitHub API: получить/удалить файл по пути в репозитории ---
+const GH_API = "https://api.github.com";
+
+function ghHeaders() {
+  return {
+    Accept: "application/vnd.github.v3+json",
+    Authorization: `Bearer ${getGithubToken()}`,
+  };
+}
+
+async function ghGetFile(path) {
+  const url = `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURI(
+    path.split("/").map(encodeURIComponent).join("/")
+  )}?ref=${GITHUB_BRANCH}`;
+  const res = await fetch(url, { headers: ghHeaders(), cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const err = new Error(`GitHub ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+async function ghDeleteFile(path, message) {
+  const info = await ghGetFile(path);
+  if (!info || !info.sha) return false;
+  const res = await fetch(
+    `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURI(
+      path.split("/").map(encodeURIComponent).join("/")
+    )}`,
+    {
+      method: "DELETE",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ message, sha: info.sha, branch: GITHUB_BRANCH }),
+    }
+  );
+  if (!res.ok) {
+    const err = new Error(`Не удалось удалить ${path} (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return true;
+}
+
+async function ghDeleteTrackFromIndex(track) {
+  const info = await ghGetFile("music_website/tracks/tracks.json");
+  if (!info || !info.content) return false;
+
+  let json;
+  try {
+    json = JSON.parse(decodeURIComponent(escape(atob(info.content.replace(/\s/g, "")))));
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(json.tracks)) return false;
+
+  const src = track.src || track.id;
+  const before = json.tracks.length;
+  json.tracks = json.tracks.filter((t) => t.id !== track.id && t.src !== src && t.id !== src);
+  if (json.tracks.length === before) return false;
+
+  const content = btoa(
+    unescape(encodeURIComponent(JSON.stringify({ tracks: json.tracks }, null, 2) + "\n"))
+  );
+
+  const res = await fetch(
+    `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/music_website/tracks/tracks.json`,
+    {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Remove "${track.title}" from tracks index`,
+        content,
+        sha: info.sha,
+        branch: GITHUB_BRANCH,
+      }),
+    }
+  );
+  return res.ok;
+}
+
+function setDeleteProgress(text) {
+  if (deleteProgress) deleteProgress.textContent = text || "";
+}
+
+function openDeleteTrackModal(trackId) {
+  const track = state.tracks.find((t) => t.id === trackId);
+  if (!track || !deleteTrackModal) return;
+
+  pendingDeleteTrackId = trackId;
+  if (deleteTrackName) deleteTrackName.textContent = `${track.title} — ${track.artist || "без исполнителя"}`;
+  setDeleteProgress("");
+  deleteTrackModal.classList.remove("hidden");
+  confirmDeleteTrackBtn.disabled = false;
+  syncOwnerTokenUI();
+
+  // Предупреждаем, если удалять на GitHub нечем
+  if (!state.serverMode && !getGithubToken()) {
+    setDeleteProgress("Нужен токен GitHub — введите его в панели владельца (кнопка с диаграммой в шапке).");
+  }
+}
+
+function closeDeleteTrackModal() {
+  pendingDeleteTrackId = null;
+  if (deletingInFlight) return;
+  deleteTrackModal?.classList.add("hidden");
+  setDeleteProgress("");
+}
+
+cancelDeleteTrackBtn?.addEventListener("click", closeDeleteTrackModal);
+cancelDeleteTrackBtn2?.addEventListener("click", closeDeleteTrackModal);
+deleteTrackModal?.addEventListener("click", (e) => {
+  if (e.target === deleteTrackModal) closeDeleteTrackModal();
+});
+
+async function deleteTrackEverywhere(track) {
+  if (state.serverMode) {
+    // Локальный сервер: просим удалить файл с диска
+    const res = await fetch("/api/delete-track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trackId: track.id }),
+    });
+    if (!res.ok) {
+      const msg = await res.json().catch(() => ({}));
+      throw new Error(msg.error || "Не удалось удалить файл на сервере");
+    }
+    return;
+  }
+
+  if (!getGithubToken()) {
+    const err = new Error("Нет токена GitHub — введите его в панели владельца.");
+    err.code = "NO_TOKEN";
+    throw err;
+  }
+
+  const src = (track.src || track.id || "").replace(/^\.?\//, "");
+  const relSrc = src.startsWith("music_website/") ? src : `music_website/${src}`;
+
+  setDeleteProgress("Удаляем файл песни…");
+  await ghDeleteFile(relSrc, `Delete track "${track.title}"`);
+
+  // Обложки с тем же именем файла
+  if (track.cover && /^(tracks|music_website\/tracks)\//.test(track.cover) === false && !/^https?:/i.test(track.cover)) {
+    // обложка локальная относительная — пробуем удалить
+    try {
+      const coverPath = track.cover.startsWith("music_website/") ? track.cover : `music_website/${track.cover}`;
+      setDeleteProgress("Удаляем обложку…");
+      await ghDeleteFile(coverPath, `Delete cover for "${track.title}"`);
+    } catch {
+      // обложка могла быть внешней — это не критично
+    }
+  }
+
+  setDeleteProgress("Убираем песню из общего списка…");
+  try {
+    await ghDeleteTrackFromIndex(track);
+  } catch {
+    // список обновится при следующей генерации
+  }
+}
+
+confirmDeleteTrackBtn?.addEventListener("click", async () => {
+  if (deletingInFlight) return;
+  const track = state.tracks.find((t) => t.id === pendingDeleteTrackId);
+  if (!track) return;
+
+  if (!state.serverMode && !getGithubToken()) {
+    setDeleteProgress("Сначала вставьте токен GitHub в панели владельца и нажмите «Сохранить».");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Удалить «${track.title}»?\n\nФайл будет удалён безвозвратно (восстановить можно только в истории GitHub).`
+  );
+  if (!confirmed) return;
+
+  deletingInFlight = true;
+  confirmDeleteTrackBtn.disabled = true;
+  setDeleteProgress("Удаляем…");
+
+  try {
+    await deleteTrackEverywhere(track);
+
+    // Останавливаем воспроизведение, если удаляли текущий трек
+    if (state.currentTrackId === track.id) {
+      try {
+        audio.pause();
+      } catch {
+        // ignore
+      }
+      state.currentTrackId = null;
+      state.isPlaying = false;
+      audio.removeAttribute("src");
+    }
+
+    state.tracks = state.tracks.filter((t) => t.id !== track.id);
+    state.favorites.delete(track.id);
+    persistFavorites();
+    renderAll();
+    updatePlayerUI?.();
+
+    setDeleteProgress("Готово! Песня удалена.");
+    showToast(`«${track.title}» удалена`);
+    deletingInFlight = false;
+    setTimeout(() => {
+      deleteTrackModal?.classList.add("hidden");
+      setDeleteProgress("");
+    }, 900);
+  } catch (err) {
+    deletingInFlight = false;
+    confirmDeleteTrackBtn.disabled = false;
+
+    const status = err?.status;
+    if (err?.code === "NO_TOKEN") {
+      setDeleteProgress("Нужен токен GitHub — вставьте его в панели владельца.");
+    } else if (status === 401 || status === 403) {
+      setDeleteProgress("GitHub отклонил токен. Проверьте, что у токена есть право «repo» и срок не истёк.");
+    } else if (status === 404) {
+      setDeleteProgress("Файл не найден в GitHub — возможно, он уже удалён. Обновите страницу.");
+    } else {
+      setDeleteProgress(`Ошибка: ${err?.message || "не удалось удалить"}`);
+    }
+    showToast("Не удалось удалить песню");
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && pendingDeleteTrackId) closeDeleteTrackModal();
+});
+
+syncOwnerTokenUI();
+
 // Загрузка треков: сначала локальный сервер /api/tracks, затем tracks/tracks.json + GitHub
 async function loadTracksFromServer(notify = false) {
   rescanBtn.classList.add("is-spinning");
@@ -2172,8 +2482,27 @@ function renderTracks() {
             </div>`
         : "";
 
+      const deleteTrackHtml = showOwner
+        ? `<button
+              type="button"
+              class="track-delete-btn"
+              data-action="delete"
+              data-id="${escapeHtml(track.id)}"
+              title="Удалить песню"
+              aria-label="Удалить ${escapeHtml(track.title)}"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </button>`
+        : "";
+
       return `
         <article class="${cardClass}" data-id="${escapeHtml(track.id)}">
+          ${deleteTrackHtml}
           <div class="track-cover cover-${escapeHtml(track.genre)}" data-action="toggle" data-id="${escapeHtml(track.id)}">
             ${coverHtml}
             <span class="track-genre-badge">${escapeHtml(genreInfo.label)}</span>
@@ -2551,6 +2880,9 @@ tracksGrid.addEventListener("click", (e) => {
     state.coverTargetTrackId = id;
     changeCoverInput.value = "";
     changeCoverInput.click();
+  } else if (action === "delete") {
+    e.stopPropagation();
+    openDeleteTrackModal(id);
   } else if (action === "toggle") {
     toggleTrack(id);
   }
