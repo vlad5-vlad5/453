@@ -174,6 +174,9 @@ const confirmDeleteTrackBtn = document.getElementById("confirmDeleteTrackBtn");
 const cancelDeleteTrackBtn = document.getElementById("cancelDeleteTrackBtn");
 const cancelDeleteTrackBtn2 = document.getElementById("cancelDeleteTrackBtn2");
 
+// Переключатель качества графики
+const vizQualityBtn = document.getElementById("vizQualityBtn");
+
 // Панель владельца (статистика лайков и комментариев)
 const ownerStatsBtn = document.getElementById("ownerStatsBtn");
 const ownerPanel = document.getElementById("ownerPanel");
@@ -564,7 +567,85 @@ const vizState = {
   bulbFlash: new Float32Array(BULB_COUNT),
   bulbGlow: new Float32Array(BULB_COUNT),
   lastBulbTime: 0,
+  lastFrameTime: 0,
 };
+
+// ============================================================================
+// Адаптивное качество графики: слабые телефоны не должны тормозить
+// Уровень 2 — полное качество, 1 — облегчённое, 0 — минимальное (только при просадке)
+// ============================================================================
+const LS_VIZ_QUALITY = "soundwave_viz_quality_v1";
+
+const IS_MOBILE =
+  /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && window.matchMedia("(max-width: 1024px)").matches);
+
+function initialVizQuality() {
+  if (IS_MOBILE) return 1;
+  // Слабый десктоп: мало ядер или немного памяти
+  const cores = navigator.hardwareConcurrency || 4;
+  const mem = navigator.deviceMemory || 8;
+  if (cores <= 4 || mem <= 4) return 1;
+  return 2;
+}
+
+let vizQuality = (() => {
+  const saved = Number(localStorage.getItem(LS_VIZ_QUALITY));
+  if (saved === 0 || saved === 1 || saved === 2) return Math.min(saved, initialVizQuality());
+  return initialVizQuality();
+})();
+
+function saveVizQuality() {
+  try {
+    localStorage.setItem(LS_VIZ_QUALITY, String(vizQuality));
+  } catch {
+    // ignore
+  }
+}
+
+// Авто-просадка: если FPS стабильно ниже 32, снижаем качество на ступень
+const perfMonitor = { frames: 0, acc: 0, lastDrop: 0 };
+
+function trackPerformance(dt) {
+  perfMonitor.frames++;
+  perfMonitor.acc += dt;
+  if (perfMonitor.acc < 1.6) return;
+
+  const fps = perfMonitor.frames / perfMonitor.acc;
+  perfMonitor.frames = 0;
+  perfMonitor.acc = 0;
+
+  if (fps < 32 && vizQuality > 0) {
+    const now = performance.now();
+    if (now - perfMonitor.lastDrop > 5000) {
+      perfMonitor.lastDrop = now;
+      vizQuality -= 1;
+      saveVizQuality();
+      updateVizQualityUI();
+    }
+  }
+}
+
+function updateVizQualityUI() {
+  if (!vizQualityBtn) return;
+  const labels = { 2: "Качество: высокое", 1: "Качество: среднее", 0: "Качество: экономное" };
+  vizQualityBtn.textContent = labels[vizQuality] || labels[1];
+  vizQualityBtn.setAttribute("data-quality", String(vizQuality));
+}
+
+vizQualityBtn?.addEventListener("click", () => {
+  // Цикл: высокое → среднее → экономное → высокое
+  vizQuality = (vizQuality + 2) % 3;
+  saveVizQuality();
+  updateVizQualityUI();
+  const labels = { 2: "Качество графики: высокое", 1: "Качество графики: среднее", 0: "Качество графики: экономное" };
+  showToast(labels[vizQuality]);
+  // Даём снегу пересоздаться под новое разрешение
+  window.dispatchEvent(new Event("resize"));
+});
+
+// Стартовая установка подписи
+setTimeout(() => updateVizQualityUI(), 0);
 
 const spectrumWrapEl = document.getElementById("spectrumWrap");
 spectrumWrapEl?.addEventListener("click", () => {
@@ -916,10 +997,13 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     // 3. Стеклянная линза: в покое — почти чёрное стекло, при вспышке — раскалённая до белого
     ctx.save();
     if (punch > 0.02 || afterglow > 0.02) {
-      ctx.shadowColor = punch > 0.3
-        ? `rgba(255, 255, 255, ${Math.min(1, 0.7 + punch * 0.3)})`
-        : `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.5 + afterglow * 0.5)})`;
-      ctx.shadowBlur = 3 + punch * 26 + afterglow * 5;
+      // Размытие теней — самая дорогая операция 2D-канваса: на телефонах не используем вовсе
+      if (vizQuality >= 2) {
+        ctx.shadowColor = punch > 0.3
+          ? `rgba(255, 255, 255, ${Math.min(1, 0.7 + punch * 0.3)})`
+          : `rgba(${cr}, ${cg}, ${cb}, ${Math.min(1, 0.5 + afterglow * 0.5)})`;
+        ctx.shadowBlur = 3 + punch * 26 + afterglow * 5;
+      }
       // Вспышка светится аддитивно — свет складывается и выглядит по-настоящему ярко
       ctx.globalCompositeOperation = "lighter";
     }
@@ -977,7 +1061,17 @@ function drawBulbsVisualizer(ctx, width, height, playing, t) {
     }
 
     // 5. Короткий резкий 4-лучевой блик фотовспышки (тоже аддитивно — лучи «прожигают» кадр)
-    if (punch > 0.15) {
+    if (punch > 0.15 && vizQuality === 0) {
+      // Экономный вариант: простой крест без градиентов
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, punch * 0.9)})`;
+      const rayH0 = r * (1.6 + punch * 3.2);
+      const rayV0 = r * (1.3 + punch * 2.8);
+      ctx.fillRect(cx - rayH0, cy - 0.5, rayH0 * 2, 1);
+      ctx.fillRect(cx - 0.5, cy - rayV0, 1, rayV0 * 2);
+      ctx.restore();
+    } else if (punch > 0.15) {
       const rayH = r * (1.8 + punch * 4.2);
       const rayV = r * (1.5 + punch * 3.6);
       ctx.save();
@@ -1346,7 +1440,9 @@ function drawVisualizer() {
   const rect = visualizerCanvas.getBoundingClientRect();
   if (rect.width < 20 || rect.height < 10) return;
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // DPR ограничен по уровню качества: на телефоне рисуем в 1.5x, а не в 3x
+  const dprCap = vizQuality >= 2 ? 2 : vizQuality === 1 ? 1.5 : 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
   const targetW = Math.round(rect.width * dpr);
   const targetH = Math.round(rect.height * dpr);
   if (visualizerCanvas.width !== targetW || visualizerCanvas.height !== targetH) {
@@ -1363,6 +1459,17 @@ function drawVisualizer() {
 
   const playing = state.isPlaying && !audio.paused;
   const t = performance.now() / 1000;
+
+  // Авто-мониторинг FPS и ограничение частоты кадров на слабых устройствах
+  if (vizState.lastFrameTime) {
+    const frameDt = Math.min(0.2, t - vizState.lastFrameTime);
+    trackPerformance(frameDt);
+    if (vizQuality <= 1) {
+      const minGap = vizQuality === 0 ? 1 / 30 : 1 / 45;
+      if (frameDt < minGap) return;
+    }
+  }
+  vizState.lastFrameTime = t;
 
   // Режим 1 (по умолчанию): Цветомузыка — 8 неподвижных разноцветных лампочек с короткими фотовспышками
   if (vizState.mode === "bulbs") {
@@ -3587,14 +3694,19 @@ function initSnowfall() {
   let windTime = 0;
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // На телефонах снег рисуем в пониженном разрешении и меньшим числом частиц —
+    // полноэкранный канвас самый прожорливый по пикселям
+    const snowDprCap = vizQuality >= 2 ? 2 : vizQuality === 1 ? 1.25 : 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, snowDprCap);
     width = window.innerWidth;
     height = window.innerHeight;
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const targetCount = width < 700 ? 52 : 95;
+    const narrow = width < 700;
+    const targetCount =
+      vizQuality >= 2 ? (narrow ? 52 : 95) : vizQuality === 1 ? (narrow ? 32 : 60) : narrow ? 18 : 34;
     while (flakes.length < targetCount) flakes.push(spawnFlake(true));
     if (flakes.length > targetCount) flakes.length = targetCount;
   }

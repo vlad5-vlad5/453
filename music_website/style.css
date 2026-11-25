@@ -2675,3 +2675,36 @@ body.music-playing .aurora-photo {
   min-height: 18px;
   margin-bottom: 8px;
 }
+
+/* Переключатель качества графики */
+.btn-quality {
+  padding: 0 12px;
+  height: 34px;
+  font-size: 0.76rem;
+  font-weight: 650;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-quality[data-quality="2"] {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #a7f3d0;
+}
+
+.btn-quality[data-quality="1"] {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+
+.btn-quality[data-quality="0"] {
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fecdd3;
+}
+
+@media (max-width: 720px) {
+  .btn-quality {
+    font-size: 0.7rem;
+    height: 32px;
+    padding: 0 9px;
+  }
+}
