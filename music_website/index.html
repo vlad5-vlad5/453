@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Моя Новая Музыка</title>
-  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Шансон, Диско, ДипХаус и Разное. Ставьте лайки и оставляйте комментарии." />
+  <meta name="description" content="Моя Новая Музыка — слушайте треки по жанрам: Шансон, Диско, ДипХаус, Русская Поп-музыка и Разное. Ставьте лайки и оставляйте комментарии." />
   <meta property="og:title" content="Моя Новая Музыка" />
   <meta property="og:description" content="Коллекция музыки по жанрам с плеером, обложками, избранным и комментариями." />
   <meta property="og:type" content="website" />
@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20261124s" />
+  <link rel="stylesheet" href="style.css?v=20261124t" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -125,6 +125,11 @@
           <span class="genre-dot dot-deephouse"></span>
           <span>ДипХаус</span>
           <span class="tab-count" data-count="deephouse">0</span>
+        </button>
+        <button type="button" class="genre-tab" data-genre="ruspop" role="tab" aria-selected="false">
+          <span class="genre-dot dot-ruspop"></span>
+          <span>Русская Поп-музыка</span>
+          <span class="tab-count" data-count="ruspop">0</span>
         </button>
         <button type="button" class="genre-tab" data-genre="other" role="tab" aria-selected="false">
           <span class="genre-dot dot-other"></span>
@@ -344,6 +349,7 @@
               <option value="chanson">Шансон</option>
               <option value="disco">Диско</option>
               <option value="deephouse">ДипХаус</option>
+              <option value="ruspop">Русская Поп-музыка</option>
               <option value="other">Разное</option>
             </select>
           </label>
@@ -631,6 +637,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261125d"></script>
+  <script src="script.js?v=20261125e"></script>
 </body>
 </html>
