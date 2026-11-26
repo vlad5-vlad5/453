@@ -18,6 +18,7 @@
   --grad-chanson: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
   --grad-disco: linear-gradient(135deg, #c026d3 0%, #fb7185 100%);
   --grad-deephouse: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+  --grad-ruspop: linear-gradient(135deg, #e11d48 0%, #fb923c 100%);
   --grad-other: linear-gradient(135deg, #059669 0%, #14b8a6 100%);
 
   /* Палитра живого переливающегося фона (по умолчанию) */
@@ -47,6 +48,13 @@ body[data-theme="deephouse"] {
   --aurora-2: #06b6d4;
   --aurora-3: #7c3aed;
   --aurora-4: #0284c7;
+}
+
+body[data-theme="ruspop"] {
+  --aurora-1: #e11d48;
+  --aurora-2: #fb7185;
+  --aurora-3: #f97316;
+  --aurora-4: #be123c;
 }
 
 body[data-theme="other"] {
@@ -429,6 +437,7 @@ body.music-playing .aurora-photo {
 .dot-chanson { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
 .dot-disco { background: #e879f9; box-shadow: 0 0 10px #e879f9; }
 .dot-deephouse { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+.dot-ruspop { background: #fb7185; box-shadow: 0 0 10px #fb7185; }
 .dot-other { background: #34d399; box-shadow: 0 0 10px #34d399; }
 
 .tab-count {
@@ -639,6 +648,7 @@ body.music-playing .aurora-photo {
 .cover-chanson { background: var(--grad-chanson); }
 .cover-disco { background: var(--grad-disco); }
 .cover-deephouse { background: var(--grad-deephouse); }
+.cover-ruspop { background: var(--grad-ruspop); }
 .cover-other { background: var(--grad-other); }
 
 .cover-img {

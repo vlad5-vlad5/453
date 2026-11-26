@@ -3,6 +3,7 @@ const GENRES = {
   chanson: { label: "Шансон", icon: "🎸", folder: "tracks/chanson" },
   disco: { label: "Диско", icon: "★", folder: "tracks/disco" },
   deephouse: { label: "ДипХаус", icon: "⚡", folder: "tracks/deephouse" },
+  ruspop: { label: "Русская Поп-музыка", icon: "🎤", folder: "tracks/ruspop" },
   other: { label: "Разное", icon: "♫", folder: "tracks/other" },
 };
 
@@ -2536,6 +2537,7 @@ function updateCounts() {
     chanson: 0,
     disco: 0,
     deephouse: 0,
+    ruspop: 0,
     other: 0,
   };
   for (const t of state.tracks) {
