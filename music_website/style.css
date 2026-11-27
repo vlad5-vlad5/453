@@ -151,6 +151,90 @@ body.music-playing .aurora-photo {
   }
 }
 
+/* --- Лента-заставка: полоса с дуэтом внутри шапки ---
+   Шапка липкая, полоса живёт в её нижней части, поэтому дуэт всегда на
+   экране, а список песен уезжает под него при прокрутке.
+   Только для телефонов: на широком экране фон и так виден вокруг списка,
+   а растянутая на всю ширину полоса обрезала бы лица. */
+.backdrop-band {
+  display: none;
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.backdrop-band-photo {
+  position: absolute;
+  inset: 0;
+  background-image: url("assets/bg-singer.jpg?v=20261124n");
+  background-position: 50% 50%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: grayscale(100%) contrast(1.16) brightness(1.06);
+  transition: filter 0.8s ease;
+}
+
+body.music-playing .backdrop-band-photo {
+  filter: grayscale(100%) contrast(1.2) brightness(1.12);
+}
+
+/* Растворение: низ полосы уходит в цвет страницы, чтобы не было резкого среза */
+.backdrop-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(9, 11, 19, 0.16) 0%,
+    rgba(9, 11, 19, 0) 12%,
+    rgba(9, 11, 19, 0.04) 40%,
+    rgba(7, 9, 18, 0.55) 66%,
+    rgba(7, 9, 18, 0.94) 88%,
+    rgba(7, 9, 18, 1) 100%
+  );
+}
+
+/* Высота привязана к ширине экрана, чтобы лица не обрезались:
+   полоса сохраняет примерно те же пропорции кадра на любом телефоне */
+@media (max-width: 640px) {
+  .backdrop-band {
+    display: block;
+    height: clamp(104px, min(41vw, 20vh), 176px);
+  }
+}
+
+/* На маленьких экранах полоса уступает место списку */
+@media (max-width: 380px) {
+  .backdrop-band {
+    height: clamp(100px, 32vw, 132px);
+  }
+}
+
+/* В горизонтальной ориентации полоса съела бы весь экран */
+@media (max-height: 480px) {
+  .backdrop-band {
+    display: none;
+  }
+}
+
+/* На телефоне полоса показывает кадр целиком, а полноэкранный фон — сильно
+   увеличенный кусок того же кадра. При любом переходе это выглядело бы как
+   «два разных фото» и давало видимый шов. Поэтому на телефонах берём
+   отдельную размытую версию фона (12 КБ вместо 895) — она читается как
+   мягкая фактура под полосой, шва нет, и страница грузится быстрее. */
+@media (max-width: 640px) {
+  .aurora-photo {
+    background-image: url("assets/bg-singer-mobile.jpg?v=20261126a");
+    background-position: 50% 50%;
+    filter: none;
+  }
+
+  body.music-playing .aurora-photo {
+    filter: brightness(1.12);
+  }
+}
+
 .container {
   position: relative;
   z-index: 1;
@@ -184,6 +268,12 @@ body.music-playing .aurora-photo {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+/* Текстовый блок бренда тоже должен ужиматься, иначе шапка ломается в две строки */
+.brand > div:last-child {
+  min-width: 0;
 }
 
 /* Логотип «НейроДвиж» — жёлтая волна + фиолетовая нейросеть на синей плашке */
@@ -218,6 +308,9 @@ body.music-playing .aurora-photo {
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: linear-gradient(100deg, #ffffff 0%, #eaff6a 58%, #a5f3fc 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -469,6 +562,11 @@ body.music-playing .aurora-photo {
   flex-direction: column;
   gap: 2px;
   animation: genreMenuIn 0.16s ease-out;
+  /* На невысоких экранах меню не должно упираться в плеер — пусть прокручивается.
+     100dvh — высота экрана с учётом адресной строки браузера */
+  max-height: calc(100dvh - var(--player-h) - 150px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .genre-menu.hidden {
@@ -2406,22 +2504,71 @@ body.music-playing .aurora-photo {
   }
 
   .brand-subtitle {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .header-actions {
-    width: 100%;
+  /* Запасная ширина для подзаголовка: длинный текст обрежется многоточием,
+     а не растянет шапку и не вытолкнет кнопки */
+  .brand > div:last-child {
+    max-width: calc(100vw - 150px);
+  }
+
+  .brand {
     min-width: 0;
+    gap: 10px;
+  }
+
+  /* Действия не сползают на вторую строку: шапка на телефоне должна быть
+     компактной, иначе закреплённая полоса с дуэтом съест весь экран.
+     Все кнопки остаются на месте — просто мельче и плотнее */
+  .header-actions {
+    width: auto;
+    min-width: 0;
+    flex: 0 1 auto;
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .btn-icon-only {
+    width: 36px;
+    height: 36px;
+  }
+
+  .btn-icon-only svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* Кнопка «Добавить трек» на телефоне — только иконка */
+  #openUploadBtn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 999px;
+  }
+
+  #openUploadBtn span {
+    display: none;
+  }
+
+  #openUploadBtn svg {
+    width: 16px;
+    height: 16px;
   }
 
 
 
   .main-content {
-    padding-top: 18px;
+    padding-top: 14px;
   }
 
+  /* Отступ сверху: кнопка «Жанры» не должна липнуть к срезу фото в полосе */
   .filters-section {
     gap: 10px;
+    margin-top: 10px;
     margin-bottom: 16px;
   }
 
@@ -2958,3 +3105,31 @@ body.music-playing .aurora-photo {
   margin-bottom: 8px;
 }
 
+/* --- Самая узкая мобильная вёрстка (переопределения идут последними,
+   чтобы выигрывать у более общих правил выше) --- */
+@media (max-width: 380px) {
+  .btn-icon-only,
+  #openUploadBtn {
+    width: 33px;
+    height: 33px;
+  }
+
+  .btn-icon-only svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .brand-subtitle {
+    font-size: 0.62rem;
+  }
+}
