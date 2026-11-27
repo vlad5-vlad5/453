@@ -380,6 +380,14 @@ body.music-playing .aurora-photo {
   position: relative;
 }
 
+/* Обёртка кнопки — от неё отсчитывается позиция руки.
+   Рука живёт ВНУТРИ этой обёртки, поэтому всегда смотрит точно на кнопку. */
+.genre-btn-wrap {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
 .genre-toggle {
   display: inline-flex;
   align-items: center;
@@ -397,6 +405,9 @@ body.music-playing .aurora-photo {
     0 0 0 1px rgba(163, 230, 53, 0.14);
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
   white-space: nowrap;
+  max-width: 100%;
+  /* запас справа под руку-подсказку, чтобы она не закрывала стрелку */
+  padding-right: 46px;
 }
 
 .genre-toggle:hover {
@@ -415,6 +426,12 @@ body.music-playing .aurora-photo {
   box-shadow:
     0 8px 26px rgba(0, 0, 0, 0.48),
     0 0 22px rgba(163, 230, 53, 0.28);
+}
+
+.genre-toggle-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .genre-toggle-label strong {
@@ -535,12 +552,33 @@ body.music-playing .aurora-photo {
   animation: hintPulse 2.4s ease-in-out infinite;
 }
 
+/* Рука привязана к правому краю кнопки, а не к строке текста —
+   поэтому она всегда указывает точно на кнопку «Жанры» */
+.genre-hint-hand-wrap {
+  position: absolute;
+  top: 50%;
+  /* правый край кнопки: рука стоит вплотную к ней и «тыкает» внутрь */
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
 .genre-hint-hand {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1;
   display: inline-block;
   animation: handWiggle 1.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(234, 255, 106, 0.55));
+  filter: drop-shadow(0 0 9px rgba(234, 255, 106, 0.7));
+}
+
+/* Рука исчезает вместе с подсказкой */
+.genre-hint.is-hidden ~ .genre-dropdown .genre-hint-hand-wrap,
+.genre-hint-hand-wrap.is-hidden {
+  opacity: 0;
 }
 
 @keyframes hintPulse {
@@ -550,8 +588,8 @@ body.music-playing .aurora-photo {
 
 @keyframes handWiggle {
   0%, 100% { transform: translateX(0) rotate(0deg); }
-  35%      { transform: translateX(7px) rotate(-6deg); }
-  70%      { transform: translateX(2px) rotate(3deg); }
+  35%      { transform: translateX(-6px) rotate(-7deg); }
+  70%      { transform: translateX(-2px) rotate(3deg); }
 }
 
 /* Уважаем системную настройку «уменьшить движение» */
@@ -564,21 +602,51 @@ body.music-playing .aurora-photo {
 
 @media (max-width: 720px) {
   .genre-picker {
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    width: 100%;
   }
 
+  /* Подсказка отдельной строкой над кнопкой */
   .genre-hint {
     order: -1;
     width: 100%;
-    gap: 6px;
+    gap: 0;
   }
 
   .genre-hint-text {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
   }
 
+  .genre-dropdown,
+  .genre-btn-wrap {
+    width: 100%;
+  }
+
+  .genre-toggle {
+    width: 100%;
+    justify-content: flex-start;
+    /* место под руку, чтобы не наезжала на стрелку */
+    padding-right: 48px;
+  }
+
+  /* Рука прижата к правому краю кнопки — на телефоне кнопка во всю ширину,
+     поэтому рука всегда попадает по ней, как бы узок ни был экран */
   .genre-hint-hand {
-    font-size: 1.05rem;
+    font-size: 1.28rem;
+  }
+}
+
+/* Очень узкие телефоны */
+@media (max-width: 380px) {
+  .genre-hint-hand {
+    font-size: 1.15rem;
+  }
+
+  .genre-toggle {
+    padding: 9px 44px 9px 14px;
+    font-size: 0.85rem;
   }
 }
 
