@@ -190,6 +190,8 @@ const ownerTokenInput = document.getElementById("ownerTokenInput");
 const ownerTokenSaveBtn = document.getElementById("ownerTokenSaveBtn");
 const ownerTokenClearBtn = document.getElementById("ownerTokenClearBtn");
 const ownerTokenHint = document.getElementById("ownerTokenHint");
+const ownerTokenCheckBtn = document.getElementById("ownerTokenCheckBtn");
+const ownerTokenStatus = document.getElementById("ownerTokenStatus");
 
 // Модалка настроек звука (Бас-буст / 3D / Эквалайзер)
 const openEqBtn = document.getElementById("openEqBtn");
@@ -2063,6 +2065,7 @@ function setGithubToken(token) {
 
 function syncOwnerTokenUI() {
   const token = getGithubToken();
+  if (ownerTokenStatus && !token) ownerTokenStatus.textContent = "";
   if (ownerTokenInput) {
     ownerTokenInput.value = token ? "•".repeat(Math.min(24, token.length)) : "";
   }
@@ -2092,7 +2095,73 @@ ownerTokenSaveBtn?.addEventListener("click", () => {
 ownerTokenClearBtn?.addEventListener("click", () => {
   setGithubToken("");
   syncOwnerTokenUI();
+  if (ownerTokenStatus) ownerTokenStatus.textContent = "";
   showToast("Токен удалён из браузера");
+});
+
+// Проверка токена: показывает, может ли он читать и удалять файлы в репозитории
+function setTokenStatus(text, kind) {
+  if (!ownerTokenStatus) return;
+  ownerTokenStatus.textContent = text;
+  ownerTokenStatus.dataset.state = kind || "";
+}
+
+ownerTokenCheckBtn?.addEventListener("click", async () => {
+  const token = getGithubToken();
+  if (!token) {
+    setTokenStatus("Сначала вставьте токен и нажмите «Сохранить».", "error");
+    return;
+  }
+
+  const originalLabel = ownerTokenCheckBtn.textContent;
+  ownerTokenCheckBtn.disabled = true;
+  ownerTokenCheckBtn.textContent = "Проверяем…";
+  setTokenStatus("Соединяемся с GitHub…", "pending");
+
+  try {
+    const userRes = await fetch(`${GH_API}/user`, { headers: ghHeaders(), cache: "no-store" });
+    if (userRes.status === 401) {
+      setTokenStatus("Токен недействителен: истёк или скопирован с ошибкой. Создайте новый.", "error");
+      return;
+    }
+    if (!userRes.ok) {
+      setTokenStatus(`GitHub ответил ошибкой ${userRes.status}. Попробуйте позже.`, "error");
+      return;
+    }
+    const user = await userRes.json();
+
+    // Проверяем доступ именно к этому репозиторию
+    const repoRes = await fetch(
+      `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}`,
+      { headers: ghHeaders(), cache: "no-store" }
+    );
+    if (repoRes.status === 404) {
+      setTokenStatus("Токен не видит репозиторий — проверьте, что у него есть право «repo».", "error");
+      return;
+    }
+    if (!repoRes.ok) {
+      setTokenStatus(`Нет доступа к репозиторию (${repoRes.status}).`, "error");
+      return;
+    }
+    const repo = await repoRes.json();
+
+    const canWrite = Boolean(repo.permissions?.push || repo.permissions?.admin);
+    if (!canWrite) {
+      setTokenStatus(
+        "Токен читает репозиторий, но удалять файлы не может. Нужен доступ с записью (Contents: Read and write).",
+        "error"
+      );
+      return;
+    }
+
+    setTokenStatus(`Всё в порядке. Токен действует: ${user.login}. Удаление песен работает.`, "ok");
+    showToast("Токен работает — можно удалять песни");
+  } catch (err) {
+    setTokenStatus(`Не удалось проверить токен: ${err?.message || "нет связи с GitHub"}.`, "error");
+  } finally {
+    ownerTokenCheckBtn.disabled = false;
+    ownerTokenCheckBtn.textContent = originalLabel;
+  }
 });
 
 // --- GitHub API: получить/удалить файл по пути в репозитории ---
@@ -2105,11 +2174,67 @@ function ghHeaders() {
   };
 }
 
+// Путь к файлу в репозитории. Часть треков приходит из автоскана GitHub уже
+// закодированной (%D0%91...), часть — обычным текстом. Поэтому сначала
+// раскодируем путь, а затем кодируем ровно один раз: иначе получается двойное
+// кодирование (%2525) и GitHub отвечает 404 — файл «не удаляется».
+function normalizeRepoPath(path) {
+  let s = String(path || "").replace(/\\/g, "/").replace(/^\.?\//, "");
+  for (let i = 0; i < 3; i++) {
+    if (!/%[0-9A-Fa-f]{2}/.test(s)) break;
+    try {
+      const decoded = decodeURIComponent(s);
+      if (decoded === s) break;
+      s = decoded;
+    } catch {
+      break;
+    }
+  }
+  return s;
+}
+
+// Полный путь внутри репозитория: music_website/tracks/<жанр>/<файл>
+function repoPathForWrite(value) {
+  const raw = String(value || "");
+  if (!raw || /^https?:/i.test(raw) || /^data:|^blob:/i.test(raw)) return "";
+  const rel = normalizeRepoPath(raw);
+  if (!rel) return "";
+  return rel.startsWith("music_website/") ? rel : `music_website/${rel}`;
+}
+
+function encodeRepoPath(path) {
+  return normalizeRepoPath(path)
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+}
+
+function ghContentsUrl(path) {
+  return `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeRepoPath(path)}`;
+}
+
+// Список файлов в папке репозитория (null — если получить не удалось)
+async function ghListDir(dirPath) {
+  const res = await fetch(`${ghContentsUrl(dirPath)}?ref=${GITHUB_BRANCH}`, {
+    headers: ghHeaders(),
+    cache: "no-store",
+  });
+  if (res.status === 401 || res.status === 403) {
+    const err = new Error(`GitHub ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data) ? data : null;
+}
+
 async function ghGetFile(path) {
-  const url = `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURI(
-    path.split("/").map(encodeURIComponent).join("/")
-  )}?ref=${GITHUB_BRANCH}`;
-  const res = await fetch(url, { headers: ghHeaders(), cache: "no-store" });
+  const res = await fetch(`${ghContentsUrl(path)}?ref=${GITHUB_BRANCH}`, {
+    headers: ghHeaders(),
+    cache: "no-store",
+  });
   if (res.status === 404) return null;
   if (!res.ok) {
     const err = new Error(`GitHub ${res.status}`);
@@ -2119,51 +2244,121 @@ async function ghGetFile(path) {
   return res.json();
 }
 
-async function ghDeleteFile(path, message) {
-  const info = await ghGetFile(path);
-  if (!info || !info.sha) return false;
-  const res = await fetch(
-    `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURI(
-      path.split("/").map(encodeURIComponent).join("/")
-    )}`,
-    {
-      method: "DELETE",
-      headers: { ...ghHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ message, sha: info.sha, branch: GITHUB_BRANCH }),
-    }
-  );
-  if (!res.ok) {
-    const err = new Error(`Не удалось удалить ${path} (${res.status})`);
-    err.status = res.status;
-    throw err;
+// Ищем файл в папке по имени без учёта регистра и формы юникода (NFC/NFD).
+// Так удаление работает даже если имя на GitHub записано чуть иначе.
+async function ghResolveFile(path) {
+  const normalized = normalizeRepoPath(path);
+  const parts = normalized.split("/").filter(Boolean);
+  const name = parts.pop() || "";
+  const dirPath = parts.join("/");
+
+  let direct = null;
+  try {
+    direct = await ghGetFile(normalized);
+  } catch (err) {
+    // Плохой токен или нет прав — сообщаем сразу, не маскируем под «файла нет»
+    if (err?.status === 401 || err?.status === 403) throw err;
+    direct = null;
   }
-  return true;
+  if (direct && direct.sha) {
+    return { path: normalized, sha: direct.sha, name, certain: true };
+  }
+
+  const listing = await ghListDir(dirPath);
+  if (!listing) {
+    return { path: normalized, sha: null, name, certain: false };
+  }
+
+  const target = name.normalize("NFC").toLowerCase();
+  const hit = listing.find(
+    (item) =>
+      item.type === "file" &&
+      String(item.name).normalize("NFC").toLowerCase() === target
+  );
+  if (hit) {
+    return { path: `${dirPath}/${hit.name}`, sha: hit.sha, name: hit.name, certain: true };
+  }
+  return { path: normalized, sha: null, name, certain: true };
+}
+
+// Возвращает { deleted, certain }: certain=false — не смогли проверить наличие файла
+async function ghDeleteFile(path, message) {
+  const resolved = await ghResolveFile(path);
+  if (!resolved.sha) {
+    return { deleted: false, certain: resolved.certain, path: resolved.path };
+  }
+
+  const res = await fetch(ghContentsUrl(resolved.path), {
+    method: "DELETE",
+    headers: { ...ghHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ message, sha: resolved.sha, branch: GITHUB_BRANCH }),
+  });
+
+  if (res.ok) {
+    return { deleted: true, certain: true, path: resolved.path };
+  }
+  if (res.status === 404) {
+    // Файл исчез между чтением и удалением — считаем удалённым
+    return { deleted: true, certain: true, path: resolved.path };
+  }
+  const err = new Error(`Не удалось удалить ${path} (${res.status})`);
+  err.status = res.status;
+  throw err;
+}
+
+const TRACKS_INDEX_PATH = "music_website/tracks/tracks.json";
+
+// Ключ для сравнения записей: без префикса music_website/, раскодированный, в нижнем регистре
+function trackPathKey(value) {
+  const key = normalizeRepoPath(value)
+    .replace(/^music_website\//, "")
+    .trim()
+    .toLowerCase();
+  return key.normalize ? key.normalize("NFC") : key;
+}
+
+function decodeGithubContent(content) {
+  const binary = atob(String(content).replace(/\s/g, ""));
+  try {
+    return decodeURIComponent(escape(binary));
+  } catch {
+    return binary;
+  }
+}
+
+function encodeGithubContent(text) {
+  return btoa(unescape(encodeURIComponent(text)));
 }
 
 async function ghDeleteTrackFromIndex(track) {
-  const info = await ghGetFile("music_website/tracks/tracks.json");
-  if (!info || !info.content) return false;
-
-  let json;
-  try {
-    json = JSON.parse(decodeURIComponent(escape(atob(info.content.replace(/\s/g, "")))));
-  } catch {
-    return false;
-  }
-  if (!Array.isArray(json.tracks)) return false;
-
-  const src = track.src || track.id;
-  const before = json.tracks.length;
-  json.tracks = json.tracks.filter((t) => t.id !== track.id && t.src !== src && t.id !== src);
-  if (json.tracks.length === before) return false;
-
-  const content = btoa(
-    unescape(encodeURIComponent(JSON.stringify({ tracks: json.tracks }, null, 2) + "\n"))
+  const targets = new Set(
+    [track.id, track.src, track.fallbackSrc]
+      .filter(Boolean)
+      .map((v) => trackPathKey(v))
   );
 
-  const res = await fetch(
-    `${GH_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/music_website/tracks/tracks.json`,
-    {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const info = await ghGetFile(TRACKS_INDEX_PATH);
+    if (!info || !info.content) return false;
+
+    let json;
+    try {
+      json = JSON.parse(decodeGithubContent(info.content));
+    } catch {
+      return false;
+    }
+    if (!Array.isArray(json.tracks)) return false;
+
+    const before = json.tracks.length;
+    json.tracks = json.tracks.filter((t) => {
+      const keys = [t.id, t.src].filter(Boolean).map((v) => trackPathKey(v));
+      return !keys.some((k) => targets.has(k));
+    });
+    if (json.tracks.length === before) return false;
+
+    const content = encodeGithubContent(JSON.stringify({ tracks: json.tracks }, null, 2) + "\n");
+
+    const res = await fetch(ghContentsUrl(TRACKS_INDEX_PATH), {
       method: "PUT",
       headers: { ...ghHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2172,9 +2367,14 @@ async function ghDeleteTrackFromIndex(track) {
         sha: info.sha,
         branch: GITHUB_BRANCH,
       }),
-    }
-  );
-  return res.ok;
+    });
+
+    if (res.ok) return true;
+    // 409 — файл успели изменить. Перечитываем sha и пробуем ещё раз.
+    if (res.status === 409 && attempt === 0) continue;
+    return false;
+  }
+  return false;
 }
 
 function setDeleteProgress(text) {
@@ -2232,21 +2432,23 @@ async function deleteTrackEverywhere(track) {
     throw err;
   }
 
-  const src = (track.src || track.id || "").replace(/^\.?\//, "");
-  const relSrc = src.startsWith("music_website/") ? src : `music_website/${src}`;
+  const relSrc = repoPathForWrite(track.src || track.id);
 
   setDeleteProgress("Удаляем файл песни…");
-  await ghDeleteFile(relSrc, `Delete track "${track.title}"`);
+  const fileResult = await ghDeleteFile(relSrc, `Delete track "${track.title}"`);
 
-  // Обложки с тем же именем файла
-  if (track.cover && /^(tracks|music_website\/tracks)\//.test(track.cover) === false && !/^https?:/i.test(track.cover)) {
-    // обложка локальная относительная — пробуем удалить
+  if (!fileResult.deleted && fileResult.certain) {
+    setDeleteProgress("Файла на GitHub уже нет — чистим список…");
+  }
+
+  // Обложка: удаляем только локальный файл внутри папки треков
+  const coverRel = repoPathForWrite(track.cover);
+  if (coverRel && /^music_website\/tracks\//.test(coverRel)) {
     try {
-      const coverPath = track.cover.startsWith("music_website/") ? track.cover : `music_website/${track.cover}`;
       setDeleteProgress("Удаляем обложку…");
-      await ghDeleteFile(coverPath, `Delete cover for "${track.title}"`);
+      await ghDeleteFile(coverRel, `Delete cover for "${track.title}"`);
     } catch {
-      // обложка могла быть внешней — это не критично
+      // обложка могла быть внешней или уже удалённой — это не критично
     }
   }
 
@@ -2254,7 +2456,23 @@ async function deleteTrackEverywhere(track) {
   try {
     await ghDeleteTrackFromIndex(track);
   } catch {
-    // список обновится при следующей генерации
+    // запись могла уже отсутствовать (треки автоскана в tracks.json не попадают)
+  }
+
+  // Финальная проверка: файл должен исчезнуть из папки жанра
+  if (fileResult.certain) {
+    setDeleteProgress("Проверяем результат…");
+    const check = await ghResolveFile(relSrc);
+    if (check.sha) {
+      const err = new Error("Файл остался на GitHub — удаление не применилось.");
+      err.code = "STILL_THERE";
+      throw err;
+    }
+  } else {
+    // Проверить не смогли (сеть/лимит API) — не врём пользователю про «Готово»
+    const err = new Error("Не удалось проверить результат удаления.");
+    err.code = "UNVERIFIED";
+    throw err;
   }
 }
 
@@ -2312,10 +2530,22 @@ confirmDeleteTrackBtn?.addEventListener("click", async () => {
     const status = err?.status;
     if (err?.code === "NO_TOKEN") {
       setDeleteProgress("Нужен токен GitHub — вставьте его в панели владельца.");
-    } else if (status === 401 || status === 403) {
-      setDeleteProgress("GitHub отклонил токен. Проверьте, что у токена есть право «repo» и срок не истёк.");
+    } else if (err?.code === "STILL_THERE") {
+      setDeleteProgress(
+        "GitHub принял запрос, но файл всё ещё на месте. Обновите страницу (Ctrl+F5) и проверьте, что токен с правом «repo» и создан вами."
+      );
+    } else if (err?.code === "UNVERIFIED") {
+      setDeleteProgress(
+        "Команда на удаление отправлена, но проверить результат не удалось (сеть или лимит GitHub). Обновите страницу через минуту."
+      );
+    } else if (status === 401) {
+      setDeleteProgress("Токен не принят: он истёк или скопирован с ошибкой. Создайте новый с правом «repo».");
+    } else if (status === 403) {
+      setDeleteProgress("У токена нет права удалять файлы. Нужен доступ «repo» (Contents: Read and write).");
     } else if (status === 404) {
       setDeleteProgress("Файл не найден в GitHub — возможно, он уже удалён. Обновите страницу.");
+    } else if (status === 409) {
+      setDeleteProgress("Файл только что изменился на GitHub. Нажмите «Удалить» ещё раз.");
     } else {
       setDeleteProgress(`Ошибка: ${err?.message || "не удалось удалить"}`);
     }
