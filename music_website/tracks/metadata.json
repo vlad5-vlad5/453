@@ -29,5 +29,9 @@
   "music_website/tracks/ruspop/Танцуем под луной [sunodownloaderpro] (1).mp3": {
     "title": "Танцуем под луной (1)",
     "artist": "Filatov&Kara.s"
+  },
+  "music_website/tracks/ruspop/Танцуем под луной [sunodownloaderpro].mp3": {
+    "title": "Танцуем под луной",
+    "artist": "Filatov&Kara.s"
   }
 }
