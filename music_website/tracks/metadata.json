@@ -45,5 +45,9 @@
   "music_website/tracks/ruspop/Ритм столицы [sunodownloaderpro] (1).mp3": {
     "title": "Ритм столицы (1)",
     "artist": "Filatov&Kara.s"
+  },
+  "music_website/tracks/ruspop/Ритм столицы [sunodownloaderpro].mp3": {
+    "title": "Ритм столицы",
+    "artist": "Filatov&Kara.s"
   }
 }
