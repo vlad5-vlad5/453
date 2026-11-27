@@ -3223,10 +3223,17 @@ function stepTrack(direction) {
 // --- Меню жанров ---
 const LS_GENRE_HINT_SEEN = "neurodvizh_genre_hint_seen_v1";
 
+// Руки-подсказки по сторонам кнопки (левая и правая)
+function setHandsHidden(hidden) {
+  document.querySelectorAll(".genre-hint-hand-wrap").forEach((hand) => {
+    hand.classList.toggle("is-hidden", hidden);
+  });
+}
+
 function hideGenreHint() {
   if (!genreHint) return;
   genreHint.classList.add("is-hidden");
-  document.getElementById("genreHintHand")?.classList.add("is-hidden");
+  setHandsHidden(true);
   try {
     localStorage.setItem(LS_GENRE_HINT_SEEN, "1");
   } catch {
@@ -3243,7 +3250,7 @@ function restoreGenreHint() {
     seen = false;
   }
   genreHint.classList.toggle("is-hidden", seen);
-  document.getElementById("genreHintHand")?.classList.toggle("is-hidden", seen);
+  setHandsHidden(seen);
 }
 
 function setGenreMenuOpen(open) {

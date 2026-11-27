@@ -380,12 +380,16 @@ body.music-playing .aurora-photo {
   position: relative;
 }
 
-/* Обёртка кнопки — от неё отсчитывается позиция руки.
-   Рука живёт ВНУТРИ этой обёртки, поэтому всегда смотрит точно на кнопку. */
+/* Обёртка кнопки. Руки стоят по краям — слева и справа от кнопки,
+   поэтому всегда «тыкают» в неё, независимо от длины экрана. */
 .genre-btn-wrap {
   position: relative;
   display: inline-flex;
   max-width: 100%;
+  /* боковые поля под руки: они абсолютные и в потоке места не занимают */
+  padding-left: 34px;
+  padding-right: 34px;
+  box-sizing: border-box;
 }
 
 .genre-toggle {
@@ -406,8 +410,6 @@ body.music-playing .aurora-photo {
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
   white-space: nowrap;
   max-width: 100%;
-  /* запас справа под руку-подсказку, чтобы она не закрывала стрелку */
-  padding-right: 46px;
 }
 
 .genre-toggle:hover {
@@ -552,30 +554,48 @@ body.music-playing .aurora-photo {
   animation: hintPulse 2.4s ease-in-out infinite;
 }
 
-/* Рука привязана к правому краю кнопки, а не к строке текста —
-   поэтому она всегда указывает точно на кнопку «Жанры» */
+/* Две руки по сторонам кнопки: левая 👉 указывает вправо,
+   правая 👈 — влево. Обе «тыкают» в кнопку снаружи. */
 .genre-hint-hand-wrap {
   position: absolute;
   top: 50%;
-  /* правый край кнопки: рука стоит вплотную к ней и «тыкает» внутрь */
-  right: 6px;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   transition: opacity 0.4s ease;
+  z-index: 2;
+}
+
+/* Левая рука сидит в левом поле обёртки, правая — в правом.
+   Обе снаружи кнопки, но внутри обёртки, поэтому за экран не выходят. */
+.genre-hand-left {
+  left: 2px;
+}
+
+.genre-hand-right {
+  right: 2px;
 }
 
 .genre-hint-hand {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   line-height: 1;
   display: inline-block;
-  animation: handWiggle 1.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 9px rgba(234, 255, 106, 0.7));
+  filter: drop-shadow(0 0 9px rgba(234, 255, 106, 0.75));
 }
 
-/* Рука исчезает вместе с подсказкой */
+/* Левая рука тянется к кнопке — то есть вправо */
+.genre-hand-left .genre-hint-hand {
+  animation: handWiggleRight 1.5s ease-in-out infinite;
+}
+
+/* Правая рука тянется к кнопке — то есть влево */
+.genre-hand-right .genre-hint-hand {
+  animation: handWiggleLeft 1.5s ease-in-out infinite;
+}
+
+/* Руки гаснут вместе с подсказкой */
 .genre-hint.is-hidden ~ .genre-dropdown .genre-hint-hand-wrap,
 .genre-hint-hand-wrap.is-hidden {
   opacity: 0;
@@ -586,9 +606,17 @@ body.music-playing .aurora-photo {
   50%      { opacity: 0.55; }
 }
 
-@keyframes handWiggle {
+/* Левая рука качается вправо — в сторону кнопки */
+@keyframes handWiggleRight {
   0%, 100% { transform: translateX(0) rotate(0deg); }
-  35%      { transform: translateX(-6px) rotate(-7deg); }
+  35%      { transform: translateX(6px) rotate(6deg); }
+  70%      { transform: translateX(2px) rotate(-3deg); }
+}
+
+/* Правая рука качается влево — тоже в сторону кнопки */
+@keyframes handWiggleLeft {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  35%      { transform: translateX(-6px) rotate(-6deg); }
   70%      { transform: translateX(-2px) rotate(3deg); }
 }
 
@@ -622,13 +650,13 @@ body.music-playing .aurora-photo {
   .genre-dropdown,
   .genre-btn-wrap {
     width: 100%;
+    padding-left: 32px;
+    padding-right: 32px;
   }
 
   .genre-toggle {
     width: 100%;
     justify-content: flex-start;
-    /* место под руку, чтобы не наезжала на стрелку */
-    padding-right: 48px;
   }
 
   /* Рука прижата к правому краю кнопки — на телефоне кнопка во всю ширину,
@@ -640,12 +668,17 @@ body.music-playing .aurora-photo {
 
 /* Очень узкие телефоны */
 @media (max-width: 380px) {
+  .genre-btn-wrap {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
   .genre-hint-hand {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
   }
 
   .genre-toggle {
-    padding: 9px 44px 9px 14px;
+    padding: 9px 14px;
     font-size: 0.85rem;
   }
 }
