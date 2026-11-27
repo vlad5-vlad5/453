@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261124w" />
+  <link rel="stylesheet" href="style.css?v=20261124x" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -105,24 +105,29 @@
       <div class="genre-picker">
         <p class="genre-hint" id="genreHint" aria-hidden="true">
           <span class="genre-hint-text">Выбери свой жанр</span>
-          <span class="genre-hint-hand" aria-hidden="true">👉</span>
         </p>
 
         <div class="genre-dropdown">
-          <button
-            type="button"
-            class="genre-toggle"
-            id="genreMenuBtn"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            aria-controls="genreMenu"
-          >
-            <span class="genre-toggle-dot dot-all"></span>
-            <span class="genre-toggle-label">Жанры: <strong id="genreCurrentLabel">Все песни</strong></span>
-            <svg class="genre-toggle-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
+          <div class="genre-btn-wrap">
+            <button
+              type="button"
+              class="genre-toggle"
+              id="genreMenuBtn"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-controls="genreMenu"
+            >
+              <span class="genre-toggle-dot dot-all"></span>
+              <span class="genre-toggle-label">Жанры: <strong id="genreCurrentLabel">Все песни</strong></span>
+              <svg class="genre-toggle-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            <span class="genre-hint-hand-wrap" id="genreHintHand" aria-hidden="true">
+              <span class="genre-hint-hand">👉</span>
+            </span>
+          </div>
 
           <div class="genre-menu hidden" id="genreMenu" role="listbox" aria-label="Жанры">
             <button type="button" class="genre-option active" data-genre="all" role="option" aria-selected="true">
@@ -650,6 +655,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261125h"></script>
+  <script src="script.js?v=20261125i"></script>
 </body>
 </html>

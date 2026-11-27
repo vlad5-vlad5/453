@@ -3226,6 +3226,7 @@ const LS_GENRE_HINT_SEEN = "neurodvizh_genre_hint_seen_v1";
 function hideGenreHint() {
   if (!genreHint) return;
   genreHint.classList.add("is-hidden");
+  document.getElementById("genreHintHand")?.classList.add("is-hidden");
   try {
     localStorage.setItem(LS_GENRE_HINT_SEEN, "1");
   } catch {
@@ -3242,6 +3243,7 @@ function restoreGenreHint() {
     seen = false;
   }
   genreHint.classList.toggle("is-hidden", seen);
+  document.getElementById("genreHintHand")?.classList.toggle("is-hidden", seen);
 }
 
 function setGenreMenuOpen(open) {
