@@ -14,6 +14,9 @@
   --radius-sm: 12px;
   --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
   --player-h: 92px;
+  /* Высота шапки: к ней привязана липкая кнопка «Назад к жанрам»,
+     чтобы она вставала ровно под шапкой, а не заезжала под неё */
+  --header-h: 78px;
 
   --grad-chanson: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
   --grad-disco: linear-gradient(135deg, #c026d3 0%, #fb7185 100%);
@@ -916,6 +919,221 @@ body.music-playing .aurora-photo {
 
 
 
+
+/* --- Экран жанров: плитки на главной --- */
+.genre-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.genre-tiles-wide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.genre-tiles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.genre-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 96px;
+  padding: 14px 14px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--bg-card);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.genre-tile:hover {
+  transform: translateY(-2px);
+  background: var(--bg-card-hover);
+  border-color: var(--border-strong);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+}
+
+.genre-tile:active {
+  transform: scale(0.98);
+}
+
+.genre-tile-label {
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  /* Длинные названия вроде «Русская Поп-музыка» переносятся, а не обрезаются */
+  overflow-wrap: anywhere;
+}
+
+.genre-tile-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.genre-tile-count {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #eaff6a;
+  line-height: 1;
+}
+
+.genre-tile-unit {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.genre-tile-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Верхние широкие плитки «Все песни» и «Избранное» */
+.genre-tile-wide {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.genre-tile-wide .genre-tile-label {
+  font-size: 0.9rem;
+}
+
+.genre-tile-wide .genre-tile-count {
+  margin-left: auto;
+  font-size: 0.95rem;
+}
+
+.genre-tile-icon {
+  font-size: 1rem;
+  line-height: 1;
+  color: #c8f560;
+}
+
+.tile-favorites .genre-tile-icon {
+  color: var(--rose);
+}
+
+/* --- Липкая кнопка «Назад к жанрам» ---
+   Держится под шапкой, пока открыт список песен: человек всегда видит,
+   как вернуться, даже на двадцатой песне. */
+.back-to-genres {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(234, 255, 106, 0.45);
+  background: rgba(16, 21, 36, 0.94);
+  backdrop-filter: blur(14px);
+  color: #eaff6a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+
+.back-to-genres svg {
+  width: 17px;
+  height: 17px;
+}
+
+.back-to-genres:hover {
+  background: rgba(28, 36, 58, 0.96);
+  border-color: rgba(234, 255, 106, 0.8);
+}
+
+.back-to-genres:active {
+  transform: scale(0.99);
+}
+
+/* --- Заголовок открытого жанра --- */
+.genre-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.genre-list-title {
+  font-size: 1.14rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+  min-width: 0;
+}
+
+.genre-list-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.genre-list-collapse svg {
+  width: 13px;
+  height: 13px;
+}
+
+.genre-list-collapse:hover {
+  color: #fff;
+  border-color: var(--border-strong);
+}
+
+@media (max-width: 640px) {
+  /* На телефоне шапка ниже — поправляем высоту, кнопка встаёт под ней */
+  :root {
+    --header-h: 64px;
+  }
+
+  .back-to-genres {
+    height: 46px;
+    font-size: 0.9rem;
+  }
+
+  .genre-tile {
+    min-height: 92px;
+  }
+
+  .genre-tile-label {
+    font-size: 0.9rem;
+  }
+}
 
 /* Список карточек треков в один столбик */
 .tracks-grid {
@@ -3123,4 +3341,61 @@ body.music-playing .aurora-photo {
   color: #fbbf24;
   min-height: 18px;
   margin-bottom: 8px;
+}
+
+/* --- Экран жанров: финальная подгонка размеров ---
+   Плитки, кнопка возврата и заголовок держатся в той же колонке 560px,
+   что и список песен, — при переходе «плитки → песни» ничего не прыгает. */
+.genre-tiles,
+.back-to-genres,
+.genre-list-head {
+  width: 100%;
+  max-width: 560px;
+}
+
+/* Кнопка возврата крупная, но в ширину колонки — не растягивается на весь экран */
+.back-to-genres {
+  height: 50px;
+  font-size: 0.96rem;
+}
+
+.genre-tile:focus-visible {
+  outline: 2px solid rgba(234, 255, 106, 0.85);
+  outline-offset: 2px;
+}
+
+.back-to-genres:focus-visible {
+  outline: 2px solid rgba(234, 255, 106, 0.9);
+  outline-offset: 2px;
+}
+
+/* Появление плиток — лёгкое, без «тяжёлых» анимаций ради скорости */
+@keyframes genre-tiles-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.genre-tiles:not(.hidden) {
+  animation: genre-tiles-in 0.22s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .genre-tiles:not(.hidden) {
+    animation: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .genre-tile {
+    min-height: 86px;
+    padding: 12px 11px 10px;
+  }
+
+  .genre-tile-label {
+    font-size: 0.84rem;
+  }
+
+  .genre-tile-wide .genre-tile-label {
+    font-size: 0.82rem;
+  }
 }
