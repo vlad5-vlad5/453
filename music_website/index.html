@@ -14,7 +14,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Моя Музыка" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=20261124t" />
+  <link rel="stylesheet" href="style.css?v=20261124u" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -586,8 +586,10 @@
             spellcheck="false"
           />
           <button type="button" class="btn btn-secondary btn-sm" id="ownerTokenSaveBtn">Сохранить</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ownerTokenCheckBtn">Проверить</button>
           <button type="button" class="btn btn-ghost btn-sm" id="ownerTokenClearBtn">Забыть</button>
         </div>
+        <p class="owner-token-status" id="ownerTokenStatus" aria-live="polite"></p>
         <p class="owner-token-hint" id="ownerTokenHint">
           Токен нужен только для удаления песен на GitHub Pages. Создать:
           <a href="https://github.com/settings/tokens/new?scopes=repo&description=Моя%20Новая%20Музыка" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
@@ -637,6 +639,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261125e"></script>
+  <script src="script.js?v=20261125f"></script>
 </body>
 </html>

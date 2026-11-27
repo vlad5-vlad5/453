@@ -2581,6 +2581,31 @@ body.music-playing .aurora-photo {
   flex-wrap: wrap;
 }
 
+.owner-token-status {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  min-height: 0;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.owner-token-status:empty {
+  display: none;
+}
+
+.owner-token-status[data-state="ok"] {
+  color: #86efac;
+}
+
+.owner-token-status[data-state="error"] {
+  color: #fda4af;
+}
+
+.owner-token-status[data-state="pending"] {
+  color: #fde68a;
+}
+
 .owner-token-input {
   flex: 1;
   min-width: 160px;
