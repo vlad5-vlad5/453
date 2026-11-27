@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Локальный сервер для сайта «НейроДвиж» (music_website).
-- Автоматически сканирует папки tracks/chanson, disco, deephouse, ruspop, other
+- Автоматически сканирует папки tracks/chanson, disco, discodacha, deephouse, ruspop, other
 - Отдаёт /api/tracks с метаданными и обложками и синхронизирует tracks/tracks.json
 - Поддерживает загрузку треков (POST /api/upload) и обложек (POST /api/cover) прямо в tracks/
 - Поддерживает HTTP Range-запросы для плавной перемотки аудио
@@ -25,7 +25,7 @@ METADATA_FILE = TRACKS_DIR / "metadata.json"
 INDEX_FILE = TRACKS_DIR / "tracks.json"
 SOCIAL_FILE = TRACKS_DIR / "social.json"
 
-GENRES = ("chanson", "disco", "deephouse", "ruspop", "other")
+GENRES = ("chanson", "disco", "discodacha", "deephouse", "ruspop", "other")
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus", ".webm"}
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".svg", ".gif")
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 МБ

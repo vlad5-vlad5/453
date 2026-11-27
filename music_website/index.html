@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261127c" />
+  <link rel="stylesheet" href="style.css?v=20261127d" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -146,8 +146,13 @@
             </button>
             <button type="button" class="genre-option" data-genre="disco" role="option" aria-selected="false">
               <span class="genre-dot dot-disco"></span>
-              <span class="genre-option-label">Диско</span>
+              <span class="genre-option-label">ЕвроДиско</span>
               <span class="tab-count" data-count="disco">0</span>
+            </button>
+            <button type="button" class="genre-option" data-genre="discodacha" role="option" aria-selected="false">
+              <span class="genre-dot dot-discodacha"></span>
+              <span class="genre-option-label">ДискоДача</span>
+              <span class="tab-count" data-count="discodacha">0</span>
             </button>
             <button type="button" class="genre-option" data-genre="deephouse" role="option" aria-selected="false">
               <span class="genre-dot dot-deephouse"></span>
@@ -367,7 +372,8 @@
             <span>Жанр</span>
             <select id="uploadGenre">
               <option value="chanson">Шансон</option>
-              <option value="disco">Диско</option>
+              <option value="disco">ЕвроДиско</option>
+              <option value="discodacha">ДискоДача</option>
               <option value="deephouse">ДипХаус</option>
               <option value="ruspop">Русская Поп-музыка</option>
               <option value="other">Разное</option>
@@ -699,6 +705,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261127c"></script>
+  <script src="script.js?v=20261127d"></script>
 </body>
 </html>
