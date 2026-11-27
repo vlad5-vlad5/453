@@ -75,8 +75,8 @@ const CLIENT_ID = getOrCreateClientId();
 const state = {
   serverMode: false,
   tracks: [...FALLBACK_TRACKS],
-  genre: "chanson",
-  search: "",
+  genre: "all",
+  search: "", // поиск убран из интерфейса, поле оставлено для совместимости
   currentTrackId: null,
   isPlaying: false,
   isShuffle: false,
@@ -106,10 +106,11 @@ const tracksGrid = document.getElementById("tracksGrid");
 const emptyState = document.getElementById("emptyState");
 const emptyTitle = document.getElementById("emptyTitle");
 const emptyDesc = document.getElementById("emptyDesc");
-const genreTabs = document.getElementById("genreTabs");
-const searchInput = document.getElementById("searchInput");
-const resultsLabel = document.getElementById("resultsLabel");
-const playAllBtn = document.getElementById("playAllBtn");
+const genreTabs = document.getElementById("genreMenu"); // меню жанров
+const genreMenuBtn = document.getElementById("genreMenuBtn");
+const genreMenu = document.getElementById("genreMenu");
+const genreCurrentLabel = document.getElementById("genreCurrentLabel");
+const genreHint = document.getElementById("genreHint");
 const resetFiltersBtn = document.getElementById("resetFiltersBtn");
 const rescanBtn = document.getElementById("rescanBtn");
 const shareBtn = document.getElementById("shareBtn");
@@ -2746,7 +2747,8 @@ function getFilteredTracks() {
     if (state.genre === "favorites" && !state.favorites.has(track.id)) {
       return false;
     }
-    if (state.genre !== "favorites" && track.genre !== state.genre) {
+    // "all" — все песни, жанровые вкладки — только совпадающие
+    if (state.genre !== "favorites" && state.genre !== "all" && track.genre !== state.genre) {
       return false;
     }
     if (!q) return true;
@@ -2763,6 +2765,7 @@ function getFilteredTracks() {
 function updateCounts() {
   const existingIds = new Set(state.tracks.map((t) => t.id));
   const counts = {
+    all: state.tracks.length,
     favorites: Array.from(state.favorites).filter((id) => existingIds.has(id)).length,
     chanson: 0,
     disco: 0,
@@ -2780,19 +2783,36 @@ function updateCounts() {
 }
 
 // Подсветка активной вкладки жанра
+// Названия для меню жанров (включая «Все песни»)
+const GENRE_VIEW_LABELS = {
+  all: "Все песни",
+  favorites: "Избранное",
+};
+
+function genreViewLabel(key) {
+  return GENRE_VIEW_LABELS[key] || GENRES[key]?.label || "Все песни";
+}
+
 function syncGenreTabs() {
-  genreTabs.querySelectorAll(".genre-tab").forEach((tab) => {
-    const active = tab.getAttribute("data-genre") === state.genre;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", String(active));
+  genreTabs?.querySelectorAll(".genre-option").forEach((option) => {
+    const active = option.getAttribute("data-genre") === state.genre;
+    option.classList.toggle("active", active);
+    option.setAttribute("aria-selected", String(active));
   });
+
+  if (genreCurrentLabel) genreCurrentLabel.textContent = genreViewLabel(state.genre);
+
+  // Точка у кнопки повторяет цвет выбранного жанра
+  const toggleDot = genreMenuBtn?.querySelector(".genre-toggle-dot");
+  if (toggleDot) {
+    toggleDot.className = `genre-dot dot-${state.genre}`;
+  }
 }
 
 // Отрисовка списка треков
 function renderTracks() {
   updateCounts();
   const list = getFilteredTracks();
-  resultsLabel.textContent = `Показано треков: ${list.length}`;
 
   if (list.length === 0) {
     tracksGrid.innerHTML = "";
@@ -2802,7 +2822,7 @@ function renderTracks() {
       emptyDesc.textContent = "Нажмите на сердечко ♥ на любой карточке, чтобы добавить трек в избранное.";
     } else {
       emptyTitle.textContent = "Пока нет треков";
-      emptyDesc.textContent = "Выберите другой жанр, очистите поиск или загляните позже — музыка скоро появится.";
+      emptyDesc.textContent = "Выберите другой жанр или загляните позже — музыка скоро появится.";
     }
     return;
   }
@@ -3200,34 +3220,79 @@ function stepTrack(direction) {
 }
 
 // --- События фильтров и карточек ---
+// --- Меню жанров ---
+const LS_GENRE_HINT_SEEN = "neurodvizh_genre_hint_seen_v1";
+
+function hideGenreHint() {
+  if (!genreHint) return;
+  genreHint.classList.add("is-hidden");
+  try {
+    localStorage.setItem(LS_GENRE_HINT_SEEN, "1");
+  } catch {
+    // приватный режим — подсказка вернётся после перезагрузки
+  }
+}
+
+function restoreGenreHint() {
+  if (!genreHint) return;
+  let seen = false;
+  try {
+    seen = localStorage.getItem(LS_GENRE_HINT_SEEN) === "1";
+  } catch {
+    seen = false;
+  }
+  genreHint.classList.toggle("is-hidden", seen);
+}
+
+function setGenreMenuOpen(open) {
+  if (!genreMenu || !genreMenuBtn) return;
+  genreMenu.classList.toggle("hidden", !open);
+  genreMenuBtn.setAttribute("aria-expanded", String(open));
+}
+
+function isGenreMenuOpen() {
+  return genreMenu ? !genreMenu.classList.contains("hidden") : false;
+}
+
+genreMenuBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setGenreMenuOpen(!isGenreMenuOpen());
+});
+
+// Клик вне меню закрывает его
+document.addEventListener("click", (e) => {
+  if (!isGenreMenuOpen()) return;
+  if (e.target.closest(".genre-dropdown")) return;
+  setGenreMenuOpen(false);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isGenreMenuOpen()) setGenreMenuOpen(false);
+});
+
+restoreGenreHint();
+
 genreTabs.addEventListener("click", (e) => {
-  const btn = e.target.closest(".genre-tab");
+  const btn = e.target.closest(".genre-option");
   if (!btn) return;
   const genre = btn.getAttribute("data-genre");
   if (!genre) return;
 
+  if (genre === state.genre && !isGenreMenuOpen()) return;
+
   state.genre = genre;
+  setGenreMenuOpen(false);
+  hideGenreHint();
   renderAll();
 });
 
-searchInput.addEventListener("input", (e) => {
-  state.search = e.target.value;
-  renderTracks();
-});
-
 resetFiltersBtn.addEventListener("click", () => {
-  state.genre = "chanson";
+  state.genre = "all";
   state.search = "";
-  searchInput.value = "";
   renderAll();
 });
 
 rescanBtn.addEventListener("click", () => loadTracksFromServer(true));
-
-playAllBtn.addEventListener("click", () => {
-  const list = getFilteredTracks();
-  if (list.length > 0) playTrack(list[0].id);
-});
 
 tracksGrid.addEventListener("click", (e) => {
   const actionEl = e.target.closest("[data-action]");
