@@ -188,6 +188,7 @@ body.music-playing .aurora-photo {
 
 /* Логотип «НейроДвиж» — жёлтая волна + фиолетовая нейросеть на синей плашке */
 .brand-logo {
+  position: relative;
   width: 46px;
   height: 46px;
   border-radius: 14px;
@@ -199,13 +200,80 @@ body.music-playing .aurora-photo {
     0 8px 24px rgba(124, 92, 255, 0.34),
     0 0 0 1px rgba(163, 230, 53, 0.22);
   flex-shrink: 0;
+  /* Свечение плашки в такт блику — заметно, но не слепит */
+  animation: logoGlow 4.2s ease-in-out infinite;
 }
 
 .brand-logo img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Блик по эмблеме: широкая световая полоса пробегает по плашке по диагонали.
+   .brand-logo имеет overflow: hidden, поэтому блик не выходит за скруглённые
+   углы и выглядит как отражение на стекле. */
+.brand-logo::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -140%;
+  width: 70%;
+  height: 220%;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.14) 22%,
+    rgba(255, 255, 255, 0.62) 46%,
+    rgba(234, 255, 106, 0.72) 54%,
+    rgba(255, 255, 255, 0.5) 62%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(16deg);
+  animation: logoShine 4.2s cubic-bezier(0.42, 0, 0.32, 1) infinite;
+}
+
+/* Блик пробегает за первую треть цикла, остальное время эмблема «отдыхает» */
+@keyframes logoShine {
+  0%   { left: -140%; opacity: 0; }
+  6%   { opacity: 1; }
+  34%  { left: 160%; opacity: 1; }
+  40%  { left: 160%; opacity: 0; }
+  100% { left: 160%; opacity: 0; }
+}
+
+/* Плашка мягко подсвечивается, когда по ней идёт блик */
+@keyframes logoGlow {
+  0%, 34%, 100% {
+    box-shadow:
+      0 8px 24px rgba(124, 92, 255, 0.34),
+      0 0 0 1px rgba(163, 230, 53, 0.22);
+  }
+  14% {
+    box-shadow:
+      0 8px 28px rgba(124, 92, 255, 0.6),
+      0 0 18px rgba(234, 255, 106, 0.5),
+      0 0 0 1px rgba(163, 230, 53, 0.5);
+  }
+}
+
+/* Уважаем системную настройку «уменьшить движение»: блик остаётся,
+   но замирает в статичном положении, а плашка не пульсирует */
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo {
+    animation: none;
+  }
+
+  .brand-logo::after {
+    animation: none;
+    left: 40%;
+    opacity: 0.35;
+  }
 }
 
 .brand-logo svg {
