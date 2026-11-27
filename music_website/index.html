@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261124x" />
+  <link rel="stylesheet" href="style.css?v=20261124y" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -109,6 +109,10 @@
 
         <div class="genre-dropdown">
           <div class="genre-btn-wrap">
+            <span class="genre-hint-hand-wrap genre-hand-left" id="genreHintHandLeft" aria-hidden="true">
+              <span class="genre-hint-hand">👉</span>
+            </span>
+
             <button
               type="button"
               class="genre-toggle"
@@ -124,8 +128,8 @@
               </svg>
             </button>
 
-            <span class="genre-hint-hand-wrap" id="genreHintHand" aria-hidden="true">
-              <span class="genre-hint-hand">👉</span>
+            <span class="genre-hint-hand-wrap genre-hand-right" id="genreHintHandRight" aria-hidden="true">
+              <span class="genre-hint-hand">👈</span>
             </span>
           </div>
 
@@ -655,6 +659,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261125i"></script>
+  <script src="script.js?v=20261125j"></script>
 </body>
 </html>
