@@ -2600,8 +2600,34 @@ async function loadTracksFromServer(notify = false) {
     }
 
     renderAll();
+
+    // Диагностика: если жанр пуст, а в indexes его нет — предупреждаем в консоли,
+    // чтобы такие рассинхроны было видно сразу, а не по жалобам друзей.
+    const emptyGenres = Object.keys(GENRES).filter(
+      (g) => !state.tracks.some((t) => t.genre === g)
+    );
+    if (emptyGenres.length > 0) {
+      console.info(
+        "[НейроДвиж] Жанры без треков:",
+        emptyGenres.join(", "),
+        "— проверьте, что tracks.json пересобран (build_tracks_index.py) и запушен"
+      );
+    }
+
     await mergeNewTracksFromGitHub();
     await loadSocialData();
+
+    // Повторная проверка после автоскана: если GitHub API не сработал
+    // (лимит запросов, мобильный оператор), жанр так и останется пустым
+    const stillEmpty = Object.keys(GENRES).filter(
+      (g) => !state.tracks.some((t) => t.genre === g)
+    );
+    if (stillEmpty.length > 0) {
+      console.warn(
+        "[НейроДвиж] Песни этих жанров не загрузились (tracks.json устарел, GitHub API недоступен):",
+        stillEmpty.join(", ")
+      );
+    }
 
     if (notify) {
       showToast(`Список обновлён · треков: ${state.tracks.length}`);
