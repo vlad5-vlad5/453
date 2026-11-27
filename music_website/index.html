@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261127g" />
+  <link rel="stylesheet" href="style.css?v=20261127i" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -100,82 +100,13 @@
   </header>
 
   <main class="container main-content">
-    <!-- Фильтры по жанрам и избранному -->
-    <section class="filters-section" aria-label="Фильтры">
+    <!-- Подсказка над плитками жанров: кнопка-переключатель и руки убраны,
+         выбор жанра теперь только плитками. -->
+    <section class="filters-section" aria-label="Подсказка">
       <div class="genre-picker">
         <p class="genre-hint" id="genreHint" aria-hidden="true">
           <span class="genre-hint-text">Выбери свой жанр</span>
         </p>
-
-        <div class="genre-dropdown">
-          <div class="genre-btn-wrap">
-            <span class="genre-hint-hand-wrap genre-hand-left" id="genreHintHandLeft" aria-hidden="true">
-              <span class="genre-hint-hand">👉</span>
-            </span>
-
-            <button
-              type="button"
-              class="genre-toggle"
-              id="genreMenuBtn"
-              aria-haspopup="listbox"
-              aria-expanded="false"
-              aria-controls="genreMenu"
-            >
-              <span class="genre-toggle-dot dot-all"></span>
-              <span class="genre-toggle-label">Жанры: <strong id="genreCurrentLabel">Все песни</strong></span>
-              <svg class="genre-toggle-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-
-            <span class="genre-hint-hand-wrap genre-hand-right" id="genreHintHandRight" aria-hidden="true">
-              <span class="genre-hint-hand">👈</span>
-            </span>
-          </div>
-
-          <div class="genre-menu hidden" id="genreMenu" role="listbox" aria-label="Жанры">
-            <button type="button" class="genre-option active" data-genre="all" role="option" aria-selected="true">
-              <span class="genre-dot dot-all"></span>
-              <span class="genre-option-label">Все песни</span>
-              <span class="tab-count" data-count="all">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="chanson" role="option" aria-selected="false">
-              <span class="genre-dot dot-chanson"></span>
-              <span class="genre-option-label">Шансон</span>
-              <span class="tab-count" data-count="chanson">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="disco" role="option" aria-selected="false">
-              <span class="genre-dot dot-disco"></span>
-              <span class="genre-option-label">ЕвроДиско</span>
-              <span class="tab-count" data-count="disco">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="discodacha" role="option" aria-selected="false">
-              <span class="genre-dot dot-discodacha"></span>
-              <span class="genre-option-label">ДискоДача</span>
-              <span class="tab-count" data-count="discodacha">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="deephouse" role="option" aria-selected="false">
-              <span class="genre-dot dot-deephouse"></span>
-              <span class="genre-option-label">ДипХаус</span>
-              <span class="tab-count" data-count="deephouse">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="ruspop" role="option" aria-selected="false">
-              <span class="genre-dot dot-ruspop"></span>
-              <span class="genre-option-label">Русская Поп-музыка</span>
-              <span class="tab-count" data-count="ruspop">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="other" role="option" aria-selected="false">
-              <span class="genre-dot dot-other"></span>
-              <span class="genre-option-label">Разное</span>
-              <span class="tab-count" data-count="other">0</span>
-            </button>
-            <button type="button" class="genre-option" data-genre="favorites" role="option" aria-selected="false">
-              <span class="heart-mini">♥</span>
-              <span class="genre-option-label">Избранное</span>
-              <span class="tab-count" data-count="favorites">0</span>
-            </button>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -729,6 +660,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261127g"></script>
+  <script src="script.js?v=20261127i"></script>
 </body>
 </html>

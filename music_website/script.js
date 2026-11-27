@@ -120,10 +120,8 @@ const genreCollapseBtn = document.getElementById("genreCollapseBtn");
 const emptyState = document.getElementById("emptyState");
 const emptyTitle = document.getElementById("emptyTitle");
 const emptyDesc = document.getElementById("emptyDesc");
-const genreTabs = document.getElementById("genreMenu"); // меню жанров
-const genreMenuBtn = document.getElementById("genreMenuBtn");
-const genreMenu = document.getElementById("genreMenu");
-const genreCurrentLabel = document.getElementById("genreCurrentLabel");
+// Кнопка-переключатель жанров и выпадающее меню убраны: выбор идёт плитками,
+// поэтому из элементов осталась только подсказка «Выбери свой жанр».
 const genreHint = document.getElementById("genreHint");
 const resetFiltersBtn = document.getElementById("resetFiltersBtn");
 const rescanBtn = document.getElementById("rescanBtn");
@@ -3002,7 +3000,7 @@ function getFilteredTracks() {
     if (state.genre === "favorites" && !state.favorites.has(track.id)) {
       return false;
     }
-    // "all" — все песни, жанровые вкладки — только совпадающие
+    // "all" — все песни, отдельный жанр — только совпадающие
     if (state.genre !== "favorites" && state.genre !== "all" && track.genre !== state.genre) {
       return false;
     }
@@ -3016,30 +3014,7 @@ function getFilteredTracks() {
   });
 }
 
-// Обновление счётчиков
-function updateCounts() {
-  const existingIds = new Set(state.tracks.map((t) => t.id));
-  const counts = {
-    all: state.tracks.length,
-    favorites: Array.from(state.favorites).filter((id) => existingIds.has(id)).length,
-    chanson: 0,
-    disco: 0,
-    discodacha: 0,
-    deephouse: 0,
-    ruspop: 0,
-    other: 0,
-  };
-  for (const t of state.tracks) {
-    if (counts[t.genre] !== undefined) counts[t.genre]++;
-  }
-  document.querySelectorAll("[data-count]").forEach((el) => {
-    const key = el.getAttribute("data-count");
-    el.textContent = counts[key] ?? 0;
-  });
-}
-
-// Подсветка активной вкладки жанра
-// Названия для меню жанров (включая «Все песни»)
+// Понятные названия для заголовка открытого списка (включая «Все песни»)
 const GENRE_VIEW_LABELS = {
   all: "Все песни",
   favorites: "Избранное",
@@ -3047,22 +3022,6 @@ const GENRE_VIEW_LABELS = {
 
 function genreViewLabel(key) {
   return GENRE_VIEW_LABELS[key] || GENRES[key]?.label || "Все песни";
-}
-
-function syncGenreTabs() {
-  genreTabs?.querySelectorAll(".genre-option").forEach((option) => {
-    const active = option.getAttribute("data-genre") === state.genre;
-    option.classList.toggle("active", active);
-    option.setAttribute("aria-selected", String(active));
-  });
-
-  if (genreCurrentLabel) genreCurrentLabel.textContent = genreViewLabel(state.genre);
-
-  // Точка у кнопки повторяет цвет выбранного жанра
-  const toggleDot = genreMenuBtn?.querySelector(".genre-toggle-dot");
-  if (toggleDot) {
-    toggleDot.className = `genre-dot dot-${state.genre}`;
-  }
 }
 
 // ============================================================================
@@ -3260,7 +3219,6 @@ genreCollapseBtn?.addEventListener("click", () => backToGenres());
 
 // Отрисовка списка треков
 function renderTracks() {
-  updateCounts();
   if (isTilesMode()) {
     // На главной вместо песен — плитки жанров, пустое состояние не нужно
     tracksGrid.innerHTML = "";
@@ -3449,7 +3407,6 @@ function syncBackgroundMood() {
 }
 
 function renderAll() {
-  syncGenreTabs();
   renderGenreTiles();
   syncGenreView();
   renderTracks();
@@ -3696,31 +3653,12 @@ function stepTrack(direction) {
 }
 
 // --- События фильтров и карточек ---
-// --- Меню жанров ---
-// Подсказка «Выбери свой жанр» и две руки по сторонам кнопки видны всегда.
-// Гасим их только на время, пока открыт список жанров: там они перекрывали бы
-// пункты меню. Выбор жанра подсказку больше не отключает — раньше она гасла
-// после первого выбора навсегда, и вернуть её было нельзя.
+// Подсказка «Выбери свой жанр» видна всегда. Кнопка-переключатель жанров
+// и выпадающее меню убраны — жанр выбирается плитками на главной.
 
 // Старый ключ хранил отметку «подсказку уже видели». Такой отметки больше нет,
 // но у тех, кто заходил на сайт раньше, она осталась в браузере — стираем.
 const LS_GENRE_HINT_SEEN_LEGACY = "neurodvizh_genre_hint_seen_v1";
-
-const genreHands = Array.from(document.querySelectorAll(".genre-hint-hand-wrap"));
-
-// Руки-подсказки по сторонам кнопки (левая и правая)
-function setHandsHidden(hidden) {
-  genreHands.forEach((hand) => {
-    hand.classList.toggle("is-hidden", hidden);
-  });
-}
-
-// Подсказка вместе с руками. Скрываем только на время открытого меню,
-// поэтому состояние нигде не запоминается.
-function setGenreHintVisible(visible) {
-  if (genreHint) genreHint.classList.toggle("is-hidden", !visible);
-  setHandsHidden(!visible);
-}
 
 function restoreGenreHint() {
   try {
@@ -3728,61 +3666,10 @@ function restoreGenreHint() {
   } catch {
     // приватный режим — доступа к хранилищу нет, и это не мешает
   }
-  setGenreHintVisible(true);
+  if (genreHint) genreHint.classList.remove("is-hidden");
 }
-
-function setGenreMenuOpen(open) {
-  if (!genreMenu || !genreMenuBtn) return;
-  genreMenu.classList.toggle("hidden", !open);
-  genreMenuBtn.setAttribute("aria-expanded", String(open));
-  // Пока меню открыто, подсказка с руками уступает место пунктам списка
-  setGenreHintVisible(!open);
-}
-
-function isGenreMenuOpen() {
-  return genreMenu ? !genreMenu.classList.contains("hidden") : false;
-}
-
-genreMenuBtn?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  setGenreMenuOpen(!isGenreMenuOpen());
-});
-
-// Клик вне меню закрывает его
-document.addEventListener("click", (e) => {
-  if (!isGenreMenuOpen()) return;
-  if (e.target.closest(".genre-dropdown")) return;
-  setGenreMenuOpen(false);
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && isGenreMenuOpen()) setGenreMenuOpen(false);
-});
 
 restoreGenreHint();
-
-genreTabs.addEventListener("click", (e) => {
-  const btn = e.target.closest(".genre-option");
-  if (!btn) return;
-  const genre = btn.getAttribute("data-genre");
-  if (!genre) return;
-
-  if (genre === state.genre && !state.tiles && !isGenreMenuOpen()) return;
-
-  // Из меню можно открыть и «Все песни» — это тоже уход с экрана плиток
-  if (state.tiles || genre !== "all") pushGenreHistory();
-  state.tiles = false;
-  state.genre = genre;
-  state.search = "";
-  setGenreMenuOpen(false);
-  renderAll();
-
-  // Прокрутим к началу списка, чтобы кнопка возврата была на виду
-  const listTop = genreListHead?.getBoundingClientRect().top ?? 0;
-  if (listTop > window.innerHeight * 0.6 || listTop < 0) {
-    window.scrollTo({ top: window.scrollY + listTop - 90, behavior: "smooth" });
-  }
-});
 
 resetFiltersBtn.addEventListener("click", () => {
   backToGenres();
