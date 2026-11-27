@@ -3247,42 +3247,46 @@ function stepTrack(direction) {
 
 // --- События фильтров и карточек ---
 // --- Меню жанров ---
-const LS_GENRE_HINT_SEEN = "neurodvizh_genre_hint_seen_v1";
+// Подсказка «Выбери свой жанр» и две руки по сторонам кнопки видны всегда.
+// Гасим их только на время, пока открыт список жанров: там они перекрывали бы
+// пункты меню. Выбор жанра подсказку больше не отключает — раньше она гасла
+// после первого выбора навсегда, и вернуть её было нельзя.
+
+// Старый ключ хранил отметку «подсказку уже видели». Такой отметки больше нет,
+// но у тех, кто заходил на сайт раньше, она осталась в браузере — стираем.
+const LS_GENRE_HINT_SEEN_LEGACY = "neurodvizh_genre_hint_seen_v1";
+
+const genreHands = Array.from(document.querySelectorAll(".genre-hint-hand-wrap"));
 
 // Руки-подсказки по сторонам кнопки (левая и правая)
 function setHandsHidden(hidden) {
-  document.querySelectorAll(".genre-hint-hand-wrap").forEach((hand) => {
+  genreHands.forEach((hand) => {
     hand.classList.toggle("is-hidden", hidden);
   });
 }
 
-function hideGenreHint() {
-  if (!genreHint) return;
-  genreHint.classList.add("is-hidden");
-  setHandsHidden(true);
-  try {
-    localStorage.setItem(LS_GENRE_HINT_SEEN, "1");
-  } catch {
-    // приватный режим — подсказка вернётся после перезагрузки
-  }
+// Подсказка вместе с руками. Скрываем только на время открытого меню,
+// поэтому состояние нигде не запоминается.
+function setGenreHintVisible(visible) {
+  if (genreHint) genreHint.classList.toggle("is-hidden", !visible);
+  setHandsHidden(!visible);
 }
 
 function restoreGenreHint() {
-  if (!genreHint) return;
-  let seen = false;
   try {
-    seen = localStorage.getItem(LS_GENRE_HINT_SEEN) === "1";
+    localStorage.removeItem(LS_GENRE_HINT_SEEN_LEGACY);
   } catch {
-    seen = false;
+    // приватный режим — доступа к хранилищу нет, и это не мешает
   }
-  genreHint.classList.toggle("is-hidden", seen);
-  setHandsHidden(seen);
+  setGenreHintVisible(true);
 }
 
 function setGenreMenuOpen(open) {
   if (!genreMenu || !genreMenuBtn) return;
   genreMenu.classList.toggle("hidden", !open);
   genreMenuBtn.setAttribute("aria-expanded", String(open));
+  // Пока меню открыто, подсказка с руками уступает место пунктам списка
+  setGenreHintVisible(!open);
 }
 
 function isGenreMenuOpen() {
@@ -3317,7 +3321,6 @@ genreTabs.addEventListener("click", (e) => {
 
   state.genre = genre;
   setGenreMenuOpen(false);
-  hideGenreHint();
   renderAll();
 });
 
