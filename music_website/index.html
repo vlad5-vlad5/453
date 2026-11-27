@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261127d" />
+  <link rel="stylesheet" href="style.css?v=20261127g" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -181,13 +181,37 @@
 
     <!-- Сетка треков -->
     <section class="tracks-section" aria-label="Список треков">
+      <!-- Экран жанров: крупные плитки на главной. Показывается, когда жанр
+           ещё не выбран; при выборе жанра уступает место списку песен. -->
+      <div class="genre-tiles" id="genreTiles"></div>
+
+      <!-- Липкая кнопка возврата к плиткам: видна всегда, пока открыт список -->
+      <button type="button" class="back-to-genres hidden" id="backToGenresBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>Назад к жанрам</span>
+      </button>
+
+      <!-- Заголовок открытого жанра -->
+      <div class="genre-list-head hidden" id="genreListHead">
+        <h2 class="genre-list-title" id="genreListTitle">—</h2>
+        <button type="button" class="genre-list-collapse" id="genreCollapseBtn">
+          свернуть
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        </button>
+      </div>
+
       <div class="tracks-grid" id="tracksGrid"></div>
 
       <div class="empty-state hidden" id="emptyState">
         <div class="empty-icon" aria-hidden="true">♪</div>
         <h3 id="emptyTitle">Треки не найдены</h3>
         <p id="emptyDesc">Попробуйте выбрать другой жанр.</p>
-        <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Сбросить фильтры</button>
+        <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Назад к жанрам</button>
       </div>
     </section>
   </main>
@@ -705,6 +729,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261127d"></script>
+  <script src="script.js?v=20261127g"></script>
 </body>
 </html>

@@ -78,6 +78,11 @@ const CLIENT_ID = getOrCreateClientId();
 const state = {
   serverMode: false,
   tracks: [...FALLBACK_TRACKS],
+  // tiles: true — открыт экран с плитками жанров (главная по умолчанию).
+  // tiles: false — открыт список песен выбранного жанра (genre).
+  // "all" в genre — список всех песен (широкая плитка «Все песни»).
+  // Выбор НЕ запоминается между заходами: при каждой загрузке снова плитки.
+  tiles: true,
   genre: "all",
   search: "", // поиск убран из интерфейса, поле оставлено для совместимости
   currentTrackId: null,
@@ -105,7 +110,13 @@ const state = {
 // DOM-элементы
 const audio = document.getElementById("audioPlayer");
 const modeBadge = document.getElementById("modeBadge");
+const headerEl = document.querySelector(".header");
 const tracksGrid = document.getElementById("tracksGrid");
+const genreTiles = document.getElementById("genreTiles");
+const backToGenresBtn = document.getElementById("backToGenresBtn");
+const genreListHead = document.getElementById("genreListHead");
+const genreListTitle = document.getElementById("genreListTitle");
+const genreCollapseBtn = document.getElementById("genreCollapseBtn");
 const emptyState = document.getElementById("emptyState");
 const emptyTitle = document.getElementById("emptyTitle");
 const emptyDesc = document.getElementById("emptyDesc");
@@ -3054,9 +3065,209 @@ function syncGenreTabs() {
   }
 }
 
+// ============================================================================
+// Экран жанров (плитки на главной) и список песен выбранного жанра
+// "all" — открыт экран плиток. Иначе — список песен жанра или избранного.
+// ============================================================================
+
+const GENRE_TILE_ORDER = ["chanson", "disco", "discodacha", "deephouse", "ruspop", "other"];
+
+function isTilesMode() {
+  return state.tiles;
+}
+
+// Сколько песен в каждом жанре — для подписи на плитке
+function genreCounts() {
+  const counts = { all: state.tracks.length, favorites: 0 };
+  for (const key of GENRE_TILE_ORDER) counts[key] = 0;
+  for (const t of state.tracks) {
+    if (counts[t.genre] !== undefined) counts[t.genre]++;
+  }
+  const ids = new Set(state.tracks.map((t) => t.id));
+  counts.favorites = Array.from(state.favorites).filter((id) => ids.has(id)).length;
+  return counts;
+}
+
+function pluralSongs(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "песня";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "песни";
+  return "песен";
+}
+
+// Подпись последней отрисовки плиток: если ничего не изменилось, DOM не трогаем.
+// Так плитки не мигают, когда обновляются лайки или комментарии.
+let genreTilesSignature = "";
+
+function renderGenreTiles() {
+  if (!genreTiles) return;
+  const counts = genreCounts();
+
+  const signature = GENRE_TILE_ORDER.map((k) => counts[k]).join("|") + "|" + counts.all + "|" + counts.favorites;
+  if (signature === genreTilesSignature && genreTiles.childElementCount > 0) return;
+  genreTilesSignature = signature;
+
+  const wide = [
+    { key: "all", label: "Все песни", icon: "♫", cls: "tile-all", count: counts.all },
+    { key: "favorites", label: "Избранное", icon: "♥", cls: "tile-favorites", count: counts.favorites },
+  ];
+
+  const wideHtml = wide
+    .map(
+      (item) => `
+        <button type="button" class="genre-tile genre-tile-wide ${item.cls}" data-tile-genre="${item.key}">
+          <span class="genre-tile-icon" aria-hidden="true">${item.icon}</span>
+          <span class="genre-tile-label">${escapeHtml(item.label)}</span>
+          <span class="genre-tile-count">${item.count}</span>
+        </button>`
+    )
+    .join("");
+
+  const tilesHtml = GENRE_TILE_ORDER.map((key) => {
+    const info = GENRES[key];
+    if (!info) return "";
+    const n = counts[key] || 0;
+    return `
+      <button type="button" class="genre-tile tile-${key}" data-tile-genre="${key}" aria-label="${escapeHtml(info.label)}: ${n} ${pluralSongs(n)}">
+        <span class="genre-tile-dot dot-${key}" aria-hidden="true"></span>
+        <span class="genre-tile-label">${escapeHtml(info.label)}</span>
+        <span class="genre-tile-foot">
+          <span class="genre-tile-count">${n}</span>
+          <span class="genre-tile-unit">${pluralSongs(n)}</span>
+        </span>
+      </button>`;
+  }).join("");
+
+  genreTiles.innerHTML = `
+    <div class="genre-tiles-wide">${wideHtml}</div>
+    <div class="genre-tiles-grid">${tilesHtml}</div>
+  `;
+}
+
+// Показывает либо плитки жанров, либо список песен выбранного жанра
+function syncGenreView() {
+  const tiles = isTilesMode();
+
+  genreTiles?.classList.toggle("hidden", !tiles);
+  tracksGrid?.classList.toggle("hidden", tiles);
+  backToGenresBtn?.classList.toggle("hidden", tiles);
+  genreListHead?.classList.toggle("hidden", tiles);
+
+  if (tiles) {
+    emptyState?.classList.add("hidden");
+    return;
+  }
+
+  if (genreListTitle) {
+    const label = genreViewLabel(state.genre);
+    const n = getFilteredTracks().length;
+    genreListTitle.textContent = `${label} · ${n} ${pluralSongs(n)}`;
+  }
+}
+
+// Возврат к плиткам. Вызывается кнопкой, заголовком «свернуть»
+// и системной кнопкой «Назад» на телефоне.
+function backToGenres(options) {
+  if (isTilesMode()) return;
+  state.tiles = true;
+  state.genre = "all";
+  state.search = "";
+  renderAll();
+  if (options?.scroll !== false) {
+    const top = genreTiles?.getBoundingClientRect().top ?? 0;
+    if (top < 0) {
+      window.scrollTo({ top: window.scrollY + top - 90, behavior: "smooth" });
+    }
+  }
+  // Запись истории больше не «открытая» — системная «Назад» снова
+  // ведёт себя как обычно, без лишнего шага.
+  try {
+    history.replaceState({ neuroGenre: "tiles" }, "", location.href);
+  } catch {
+    // не критично
+  }
+}
+
+function openGenre(genre) {
+  if (!genre) return;
+  // Широкая плитка «Все песни» открывает список всех песен
+  if (!isTilesMode() && genre === state.genre) return;
+  state.tiles = false;
+  state.genre = genre;
+  state.search = "";
+  renderAll();
+  // К началу списка: заголовок жанра и кнопка возврата должны быть видны
+  const top = genreListHead?.getBoundingClientRect().top ?? 0;
+  if (top < 0 || top > window.innerHeight * 0.6) {
+    window.scrollTo({ top: window.scrollY + top - 90, behavior: "smooth" });
+  }
+}
+
+// Синхронизация с историей браузера: системная кнопка «Назад» на телефоне
+// возвращает к плиткам, а не выкидывает с сайта.
+function pushGenreHistory() {
+  try {
+    if (!history.state || history.state.neuroGenre !== "open") {
+      history.pushState({ neuroGenre: "open" }, "", location.href);
+    }
+  } catch {
+    // старые браузеры — просто пропускаем
+  }
+}
+
+window.addEventListener("popstate", () => {
+  if (isTilesMode()) return;
+  backToGenres({ scroll: false });
+  try {
+    history.replaceState({ neuroGenre: "tiles" }, "", location.href);
+  } catch {
+    // не критично
+  }
+});
+
+// Реальная высота шапки: на телефоне она складывается в две строки и выше,
+// чем запасное значение из CSS. Липкая кнопка должна вставать точно под ней.
+function syncHeaderHeight() {
+  if (!headerEl || !document.documentElement) return;
+  const h = headerEl.getBoundingClientRect().height;
+  if (h > 20) {
+    document.documentElement.style.setProperty("--header-h", `${Math.round(h)}px`);
+  }
+}
+
+syncHeaderHeight();
+// Шапка «прыгает» при перестройке кнопок (владелец/гость) — следим за ней
+if (typeof ResizeObserver === "function" && headerEl) {
+  new ResizeObserver(syncHeaderHeight).observe(headerEl);
+}
+window.addEventListener("resize", syncHeaderHeight, { passive: true });
+window.addEventListener("orientationchange", () => setTimeout(syncHeaderHeight, 120));
+document.fonts?.ready?.then(syncHeaderHeight).catch(() => {});
+
+// --- Обработчики экрана жанров ---
+genreTiles?.addEventListener("click", (e) => {
+  const tile = e.target.closest("[data-tile-genre]");
+  if (!tile) return;
+  const genre = tile.getAttribute("data-tile-genre");
+  if (!genre) return;
+  pushGenreHistory();
+  openGenre(genre);
+});
+
+backToGenresBtn?.addEventListener("click", () => backToGenres());
+genreCollapseBtn?.addEventListener("click", () => backToGenres());
+
 // Отрисовка списка треков
 function renderTracks() {
   updateCounts();
+  if (isTilesMode()) {
+    // На главной вместо песен — плитки жанров, пустое состояние не нужно
+    tracksGrid.innerHTML = "";
+    emptyState?.classList.add("hidden");
+    syncGenreView();
+    return;
+  }
   const list = getFilteredTracks();
 
   if (list.length === 0) {
@@ -3073,6 +3284,7 @@ function renderTracks() {
   }
 
   emptyState.classList.add("hidden");
+  syncGenreView();
 
   tracksGrid.innerHTML = list
     .map((track) => {
@@ -3238,6 +3450,8 @@ function syncBackgroundMood() {
 
 function renderAll() {
   syncGenreTabs();
+  renderGenreTiles();
+  syncGenreView();
   renderTracks();
   syncBackgroundMood();
 }
@@ -3553,17 +3767,25 @@ genreTabs.addEventListener("click", (e) => {
   const genre = btn.getAttribute("data-genre");
   if (!genre) return;
 
-  if (genre === state.genre && !isGenreMenuOpen()) return;
+  if (genre === state.genre && !state.tiles && !isGenreMenuOpen()) return;
 
+  // Из меню можно открыть и «Все песни» — это тоже уход с экрана плиток
+  if (state.tiles || genre !== "all") pushGenreHistory();
+  state.tiles = false;
   state.genre = genre;
+  state.search = "";
   setGenreMenuOpen(false);
   renderAll();
+
+  // Прокрутим к началу списка, чтобы кнопка возврата была на виду
+  const listTop = genreListHead?.getBoundingClientRect().top ?? 0;
+  if (listTop > window.innerHeight * 0.6 || listTop < 0) {
+    window.scrollTo({ top: window.scrollY + listTop - 90, behavior: "smooth" });
+  }
 });
 
 resetFiltersBtn.addEventListener("click", () => {
-  state.genre = "all";
-  state.search = "";
-  renderAll();
+  backToGenres();
 });
 
 rescanBtn.addEventListener("click", () => loadTracksFromServer(true));
