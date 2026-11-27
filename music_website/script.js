@@ -169,6 +169,13 @@ const commentTextInput = document.getElementById("commentTextInput");
 const commentSubmitBtn = document.getElementById("commentSubmitBtn");
 
 // Удаление трека (только владельцу)
+const renameTrackModal = document.getElementById("renameTrackModal");
+const renameTrackCurrent = document.getElementById("renameTrackCurrent");
+const renameTitleInput = document.getElementById("renameTitleInput");
+const renameArtistInput = document.getElementById("renameArtistInput");
+const renameProgress = document.getElementById("renameProgress");
+const renameTrackForm = document.getElementById("renameTrackForm");
+const confirmRenameTrackBtn = document.getElementById("confirmRenameTrackBtn");
 const deleteTrackModal = document.getElementById("deleteTrackModal");
 const deleteTrackName = document.getElementById("deleteTrackName");
 const deleteProgress = document.getElementById("deleteProgress");
@@ -2165,6 +2172,150 @@ ownerTokenCheckBtn?.addEventListener("click", async () => {
   }
 });
 
+// ============================================================================
+// Переименование песни владельцем
+// Название и исполнитель пишутся в tracks/metadata.json — аудиофайл при этом
+// не переименовывается. Значит не ломаются ссылки на песню, её лайки,
+// комментарии и избранное: они привязаны к пути файла, а он остаётся прежним.
+// На GitHub Pages — через GitHub API, на локальном сервере — через /api/rename.
+// ============================================================================
+
+const METADATA_PATH = "music_website/tracks/metadata.json";
+
+let pendingRenameTrackId = null;
+let renamingInFlight = false;
+
+function setRenameProgress(text, kind) {
+  if (!renameProgress) return;
+  renameProgress.textContent = text || "";
+  renameProgress.classList.toggle("is-error", kind === "error");
+  renameProgress.classList.toggle("is-ok", kind === "ok");
+}
+
+function openRenameTrackModal(trackId) {
+  const track = state.tracks.find((t) => t.id === trackId);
+  if (!track || !renameTrackModal) return;
+
+  pendingRenameTrackId = trackId;
+  if (renameTrackCurrent) {
+    renameTrackCurrent.textContent = `Сейчас: «${track.title}» — ${track.artist || "без исполнителя"}`;
+  }
+  if (renameTitleInput) renameTitleInput.value = track.title || "";
+  if (renameArtistInput) {
+    // «Моя коллекция» и «Неизвестный исполнитель» — служебные подписи, а не имя
+    const artist = track.artist || "";
+    const isService = /^(Моя коллекция|Неизвестный исполнитель)$/i.test(artist.trim());
+    renameArtistInput.value = isService ? "" : artist;
+  }
+
+  setRenameProgress("");
+  renameTrackModal.classList.remove("hidden");
+  if (renameTitleInput) {
+    renameTitleInput.focus();
+    renameTitleInput.select();
+  }
+}
+
+function closeRenameTrackModal() {
+  if (renamingInFlight) return;
+  renameTrackModal?.classList.add("hidden");
+  pendingRenameTrackId = null;
+  setRenameProgress("");
+}
+
+// Читает metadata.json из репозитория: { json, sha } либо пустой объект
+async function ghReadMetadata() {
+  const info = await ghGetFile(METADATA_PATH);
+  if (!info || !info.content) return { json: {}, sha: info?.sha || null };
+  try {
+    const parsed = JSON.parse(decodeGithubContent(info.content));
+    return { json: parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}, sha: info.sha };
+  } catch {
+    return { json: {}, sha: info.sha };
+  }
+}
+
+// Записывает metadata.json. Возвращает true при успехе.
+async function ghWriteMetadata(json, sha, message) {
+  const content = encodeGithubContent(JSON.stringify(json, null, 2) + "\n");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(ghContentsUrl(METADATA_PATH), {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        content,
+        branch: GITHUB_BRANCH,
+        ...(sha ? { sha } : {}),
+      }),
+    });
+    if (res.ok) return true;
+
+    // 409 — файл успели изменить. Перечитываем sha и пробуем ещё раз.
+    if (res.status === 409) {
+      const fresh = await ghGetFile(METADATA_PATH);
+      sha = fresh?.sha || null;
+      continue;
+    }
+    const err = new Error(`GitHub ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return false;
+}
+
+// Ищет в metadata.json ключ для трека: точный путь, а если его нет —
+// существующий ключ с тем же именем файла (на случай иной формы юникода).
+function findMetadataKey(meta, track) {
+  const candidates = [track.src, track.id].filter(Boolean).map((v) => repoPathForWrite(v));
+  for (const c of candidates) {
+    if (c && Object.prototype.hasOwnProperty.call(meta, c)) return c;
+  }
+  const wanted = candidates
+    .filter(Boolean)
+    .map((c) => c.normalize("NFC").toLowerCase());
+  for (const key of Object.keys(meta)) {
+    if (wanted.includes(key.normalize("NFC").toLowerCase())) return key;
+  }
+  return candidates.find(Boolean) || "";
+}
+
+async function renameTrackEverywhere(track, title, artist) {
+  if (state.serverMode) {
+    const res = await fetch("/api/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trackId: track.id || track.src, title, artist }),
+    });
+    if (!res.ok) {
+      const msg = await res.json().catch(() => ({}));
+      throw new Error(msg.error || "Не удалось сохранить название на сервере");
+    }
+    return;
+  }
+
+  if (!getGithubToken()) {
+    const err = new Error("Нужен токен GitHub — введите его в панели владельца.");
+    err.code = "NO_TOKEN";
+    throw err;
+  }
+
+  setRenameProgress("Читаем список названий…");
+  const { json, sha } = await ghReadMetadata();
+  const key = findMetadataKey(json, track);
+  if (!key) throw new Error("Не удалось определить путь трека в репозитории.");
+
+  const entry = { ...(json[key] || {}) };
+  entry.title = title;
+  if (artist) entry.artist = artist;
+  else delete entry.artist;
+  json[key] = entry;
+
+  setRenameProgress("Сохраняем на GitHub…");
+  const ok = await ghWriteMetadata(json, sha, `Rename "${track.title}" to "${title}"`);
+  if (!ok) throw new Error("GitHub не принял изменение. Попробуйте ещё раз.");
+}
+
 // --- GitHub API: получить/удалить файл по пути в репозитории ---
 const GH_API = "https://api.github.com";
 
@@ -2377,6 +2528,70 @@ async function ghDeleteTrackFromIndex(track) {
   }
   return false;
 }
+
+// --- Обработчики окна переименования ---
+document.getElementById("closeRenameTrackBtn")?.addEventListener("click", closeRenameTrackModal);
+document.getElementById("cancelRenameTrackBtn")?.addEventListener("click", closeRenameTrackModal);
+renameTrackModal?.addEventListener("click", (e) => {
+  if (e.target === renameTrackModal) closeRenameTrackModal();
+});
+
+renameTrackForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (renamingInFlight) return;
+
+  const track = state.tracks.find((t) => t.id === pendingRenameTrackId);
+  if (!track) return;
+
+  const title = (renameTitleInput?.value || "").trim();
+  const artist = (renameArtistInput?.value || "").trim();
+
+  if (!title) {
+    setRenameProgress("Введите название песни.", "error");
+    renameTitleInput?.focus();
+    return;
+  }
+
+  const oldTitle = track.title;
+  const oldArtist = track.artist;
+  if (title === oldTitle && artist === (oldArtist || "")) {
+    setRenameProgress("Название не изменилось.", "error");
+    return;
+  }
+
+  if (!state.serverMode && !getGithubToken()) {
+    setRenameProgress("Сначала вставьте токен GitHub в панели владельца и нажмите «Сохранить».", "error");
+    return;
+  }
+
+  renamingInFlight = true;
+  if (confirmRenameTrackBtn) confirmRenameTrackBtn.disabled = true;
+  setRenameProgress("Сохраняем…");
+
+  try {
+    await renameTrackEverywhere(track, title, artist);
+
+    // Обновляем и список на странице, и открытый плеер
+    track.title = title;
+    if (artist) track.artist = artist;
+    else if (oldArtist) track.artist = oldArtist;
+    renderTracks();
+    updatePlayerUI();
+    if (state.currentTrackId === track.id) {
+      document.title = `${title} — НейроДвиж`;
+    }
+
+    setRenameProgress("Готово — название сохранено.", "ok");
+    showToast(`Переименовано: «${title}»`);
+    setTimeout(() => closeRenameTrackModal(), 900);
+  } catch (err) {
+    console.error(err);
+    setRenameProgress(err?.message || "Не удалось переименовать песню.", "error");
+  } finally {
+    renamingInFlight = false;
+    if (confirmRenameTrackBtn) confirmRenameTrackBtn.disabled = false;
+  }
+});
 
 function setDeleteProgress(text) {
   if (deleteProgress) deleteProgress.textContent = text || "";
@@ -2896,6 +3111,22 @@ function renderTracks() {
             </div>`
         : "";
 
+      const renameTrackHtml = showOwner
+        ? `<button
+              type="button"
+              class="track-rename-btn"
+              data-action="rename"
+              data-id="${escapeHtml(track.id)}"
+              title="Переименовать песню"
+              aria-label="Переименовать ${escapeHtml(track.title)}"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              </svg>
+            </button>`
+        : "";
+
       const deleteTrackHtml = showOwner
         ? `<button
               type="button"
@@ -2916,6 +3147,7 @@ function renderTracks() {
 
       return `
         <article class="${cardClass}" data-id="${escapeHtml(track.id)}">
+          ${renameTrackHtml}
           ${deleteTrackHtml}
           <div class="track-cover cover-${escapeHtml(track.genre)}" data-action="toggle" data-id="${escapeHtml(track.id)}">
             ${coverHtml}
@@ -3351,6 +3583,9 @@ tracksGrid.addEventListener("click", (e) => {
     state.coverTargetTrackId = id;
     changeCoverInput.value = "";
     changeCoverInput.click();
+  } else if (action === "rename") {
+    e.stopPropagation();
+    openRenameTrackModal(id);
   } else if (action === "delete") {
     e.stopPropagation();
     openDeleteTrackModal(id);
