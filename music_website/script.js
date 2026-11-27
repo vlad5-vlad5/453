@@ -2074,7 +2074,7 @@ function syncOwnerTokenUI() {
     ownerTokenHint.innerHTML = token
       ? "Токен сохранён в этом браузере — кнопки удаления работают. Чтобы стереть, нажмите «Забыть»."
       : `Токен нужен только для удаления песен на GitHub Pages. Создать:
-         <a href="https://github.com/settings/tokens/new?scopes=repo&description=Моя%20Новая%20Музыка" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
+         <a href="https://github.com/settings/tokens/new?scopes=repo&description=НейроДвиж" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
          галочка <code>repo</code>. Токен не сохраняется в коде сайта.`;
   }
 }
@@ -3070,7 +3070,7 @@ function updateMediaSession(track) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: `${track.artist} · ${genreInfo.label}`,
-      album: "Моя Новая Музыка",
+      album: "НейроДвиж",
       artwork,
     });
     navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
