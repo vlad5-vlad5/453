@@ -186,16 +186,26 @@ body.music-playing .aurora-photo {
   gap: 14px;
 }
 
+/* Логотип «НейроДвиж» — жёлтая волна + фиолетовая нейросеть на синей плашке */
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background: #0b1030;
   display: grid;
   place-items: center;
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(124, 92, 255, 0.38);
+  overflow: hidden;
+  box-shadow:
+    0 8px 24px rgba(124, 92, 255, 0.34),
+    0 0 0 1px rgba(163, 230, 53, 0.22);
   flex-shrink: 0;
+}
+
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .brand-logo svg {
@@ -204,10 +214,14 @@ body.music-playing .aurora-photo {
 }
 
 .brand-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   line-height: 1.2;
+  background: linear-gradient(100deg, #ffffff 0%, #eaff6a 58%, #a5f3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .brand-subtitle {
@@ -2148,6 +2162,21 @@ body.music-playing .aurora-photo {
     gap: 12px;
     padding-top: 12px;
     padding-bottom: 12px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .brand-title {
+    font-size: 1.14rem;
+    letter-spacing: 0;
+  }
+
+  .brand-subtitle {
+    font-size: 0.72rem;
   }
 
   .header-actions {
