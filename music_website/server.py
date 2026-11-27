@@ -77,6 +77,14 @@ def save_social(data: dict) -> None:
     )
 
 
+def clean_display_text(text: str) -> str:
+    """Убирает технические теги и лишние пробелы из названия песни."""
+    cleaned = re.sub(r"\[[^\]]*\]", "", str(text or ""))
+    cleaned = re.sub(r"[_]+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def sanitize_filename(name: str, fallback: str = "track") -> str:
     name = os.path.basename(name or "").strip()
     stem, ext = os.path.splitext(name)
@@ -292,6 +300,9 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/delete-track":
             self.handle_delete_track()
+            return
+        if parsed.path == "/api/rename":
+            self.handle_rename_track()
             return
         self.send_json(404, {"error": "Маршрут не найден."})
 
@@ -533,6 +544,53 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         sync_tracks_index()
 
         self.send_json(200, {"cover": rel_cover})
+
+    def handle_rename_track(self) -> None:
+        """Меняет название и исполнителя, не трогая аудиофайл.
+
+        Правка ложится в tracks/metadata.json, поэтому имя файла остаётся
+        прежним и ссылки у тех, кто уже слушает, не ломаются.
+        """
+        data = self.read_json_body()
+        if data is None:
+            return
+
+        track_id = str(data.get("trackId", "") or "").replace("\\", "/")
+        title = clean_display_text(str(data.get("title", "") or ""))
+        artist = clean_display_text(str(data.get("artist", "") or ""))
+
+        target = (BASE_DIR / track_id).resolve()
+        try:
+            target.relative_to(TRACKS_DIR.resolve())
+        except ValueError:
+            self.send_json(400, {"error": "Недопустимый путь трека."})
+            return
+
+        if not target.is_file():
+            self.send_json(404, {"error": "Трек не найден на диске."})
+            return
+
+        if not title:
+            self.send_json(400, {"error": "Название не может быть пустым."})
+            return
+
+        rel = target.relative_to(BASE_DIR).as_posix()
+        meta = load_metadata()
+        entry = meta.get(rel, {})
+        entry["title"] = title
+        if artist:
+            entry["artist"] = artist
+        else:
+            entry.pop("artist", None)
+        meta[rel] = entry
+        save_metadata(meta)
+
+        try:
+            sync_tracks_index()
+        except Exception:
+            pass
+
+        self.send_json(200, {"ok": True, "title": title, "artist": artist})
 
 
 def main():

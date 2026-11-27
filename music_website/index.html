@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261127b" />
+  <link rel="stylesheet" href="style.css?v=20261127c" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -652,6 +652,46 @@
     </div>
   </div>
 
+  <!-- Переименование песни владельцем -->
+  <div class="modal-backdrop hidden" id="renameTrackModal" role="dialog" aria-modal="true" aria-labelledby="renameTrackTitle">
+    <div class="modal-card rename-modal-card">
+      <div class="modal-header">
+        <h2 id="renameTrackTitle">Переименовать песню</h2>
+        <button type="button" class="icon-btn" id="closeRenameTrackBtn" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="rename-current" id="renameTrackCurrent">—</p>
+
+      <form class="modal-form" id="renameTrackForm">
+        <label class="form-field">
+          <span>Название песни</span>
+          <input type="text" id="renameTitleInput" maxlength="120" autocomplete="off" required />
+        </label>
+
+        <label class="form-field">
+          <span>Исполнитель</span>
+          <input type="text" id="renameArtistInput" maxlength="80" autocomplete="off" placeholder="Можно оставить пустым" />
+        </label>
+
+        <div class="rename-progress" id="renameProgress" aria-live="polite"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="cancelRenameTrackBtn">Отмена</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="confirmRenameTrackBtn">Сохранить</button>
+        </div>
+      </form>
+
+      <p class="rename-hint">
+        Название меняется без переименования файла — песни, лайки и избранное остаются на месте.
+      </p>
+    </div>
+  </div>
+
   <!-- Скрытый input для быстрой смены обложки любого трека -->
   <input type="file" id="changeCoverInput" accept="image/*" hidden />
 
@@ -659,6 +699,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261127a"></script>
+  <script src="script.js?v=20261127c"></script>
 </body>
 </html>
