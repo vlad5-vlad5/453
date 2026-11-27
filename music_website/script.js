@@ -1,7 +1,10 @@
 // Справочник жанров
 const GENRES = {
   chanson: { label: "Шансон", icon: "🎸", folder: "tracks/chanson" },
-  disco: { label: "Диско", icon: "★", folder: "tracks/disco" },
+  // Ключ жанра остаётся "disco": к нему привязаны пути файлов, а значит
+  // лайки, комментарии и избранное. Меняется только подпись на сайте.
+  disco: { label: "ЕвроДиско", icon: "★", folder: "tracks/disco" },
+  discodacha: { label: "ДискоДача", icon: "☀", folder: "tracks/discodacha" },
   deephouse: { label: "ДипХаус", icon: "⚡", folder: "tracks/deephouse" },
   ruspop: { label: "Русская Поп-музыка", icon: "🎤", folder: "tracks/ruspop" },
   other: { label: "Разное", icon: "♫", folder: "tracks/other" },
@@ -3010,6 +3013,7 @@ function updateCounts() {
     favorites: Array.from(state.favorites).filter((id) => existingIds.has(id)).length,
     chanson: 0,
     disco: 0,
+    discodacha: 0,
     deephouse: 0,
     ruspop: 0,
     other: 0,

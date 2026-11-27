@@ -17,6 +17,8 @@
 
   --grad-chanson: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
   --grad-disco: linear-gradient(135deg, #c026d3 0%, #fb7185 100%);
+  /* ДискоДача — тёплое лето: закатный оранжевый и солнечный жёлтый */
+  --grad-discodacha: linear-gradient(135deg, #f97316 0%, #facc15 100%);
   --grad-deephouse: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
   --grad-ruspop: linear-gradient(135deg, #e11d48 0%, #fb923c 100%);
   --grad-other: linear-gradient(135deg, #059669 0%, #14b8a6 100%);
@@ -41,6 +43,13 @@ body[data-theme="disco"] {
   --aurora-2: #f43f5e;
   --aurora-3: #38bdf8;
   --aurora-4: #a855f7;
+}
+
+body[data-theme="discodacha"] {
+  --aurora-1: #f97316;
+  --aurora-2: #facc15;
+  --aurora-3: #fb7185;
+  --aurora-4: #fdba74;
 }
 
 body[data-theme="deephouse"] {
@@ -768,6 +777,7 @@ body.music-playing .aurora-photo {
 .dot-all { background: linear-gradient(135deg, #eaff6a, #a3e635); box-shadow: 0 0 10px #c8f560; }
 .dot-chanson { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
 .dot-disco { background: #e879f9; box-shadow: 0 0 10px #e879f9; }
+.dot-discodacha { background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
 .dot-deephouse { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
 .dot-ruspop { background: #fb7185; box-shadow: 0 0 10px #fb7185; }
 .dot-other { background: #34d399; box-shadow: 0 0 10px #34d399; }
@@ -961,6 +971,7 @@ body.music-playing .aurora-photo {
 
 .cover-chanson { background: var(--grad-chanson); }
 .cover-disco { background: var(--grad-disco); }
+.cover-discodacha { background: var(--grad-discodacha); }
 .cover-deephouse { background: var(--grad-deephouse); }
 .cover-ruspop { background: var(--grad-ruspop); }
 .cover-other { background: var(--grad-other); }
