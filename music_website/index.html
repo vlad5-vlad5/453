@@ -25,12 +25,17 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261231a" />
+  <link rel="stylesheet" href="style.css?v=20261232a" />
 </head>
 <body>
-  <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
+  <!-- Фон: чёрно-белый дуэт, поверх него — свет выбранного жанра и снег -->
   <div class="aurora-bg" aria-hidden="true">
     <div class="aurora-photo"></div>
+    <!-- Свои снимки сцены для отдельных жанров; проявляются плавно -->
+    <div class="aurora-photo-genre is-chanson"></div>
+    <div class="aurora-photo-genre is-ruspop"></div>
+    <!-- Свет жанра: цвета берутся из палитры выбранного жанра -->
+    <div class="aurora-theme"></div>
     <div class="aurora-photo-vignette"></div>
     <canvas id="snowCanvas" class="snow-canvas"></canvas>
   </div>
@@ -38,9 +43,15 @@
   <header class="header">
     <div class="container header-inner">
       <div class="brand">
-        <div class="brand-logo" aria-hidden="true">
-          <img src="assets/logo-icon.png" alt="" width="44" height="44" />
-        </div>
+        <button
+          type="button"
+          class="brand-logo"
+          id="brandLogo"
+          title="НейроДоза — нажми, она отряхнётся"
+          aria-label="НейроДоза"
+        >
+          <img src="assets/logo-icon.png?v=20261231c" alt="" width="44" height="44" />
+        </button>
         <div>
           <h1 class="brand-title">НейроДоза</h1>
           <p class="brand-subtitle" id="modeBadge">Заряди свой мозг музыкой</p>
@@ -742,6 +753,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261231a"></script>
+  <script src="script.js?v=20261232a"></script>
 </body>
 </html>

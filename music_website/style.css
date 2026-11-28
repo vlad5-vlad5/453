@@ -142,8 +142,100 @@ body {
   transition: filter 0.8s ease;
 }
 
+/* Снимки отдельных жанров лежат отдельными слоями поверх общего дуэта:
+   у слоя своя картинка, поэтому он меняет только прозрачность, и смена
+   сцены получается плавной, без рывка и повторной загрузки.
+   Шансон — двое у микрофона и женщина между ними.
+   Русская поп-музыка — трое на свету софитов. */
+.aurora-photo-genre {
+  position: absolute;
+  inset: 0;
+  background-position: 50% 26%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: grayscale(100%) contrast(1.12) brightness(0.92);
+  opacity: 0;
+  transition: opacity 0.9s ease, filter 0.8s ease;
+  pointer-events: none;
+}
+
+.aurora-photo-genre.is-chanson {
+  background-image: url("assets/bg-chanson.jpg?v=20261124n");
+}
+
+.aurora-photo-genre.is-ruspop {
+  background-image: url("assets/bg-ruspop.jpg?v=20261124n");
+}
+
+body[data-theme="chanson"] .aurora-photo-genre.is-chanson,
+body[data-theme="ruspop"] .aurora-photo-genre.is-ruspop {
+  opacity: 1;
+}
+
+body.music-playing .aurora-photo-genre {
+  filter: grayscale(100%) contrast(1.15) brightness(0.98);
+}
+
 body.music-playing .aurora-photo {
   filter: grayscale(100%) contrast(1.15) brightness(0.98);
+}
+
+/* Свет жанра. Палитры --aurora-1..4 объявлены выше для каждого жанра
+   (body[data-theme="..."]), но до этого ни к чему не были подключены.
+   Четыре пятна лежат между фотографией и виньеткой: фото остаётся
+   чёрно-белым, а цвет приходит из жанра — как софиты на сцене.
+   Переключение жанра меняет только цвета переменных, поэтому переход
+   плавный и без перерисовки картинки. */
+.aurora-theme {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 62% at 16% 8%, color-mix(in srgb, var(--aurora-1) 62%, transparent) 0%, transparent 68%),
+    radial-gradient(52% 56% at 86% 24%, color-mix(in srgb, var(--aurora-2) 52%, transparent) 0%, transparent 66%),
+    radial-gradient(64% 58% at 74% 96%, color-mix(in srgb, var(--aurora-3) 46%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 50% at 34% 74%, color-mix(in srgb, var(--aurora-4) 42%, transparent) 0%, transparent 68%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  transition: opacity 0.9s ease;
+}
+
+/* Пока музыка играет, свет жанра заметнее — сцена «включается» */
+body.music-playing .aurora-theme {
+  opacity: 0.78;
+}
+
+/* Цветной отблеск жанра на шапке: видно даже когда фон затемнён контентом */
+.header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--aurora-1) 26%, transparent) 0%,
+    transparent 45%,
+    color-mix(in srgb, var(--aurora-3) 22%, transparent) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+body[data-theme] .header::after {
+  opacity: 1;
+}
+
+/* Экран с плитками жанров — палитра по умолчанию (фиолет, бирюза, розовый) */
+body:not([data-theme]) .aurora-theme {
+  opacity: 0.42;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-theme,
+  .aurora-photo-genre,
+  .header::after {
+    transition: none;
+  }
 }
 
 .aurora-photo-vignette {
@@ -169,6 +261,11 @@ body.music-playing .aurora-photo {
 @media (max-width: 720px) {
   .aurora-photo {
     background-position: 50% 18%;
+  }
+
+  /* На телефоне сцена уже, кадр обрезается по краям — держим лица по центру */
+  .aurora-photo-genre {
+    background-position: 50% 22%;
   }
 }
 
@@ -212,7 +309,9 @@ body.music-playing .aurora-photo {
   gap: 14px;
 }
 
-/* Логотип «НейроДоза» — жёлтая волна + фиолетовая нейросеть на синей плашке */
+/* Логотип «НейроДоза» — жёлтая волна + фиолетовая нейросеть на синей плашке.
+   Это кнопка: по нажатию плашка раскручивается и отбрасывает искры
+   (логика в script.js, слой холста — .logo-sparks ниже). */
 .brand-logo {
   position: relative;
   width: 46px;
@@ -222,12 +321,43 @@ body.music-playing .aurora-photo {
   display: grid;
   place-items: center;
   overflow: hidden;
+  /* Сбрасываем вид кнопки по умолчанию: плашка должна выглядеть как раньше */
+  padding: 0;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transform-origin: 50% 50%;
   box-shadow:
     0 8px 24px rgba(124, 92, 255, 0.34),
     0 0 0 1px rgba(163, 230, 53, 0.22);
   flex-shrink: 0;
   /* Свечение плашки в такт блику — заметно, но не слепит */
   animation: logoGlow 4.2s ease-in-out infinite;
+}
+
+/* Наведение только там, где есть мышь: на телефоне hover «залипает» */
+@media (hover: hover) {
+  .brand-logo:hover {
+    transform: scale(1.04);
+  }
+
+  .brand-logo:hover img {
+    transform: scale(1.08);
+  }
+}
+
+.brand-logo:focus-visible {
+  outline: 2px solid rgba(234, 255, 106, 0.85);
+  outline-offset: 3px;
+}
+
+.brand-logo:active {
+  transform: scale(0.96);
 }
 
 .brand-logo img {
@@ -237,6 +367,8 @@ body.music-playing .aurora-photo {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.28s ease;
+  transform-origin: 50% 50%;
 }
 
 /* Блик по эмблеме: широкая световая полоса пробегает по плашке по диагонали.
@@ -288,8 +420,35 @@ body.music-playing .aurora-photo {
   }
 }
 
+/* Отряхивание по нажатию. Угол плашки считает JavaScript (затухающая
+   синусоида в script.js) и пишет его прямо в inline-стиль: так угол плашки и
+   скорость срыва искр — это одна и та же формула, и картинка с брызгами
+   разъехаться не может. Здесь только подсветка на время отряхивания.
+   Вращение идёт вокруг центра, а не вокруг угла плашки. */
+.brand-logo.is-shaking {
+  box-shadow:
+    0 10px 34px rgba(124, 92, 255, 0.62),
+    0 0 26px rgba(234, 255, 106, 0.55),
+    0 0 0 1px rgba(234, 255, 106, 0.6);
+  /* logoGlow не включаем: пока идёт отряхивание, она перебивала бы transform */
+  animation: none;
+  will-change: transform;
+}
+
+/* Слой искр: холст на всё окно поверх шапки и плеера, но под модалками и
+   тостами. Появляется только на время эффекта и потом удаляется из DOM. */
+.logo-sparks {
+  position: absolute;
+  left: 0;
+  z-index: 40;
+  pointer-events: none;
+  /* Холст не должен влиять на прокрутку и отрисовку страницы */
+  contain: layout paint;
+}
+
 /* Уважаем системную настройку «уменьшить движение»: блик остаётся,
-   но замирает в статичном положении, а плашка не пульсирует */
+   но замирает в статичном положении, а плашка не пульсирует.
+   Нажатие не трясёт плашку — остаётся короткая вспышка и сноп искр. */
 @media (prefers-reduced-motion: reduce) {
   .brand-logo {
     animation: none;
@@ -299,6 +458,34 @@ body.music-playing .aurora-photo {
     animation: none;
     left: 40%;
     opacity: 0.35;
+  }
+
+  .brand-logo.is-shaking {
+    animation: logoPressGlow 0.5s ease-out both;
+  }
+
+  .brand-logo:hover,
+  .brand-logo:active,
+  .brand-logo:hover img {
+    transform: none;
+  }
+
+  .brand-logo img {
+    transition: none;
+  }
+}
+
+@keyframes logoPressGlow {
+  0% {
+    box-shadow:
+      0 10px 34px rgba(124, 92, 255, 0.62),
+      0 0 26px rgba(234, 255, 106, 0.55),
+      0 0 0 1px rgba(234, 255, 106, 0.6);
+  }
+  100% {
+    box-shadow:
+      0 8px 24px rgba(124, 92, 255, 0.34),
+      0 0 0 1px rgba(163, 230, 53, 0.22);
   }
 }
 
