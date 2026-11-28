@@ -2094,7 +2094,7 @@ function syncOwnerTokenUI() {
     ownerTokenHint.innerHTML = token
       ? "Токен сохранён в этом браузере — кнопки удаления работают. Чтобы стереть, нажмите «Забыть»."
       : `Токен нужен только для удаления песен на GitHub Pages. Создать:
-         <a href="https://github.com/settings/tokens/new?scopes=repo&description=НейроДвиж" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
+         <a href="https://github.com/settings/tokens/new?scopes=repo&description=НейроДоза" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic)</a>,
          галочка <code>repo</code>. Токен не сохраняется в коде сайта.`;
   }
 }
@@ -2590,7 +2590,7 @@ renameTrackForm?.addEventListener("submit", async (e) => {
     renderTracks();
     updatePlayerUI();
     if (state.currentTrackId === track.id) {
-      document.title = `${title} — НейроДвиж`;
+      document.title = `${title} — НейроДоза`;
     }
 
     setRenameProgress("Готово — название сохранено.", "ok");
@@ -2797,7 +2797,7 @@ async function loadTracksFromServer(notify = false) {
     if (Array.isArray(data.tracks)) {
       state.serverMode = true;
       state.tracks = data.tracks;
-      modeBadge.textContent = "Коллекция музыки по жанрам";
+      modeBadge.textContent = "Заряди свой мозг музыкой";
       rescanBtn.classList.remove("hidden");
       syncOwnerControls();
       await loadSocialData();
@@ -2809,7 +2809,7 @@ async function loadTracksFromServer(notify = false) {
     }
   } catch {
     state.serverMode = false;
-    modeBadge.textContent = "Коллекция музыки по жанрам";
+    modeBadge.textContent = "Заряди свой мозг музыкой";
     rescanBtn.classList.remove("hidden");
     syncOwnerControls();
 
@@ -2835,7 +2835,7 @@ async function loadTracksFromServer(notify = false) {
     );
     if (emptyGenres.length > 0) {
       console.info(
-        "[НейроДвиж] Жанры без треков:",
+        "[НейроДоза] Жанры без треков:",
         emptyGenres.join(", "),
         "— проверьте, что tracks.json пересобран (build_tracks_index.py) и запушен"
       );
@@ -2851,7 +2851,7 @@ async function loadTracksFromServer(notify = false) {
     );
     if (stillEmpty.length > 0) {
       console.warn(
-        "[НейроДвиж] Песни этих жанров не загрузились (tracks.json устарел, GitHub API недоступен):",
+        "[НейроДоза] Песни этих жанров не загрузились (tracks.json устарел, GitHub API недоступен):",
         stillEmpty.join(", ")
       );
     }
@@ -3523,7 +3523,7 @@ function updateMediaSession(track) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: `${track.artist} · ${genreInfo.label}`,
-      album: "НейроДвиж",
+      album: "НейроДоза",
       artwork,
     });
     navigator.mediaSession.playbackState = state.isPlaying ? "playing" : "paused";
