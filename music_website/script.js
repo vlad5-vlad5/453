@@ -4969,6 +4969,147 @@ const IS_STANDALONE = () => {
   }
 };
 
+// --- Отложенное обновление: не рвём музыку тем, кто слушает прямо сейчас ---
+//
+// Как было: новый service worker вызывал skipWaiting() сразу после установки,
+// у открытых страниц менялся контроллер, и обработчик controllerchange делал
+// location.reload(). У гостя посреди песни всё обрывалось.
+//
+// Как стало: новая версия спокойно ждёт в состоянии «waiting». Страница
+// переключается на неё только в безопасный момент:
+//   • музыка не играет (пауза, конец трека, трек не выбран);
+//   • страница не активна (гость свернул приложение);
+//   • гость сам нажал «Обновить».
+// Перед перезагрузкой сохраняем открытый жанр и текущий трек, чтобы ничего
+// не потерялось.
+
+const LS_UPDATE_RESTORE = "soundwave_update_restore_v1";
+
+let swRegistration = null;
+let updateReloading = false;
+let updateBannerShown = false;
+
+// Можно ли прямо сейчас незаметно перезагрузить приложение
+function canApplyUpdateSilently() {
+  const playing = Boolean(state.isPlaying) && !audio.paused && !audio.ended;
+  return !playing;
+}
+
+// Показываем плашку «вышло обновление» (только один раз за сессию)
+function showUpdateToast() {
+  if (updateBannerShown) return;
+  updateBannerShown = true;
+  showToast("Вышло обновление — применим, как только поставите паузу");
+}
+
+function setUpdateToastApplied() {
+  if (!updateBannerShown) return;
+  showToast("Обновляем приложение…");
+}
+
+// Кнопка «Обновить» в шапке: видна только когда новая версия уже ждёт.
+// Гость может применить обновление сам, не дожидаясь паузы.
+function emitUpdateUi() {
+  const btn = document.getElementById("updateHeaderBtn");
+  if (!btn) return;
+  const has = Boolean(swRegistration?.waiting);
+  btn.classList.toggle("hidden", !has);
+  if (has) {
+    btn.title = state.isPlaying
+      ? "Обновить приложение (музыка прервётся и продолжится с того же места)"
+      : "Обновить приложение";
+  }
+}
+
+// Перезагружаемся в новую версию, сохранив, где гость находился
+function applyUpdateNow() {
+  if (updateReloading) return;
+  const waiting = swRegistration?.waiting;
+  if (!waiting) return;
+  updateReloading = true;
+
+  try {
+    localStorage.setItem(
+      LS_UPDATE_RESTORE,
+      JSON.stringify({
+        trackId: state.currentTrackId || null,
+        trackTime: Number(audio.currentTime) || 0,
+        genre: state.tiles ? null : state.genre,
+        at: Date.now(),
+      })
+    );
+  } catch {
+    // приватный режим — просто перезагрузимся
+  }
+
+  setUpdateToastApplied();
+  waiting.postMessage("SKIP_WAITING");
+
+  // Страховка: если controllerchange не придёт в течение 4 секунд,
+  // перезагружаемся сами, чтобы обновление не зависло навсегда.
+  setTimeout(() => {
+    if (!updateReloading) return;
+    location.reload();
+  }, 4000);
+}
+
+// Автоматическое применение в безопасный момент
+function tryApplyUpdateSilently() {
+  if (updateReloading) return;
+  if (!swRegistration?.waiting) return;
+  if (!canApplyUpdateSilently()) return;
+  applyUpdateNow();
+}
+
+// Восстанавливаем место после обновления: трек, позицию и открытый жанр
+function restoreAfterReload() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(LS_UPDATE_RESTORE) || "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved) return;
+  try {
+    localStorage.removeItem(LS_UPDATE_RESTORE);
+  } catch {
+    // ignore
+  }
+  // Данные старше 10 минут уже неактуальны
+  if (!saved.at || Date.now() - saved.at > 10 * 60 * 1000) return;
+
+  const openSavedPlace = () => {
+    if (saved.genre && saved.genre !== "all" && GENRES[saved.genre]) {
+      openGenre(saved.genre);
+    }
+  };
+
+  const track = saved.trackId ? state.tracks.find((t) => t.id === saved.trackId) : null;
+  if (!track) {
+    openSavedPlace();
+    return;
+  }
+
+  // Возвращаем песню на том же месте и на паузе: внезапно заиграть
+  // из ниоткуда после обновления — хуже, чем не играть вовсе
+  playTrack(track.id);
+  const seek = () => {
+    try {
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && saved.trackTime > 0) {
+        audio.currentTime = Math.min(saved.trackTime, Math.max(0, audio.duration - 0.5));
+      }
+    } catch {
+      // ignore
+    }
+    audio.pause();
+    showToast(`Обновление установлено · «${track.title}» на паузе — продолжите с места`);
+  };
+  if (audio.readyState >= 1) seek();
+  else audio.addEventListener("loadedmetadata", seek, { once: true });
+
+  openSavedPlace();
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   // На file:// service worker не работает вовсе.
@@ -4977,38 +5118,65 @@ function registerServiceWorker() {
   if (!/^https?:$/.test(location.protocol)) return;
   if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
 
-  let refreshing = false;
-  // Было ли приложение под контролем service worker до этой регистрации
+  // Было ли приложение под контролем service worker до этой регистрации.
+  // На самом первом запуске контроллера нет — там перезагружаться не нужно.
   const hadController = Boolean(navigator.serviceWorker.controller);
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // Новая версия заняла место старой. Перезагружаем один раз и только
-    // если приложение уже было под контролем — иначе это первый запуск.
-    if (refreshing || !hadController) return;
-    refreshing = true;
+    if (!updateReloading) return;
+    // Новая версия заняла место старой. Перезагружаемся один раз.
     location.reload();
   });
 
   navigator.serviceWorker
     .register("sw.js", { scope: "./" })
     .then((registration) => {
-      // Проверяем обновления при каждом запуске, а не раз в сутки
-      registration.update().catch(() => {});
+      swRegistration = registration;
+
+      const markWaiting = () => {
+        if (registration.waiting && hadController) {
+          // Тост предупреждает: обновимся, как только будет пауза
+          showUpdateToast();
+          // Кнопка в шапке — способ применить обновление вручную
+          emitUpdateUi();
+          // Если сейчас ничего не играет — обновляемся сразу и незаметно
+          tryApplyUpdateSilently();
+        }
+      };
+
+      // Новая версия уже ждёт (например, гость давно на сайте)
+      markWaiting();
+      emitUpdateUi();
 
       registration.addEventListener("updatefound", () => {
         const installing = registration.installing;
         if (!installing) return;
         installing.addEventListener("statechange", () => {
-          if (installing.state === "installed" && navigator.serviceWorker.controller) {
-            showToast("Новая версия загружена — перезапустите приложение");
-          }
+          if (installing.state === "installed") markWaiting();
         });
       });
 
-      // И вернувшись в приложение из фона тоже смотрим, не вышло ли обновление
+      // Проверяем обновления при запуске и при возврате в приложение
+      const checkForUpdate = () => registration.update().catch(() => {});
+      checkForUpdate();
       document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) registration.update().catch(() => {});
+        if (document.hidden) return;
+        checkForUpdate().then(() => setTimeout(markWaiting, 300));
+        // Вернулись в приложение — если музыка уже не играет, можно обновиться
+        setTimeout(tryApplyUpdateSilently, 800);
       });
+
+      // Безопасные моменты, когда перезагрузка никого не потревожит
+      audio.addEventListener("pause", () => setTimeout(tryApplyUpdateSilently, 400));
+      audio.addEventListener("play", emitUpdateUi);
+      document.getElementById("updateHeaderBtn")?.addEventListener("click", () => {
+        if (!swRegistration?.waiting) return;
+        // Гость сам попросил — применяем, даже если музыка играет:
+        // позиция сохранится и вернётся после перезагрузки
+        applyUpdateNow();
+      });
+      audio.addEventListener("ended", () => setTimeout(tryApplyUpdateSilently, 1200));
+      window.addEventListener("online", () => setTimeout(tryApplyUpdateSilently, 600));
     })
     .catch(() => {
       // Без service worker сайт работает как обычная страница
@@ -5083,6 +5251,12 @@ if (IS_STANDALONE()) {
 initMediaSessionHandlers();
 initSnowfall();
 initVisualizer();
-loadTracksFromServer(false);
+// Восстанавливаем место после обновления и только потом грузим список:
+// restoreAfterReload ждёт state.tracks, поэтому запускаем его после загрузки
+loadTracksFromServer(false)
+  .then(() => {
+    restoreAfterReload();
+  })
+  .catch(() => {});
 startSocialSync();
 registerServiceWorker();
