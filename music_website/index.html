@@ -25,7 +25,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261201a" />
+  <link rel="stylesheet" href="style.css?v=20261205a" />
 </head>
 <body>
   <!-- Фон: чёрно-белый дуэт, поверх него — свет выбранного жанра и снег -->
@@ -188,6 +188,26 @@
         <p id="emptyDesc">Попробуйте выбрать другой жанр.</p>
         <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Назад к жанрам</button>
       </div>
+
+      <!-- Постоянная кнопка установки. В отличие от кнопок в шапке и плеере,
+           эта видна всегда: браузер не всегда сразу разрешает установку,
+           а человеку нужно объяснить, что сайт ставится на телефон. -->
+      <section class="install-block" id="installBlock" aria-label="Установка приложения">
+        <div class="install-block-text">
+          <p class="install-block-title">Поставить «НейроДозу» на телефон</p>
+          <p class="install-block-desc" id="installBlockDesc">
+            Приложение откроется на весь экран и будет работать без браузера.
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary install-block-btn" id="installBlockBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12" />
+            <polyline points="7 10 12 15 17 10" />
+            <path d="M5 21h14" />
+          </svg>
+          <span>Установить</span>
+        </button>
+      </section>
     </section>
   </main>
 
@@ -757,6 +777,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261232a"></script>
+  <script src="script.js?v=20261205a"></script>
 </body>
 </html>

@@ -5775,11 +5775,14 @@ window.addEventListener("beforeinstallprompt", (event) => {
   installPromptEvent = event;
   document.getElementById("openInstallBtn")?.classList.remove("hidden");
   document.getElementById("installHeaderBtn")?.classList.remove("hidden");
+  syncInstallBlockHint();
 });
 
 function hideInstallButtons() {
   document.getElementById("openInstallBtn")?.classList.add("hidden");
   document.getElementById("installHeaderBtn")?.classList.add("hidden");
+  // Постоянный блок внизу списка: если приложение уже стоит, предлагать нечего
+  document.getElementById("installBlock")?.classList.add("hidden");
 }
 
 // Инструкция для тех, у кого нет системного приглашения (в первую очередь iPhone)
@@ -5790,7 +5793,27 @@ function showIosInstallHint() {
     );
     return;
   }
-  showToast("Откройте меню браузера и выберите «Установить приложение»");
+  if (IS_STANDALONE()) {
+    showToast("Приложение уже установлено — вы в нём");
+    return;
+  }
+  showToast("Откройте меню браузера (⋮) и выберите «Установить приложение»");
+}
+
+// Текст под кнопкой в постоянном блоке: подсказываем путь заранее,
+// чтобы человек не гадал, что произойдёт после нажатия
+function syncInstallBlockHint() {
+  const desc = document.getElementById("installBlockDesc");
+  if (!desc) return;
+  if (IS_IOS) {
+    desc.textContent =
+      "На iPhone: «Поделиться» → «На экран Домой». Иконка появится на рабочем столе.";
+  } else if (installPromptEvent) {
+    desc.textContent = "Приложение откроется на весь экран и будет работать без браузера.";
+  } else {
+    desc.textContent =
+      "Откройте меню браузера (⋮) и выберите «Установить приложение» — или нажмите кнопку, покажем как.";
+  }
 }
 
 async function promptInstall() {
@@ -5817,6 +5840,8 @@ window.addEventListener("appinstalled", () => {
 
 document.getElementById("installHeaderBtn")?.addEventListener("click", promptInstall);
 document.getElementById("openInstallBtn")?.addEventListener("click", promptInstall);
+document.getElementById("installBlockBtn")?.addEventListener("click", promptInstall);
+syncInstallBlockHint();
 
 // Если приложение уже открыто как установленное — кнопки установки не нужны
 if (IS_STANDALONE()) {
@@ -5828,6 +5853,9 @@ if (IS_STANDALONE()) {
   // На iPhone системного приглашения не бывает — показываем кнопку сразу,
   // по нажатию она объяснит путь через «Поделиться»
   document.getElementById("openInstallBtn")?.classList.remove("hidden");
+  // Постоянный блок внизу приглушаем: на iPhone установка через меню Safari,
+  // поэтому он остаётся подсказкой, а не главным действием
+  document.getElementById("installBlock")?.classList.add("is-hint-only");
 }
 
 // Старт приложения
