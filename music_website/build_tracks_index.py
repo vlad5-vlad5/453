@@ -30,6 +30,39 @@ def load_metadata() -> dict:
         return {}
 
 
+def normalize_lookup(value: str) -> str:
+    """Ключ для сравнения путей: NFC, прямые слэши, нижний регистр."""
+    import unicodedata
+
+    return unicodedata.normalize("NFC", str(value or "").replace("\\", "/")).lower()
+
+
+def metadata_key_candidates(rel_path: str) -> list[str]:
+    """Возможные ключи трека в metadata.json.
+
+    В файле исторически встречаются оба вида: «music_website/tracks/...»
+    (так пишет сайт с GitHub Pages) и «tracks/...». Если искать только один,
+    названия и исполнители из metadata.json просто игнорируются — именно
+    из-за этого треки уезжали с «Моя коллекция» и старыми названиями.
+    """
+    rel = str(rel_path or "").replace("\\", "/").lstrip("/")
+    if rel.startswith("music_website/"):
+        rel = rel[len("music_website/"):]
+    return [f"music_website/{rel}", rel]
+
+
+def find_metadata_key(meta: dict, rel_path: str) -> str | None:
+    for key in metadata_key_candidates(rel_path):
+        if key in meta:
+            return key
+    # Точного совпадения нет — сравниваем без учёта регистра и NFC/NFD
+    wanted = {normalize_lookup(k) for k in metadata_key_candidates(rel_path)}
+    for key in meta:
+        if normalize_lookup(key) in wanted:
+            return key
+    return None
+
+
 def format_duration(seconds: float) -> str:
     if seconds < 0:
         return "--:--"
@@ -90,7 +123,7 @@ def scan_tracks() -> list[dict]:
         )
         for audio_path in files:
             rel_path = audio_path.relative_to(BASE_DIR).as_posix()
-            entry = meta.get(rel_path, {})
+            entry = meta.get(find_metadata_key(meta, rel_path) or "", {})
             inferred_artist, inferred_title = parse_name(audio_path.stem)
 
             cover = entry.get("cover")

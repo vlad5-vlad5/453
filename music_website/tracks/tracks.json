@@ -29,7 +29,7 @@
     },
     {
       "id": "tracks/chanson/Крестины сына (2).mp3",
-      "title": "Крестины сына (2)",
+      "title": "Крестины Сына (2)",
       "artist": "Моя коллекция",
       "genre": "chanson",
       "src": "tracks/chanson/Крестины сына (2).mp3",
@@ -444,7 +444,7 @@
     {
       "id": "tracks/ruspop/Виновата ночь [sunodownloaderpro].mp3",
       "title": "Виновата ночь",
-      "artist": "Моя коллекция",
+      "artist": "Клава К.ока",
       "genre": "ruspop",
       "src": "tracks/ruspop/Виновата ночь [sunodownloaderpro].mp3",
       "cover": null,
@@ -525,7 +525,7 @@
     {
       "id": "tracks/ruspop/Маленькая девочка [sunodownloaderpro] (1).mp3",
       "title": "Маленькая девочка (1)",
-      "artist": "Моя коллекция",
+      "artist": "Ольга Буз.ова",
       "genre": "ruspop",
       "src": "tracks/ruspop/Маленькая девочка [sunodownloaderpro] (1).mp3",
       "cover": null,
@@ -534,7 +534,7 @@
     {
       "id": "tracks/ruspop/Маленькая девочка [sunodownloaderpro].mp3",
       "title": "Маленькая девочка",
-      "artist": "Моя коллекция",
+      "artist": "Ольга Бу.зова",
       "genre": "ruspop",
       "src": "tracks/ruspop/Маленькая девочка [sunodownloaderpro].mp3",
       "cover": null,
@@ -561,7 +561,7 @@
     {
       "id": "tracks/ruspop/Не твоя игрушка [sunodownloaderpro].mp3",
       "title": "Не твоя игрушка",
-      "artist": "Моя коллекция",
+      "artist": "Клава К.ока",
       "genre": "ruspop",
       "src": "tracks/ruspop/Не твоя игрушка [sunodownloaderpro].mp3",
       "cover": null,
@@ -570,7 +570,7 @@
     {
       "id": "tracks/ruspop/Неоновые сны о тебе [sunodownloaderpro] (1).mp3",
       "title": "Неоновые сны о тебе (1)",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Неоновые сны о тебе [sunodownloaderpro] (1).mp3",
       "cover": null,
@@ -579,7 +579,7 @@
     {
       "id": "tracks/ruspop/Неоновые сны о тебе [sunodownloaderpro].mp3",
       "title": "Неоновые сны о тебе",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Неоновые сны о тебе [sunodownloaderpro].mp3",
       "cover": null,
@@ -606,7 +606,7 @@
     {
       "id": "tracks/ruspop/Оставь мне свет [sunodownloaderpro].mp3",
       "title": "Оставь мне свет",
-      "artist": "Моя коллекция",
+      "artist": "Ирина Дуб.цова",
       "genre": "ruspop",
       "src": "tracks/ruspop/Оставь мне свет [sunodownloaderpro].mp3",
       "cover": null,
@@ -615,7 +615,7 @@
     {
       "id": "tracks/ruspop/Ритм столицы [sunodownloaderpro] (1).mp3",
       "title": "Ритм столицы (1)",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Ритм столицы [sunodownloaderpro] (1).mp3",
       "cover": null,
@@ -624,7 +624,7 @@
     {
       "id": "tracks/ruspop/Ритм столицы [sunodownloaderpro].mp3",
       "title": "Ритм столицы",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Ритм столицы [sunodownloaderpro].mp3",
       "cover": null,
@@ -633,7 +633,7 @@
     {
       "id": "tracks/ruspop/Танцуем под луной [sunodownloaderpro] (1).mp3",
       "title": "Танцуем под луной (1)",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Танцуем под луной [sunodownloaderpro] (1).mp3",
       "cover": null,
@@ -642,7 +642,7 @@
     {
       "id": "tracks/ruspop/Танцуем под луной [sunodownloaderpro].mp3",
       "title": "Танцуем под луной",
-      "artist": "Моя коллекция",
+      "artist": "Filatov&Kara.s",
       "genre": "ruspop",
       "src": "tracks/ruspop/Танцуем под луной [sunodownloaderpro].mp3",
       "cover": null,
@@ -651,7 +651,7 @@
     {
       "id": "tracks/ruspop/Твой яд [sunodownloaderpro].mp3",
       "title": "Твой яд",
-      "artist": "Моя коллекция",
+      "artist": "Ольга Сер.ябкина",
       "genre": "ruspop",
       "src": "tracks/ruspop/Твой яд [sunodownloaderpro].mp3",
       "cover": null,
@@ -699,6 +699,15 @@
       "artist": "Моя коллекция",
       "genre": "other",
       "src": "tracks/other/Самогонка.mp3",
+      "cover": null,
+      "duration": "--:--"
+    },
+    {
+      "id": "tracks/guests/Paper Crown [sunodownloaderpro].mp3",
+      "title": "Заречье",
+      "artist": "Моя коллекция",
+      "genre": "guests",
+      "src": "tracks/guests/Paper Crown [sunodownloaderpro].mp3",
       "cover": null,
       "duration": "--:--"
     }
