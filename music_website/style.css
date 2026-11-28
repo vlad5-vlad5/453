@@ -145,8 +145,12 @@ body {
 /* Снимки отдельных жанров лежат отдельными слоями поверх общего дуэта:
    у слоя своя картинка, поэтому он меняет только прозрачность, и смена
    сцены получается плавной, без рывка и повторной загрузки.
-   Шансон — двое у микрофона и женщина между ними.
-   Русская поп-музыка — трое на свету софитов. */
+   Шансон — двое у микрофона и женщина между ними;
+   русская поп-музыка — трое на свету софитов;
+   диско — зеркальный шар и танцпол; диско-дача — сад в гирляндах
+   с мангалом; deep house — клуб в дымных лучах; другие — микрофон
+   в контровом свете. Гости и избранное остаются с общим дуэтом:
+   их различает свет жанра. */
 .aurora-photo-genre {
   position: absolute;
   inset: 0;
@@ -160,15 +164,35 @@ body {
 }
 
 .aurora-photo-genre.is-chanson {
-  background-image: url("assets/bg-chanson.jpg?v=20261124n");
+  background-image: url("assets/bg-chanson.jpg?v=20261201a");
 }
 
 .aurora-photo-genre.is-ruspop {
-  background-image: url("assets/bg-ruspop.jpg?v=20261124n");
+  background-image: url("assets/bg-ruspop.jpg?v=20261201a");
+}
+
+.aurora-photo-genre.is-disco {
+  background-image: url("assets/bg-disco.jpg?v=20261201a");
+}
+
+.aurora-photo-genre.is-discodacha {
+  background-image: url("assets/bg-discodacha.jpg?v=20261201a");
+}
+
+.aurora-photo-genre.is-deephouse {
+  background-image: url("assets/bg-deephouse.jpg?v=20261201a");
+}
+
+.aurora-photo-genre.is-other {
+  background-image: url("assets/bg-other.jpg?v=20261201a");
 }
 
 body[data-theme="chanson"] .aurora-photo-genre.is-chanson,
-body[data-theme="ruspop"] .aurora-photo-genre.is-ruspop {
+body[data-theme="ruspop"] .aurora-photo-genre.is-ruspop,
+body[data-theme="disco"] .aurora-photo-genre.is-disco,
+body[data-theme="discodacha"] .aurora-photo-genre.is-discodacha,
+body[data-theme="deephouse"] .aurora-photo-genre.is-deephouse,
+body[data-theme="other"] .aurora-photo-genre.is-other {
   opacity: 1;
 }
 
@@ -266,6 +290,12 @@ body:not([data-theme]) .aurora-theme {
   /* На телефоне сцена уже, кадр обрезается по краям — держим лица по центру */
   .aurora-photo-genre {
     background-position: 50% 22%;
+  }
+
+  /* У диско и диско-дачи главное действие ниже центра кадра */
+  .aurora-photo-genre.is-disco,
+  .aurora-photo-genre.is-discodacha {
+    background-position: 50% 32%;
   }
 }
 
