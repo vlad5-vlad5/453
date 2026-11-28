@@ -96,5 +96,9 @@
   "music_website/tracks/ruspop/Забери меня с собой [sunodownloaderpro] (1).mp3": {
     "title": "Забери меня с собой (1)",
     "artist": "Niletoo"
+  },
+  "music_website/tracks/ruspop/Забери меня с собой [sunodownloaderpro].mp3": {
+    "title": "Забери меня с собой",
+    "artist": "Niletoo"
   }
 }
