@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Локальный сервер для сайта «НейроДвиж» (music_website).
+Локальный сервер для сайта «НейроДоза» (music_website).
 - Автоматически сканирует папки tracks/chanson, disco, discodacha, deephouse, ruspop, other
 - Отдаёт /api/tracks с метаданными и обложками и синхронизирует tracks/tracks.json
 - Поддерживает загрузку треков (POST /api/upload) и обложек (POST /api/cover) прямо в tracks/
@@ -597,7 +597,7 @@ def main():
     port = int(os.environ.get("PORT", "8000"))
     ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer(("0.0.0.0", port), MusicRequestHandler)
-    print(f"Сервер «НейроДвиж» запущен на http://0.0.0.0:{port}", flush=True)
+    print(f"Сервер «НейроДоза» запущен на http://0.0.0.0:{port}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
