@@ -4950,6 +4950,480 @@ function initSnowfall() {
 
 
 // ============================================================================
+// Логотип: отряхивается и брызгает искрами по нажатию
+// Зачем: эмблема в шапке — самое заметное место, и по ней интуитивно хочется
+// кликнуть. В ответ она отряхивается, как мокрая собака: несколько быстрых
+// затухающих качков, и с её кромок срываются искры в палитре самой эмблемы
+// (жёлтый, лайм, фиолетовый).
+//
+// Почему это читается как «стряхнула с себя воду»: искра отрывается от кромки
+// и летит туда, куда в этот момент движется сама кромка. Скорость точки на
+// вращающемся теле — это v = ω × r, то есть строго по касательной. Поэтому
+// плашка качнулась вправо — с левого края брызнуло вверх, с правого вниз,
+// и наоборот. Ровно так летят капли с мокрой собаки.
+//
+// Технически: угол плашки и скорость искр считаются одной и той же формулой
+// (затухающая синусоида), поэтому картинка и брызги не могут разъехаться.
+// Холст на всё окно живёт только на время эффекта и потом удаляется.
+// ============================================================================
+
+const LOGO_SHAKE_MS = 780;                         // сколько длится отряхивание
+const LOGO_SHAKE_AMPLITUDE = (30 * Math.PI) / 180; // первый размах, радианы
+const LOGO_SHAKE_HZ = 5.4;                         // качков в секунду
+const LOGO_SHAKE_TAU = 0.23;                       // с: за сколько качки затухают
+
+let logoSparkLayer = null; // холст с искрами, пока идёт эффект
+
+const LOGO_SPARK_COLORS = [
+  { r: 255, g: 235, b: 59 },  // жёлтый волны
+  { r: 234, g: 255, b: 106 }, // лайм
+  { r: 168, g: 85, b: 247 },  // фиолет нейросети
+  { r: 196, g: 181, b: 253 }, // светлый фиолет
+  { r: 255, g: 255, b: 255 }, // белые блики
+];
+
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+// Часы эффекта. requestAnimationFrame и performance.now() идут от одного
+// счётчика, поэтому время начала отряхивания можно сравнивать с меткой кадра
+function logoNow() {
+  try {
+    return performance.now();
+  } catch {
+    return Date.now();
+  }
+}
+
+// Угол и угловая скорость плашки через t секунд после начала отряхивания.
+// Одна формула на двоих: по углу поворачивается картинка, по угловой скорости
+// считается, с какой силой и в какую сторону срываются искры
+function logoShakeAt(t) {
+  const w = 2 * Math.PI * LOGO_SHAKE_HZ;
+  const decay = Math.exp(-t / LOGO_SHAKE_TAU);
+  const phase = w * t;
+  const angle = LOGO_SHAKE_AMPLITUDE * Math.sin(phase) * decay;
+  const omega = LOGO_SHAKE_AMPLITUDE * decay * (w * Math.cos(phase) - Math.sin(phase) / LOGO_SHAKE_TAU);
+  return { angle, omega };
+}
+
+// Закрываем слой: возвращаем плашку в исходное положение, гасим анимацию,
+// снимаем холст и освобождаем память
+function disposeLogoSparkLayer(layer) {
+  if (!layer) return;
+  if (layer.frame) cancelAnimationFrame(layer.frame);
+  if (layer.puffTimer) clearTimeout(layer.puffTimer);
+  if (layer.shake) {
+    // Иначе плашка застынет под углом, если эффект прервать на середине
+    layer.shake.el.style.transform = "";
+    layer.shake.el.classList.remove("is-shaking");
+    layer.shake = null;
+  }
+  layer.canvas.remove();
+  layer.flakes.length = 0;
+  if (logoSparkLayer === layer) logoSparkLayer = null;
+}
+
+// Сколько искр выпустить в секунду на пике качка: на слабых устройствах и при
+// «уменьшить движение» эффект должен быть дешевле, но всё равно заметным
+function logoSparkBudget() {
+  if (prefersReducedMotion()) return 12;
+  if (vizQuality <= 0) return 22;
+  if (vizQuality === 1) return 36;
+  return 52;
+}
+
+// Искра родилась на кромке плашки в точке (x, y) с вектором скорости (vx, vy).
+// rx, ry — где именно на плашке она оторвалась, относительно центра
+function makeLogoSpark(color, x, y, vx, vy, rx, ry) {
+  return {
+    x,
+    y,
+    vx,
+    vy,
+    rx,
+    ry,
+    // life — сколько секунд искра живёт; размер и яркость убывают вместе с ним
+    life: 0.22 + Math.random() * 0.3,
+    age: 0,
+    size: 1.0 + Math.random() * 1.6,
+    color,
+    // Часть искр — «звёздочки» с крестиком, остальные — круглые капли
+    starred: Math.random() < 0.16,
+    spin: Math.random() * Math.PI,
+  };
+}
+
+function startLogoSparkLayer() {
+  const canvas = document.createElement("canvas");
+  canvas.className = "logo-sparks";
+  canvas.setAttribute("aria-hidden", "true");
+  // Гарантия на уровне элемента, а не только CSS: холст не должен ловить
+  // клики, даже если стили почему-то не загрузились
+  canvas.style.pointerEvents = "none";
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  // Холст начинаем от верхней кромки экрана: если страница прокручена,
+  // искры всё равно полетят от логотипа, а не повиснут под шапкой
+  const top = Math.max(0, Math.round(window.scrollY));
+  const layer = {
+    canvas,
+    ctx,
+    dpr: Math.min(window.devicePixelRatio || 1, 2),
+    top,
+    flakes: [],
+    frame: 0,
+    last: 0,
+    glow: 0,   // свечение самой плашки, гаснет вместе с последними искрами
+    shake: null,
+  };
+
+  ctx.setTransform(layer.dpr, 0, 0, layer.dpr, 0, 0);
+  canvas.width = Math.max(1, Math.floor(window.innerWidth * layer.dpr));
+  canvas.height = Math.max(1, Math.floor(window.innerHeight * layer.dpr));
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+  canvas.style.top = `${top}px`;
+  document.body.appendChild(canvas);
+
+  return layer;
+}
+
+// Брызги: за кадр отрываем столько искр, сколько «набралось» по текущей
+// угловой скорости. Накопитель нужен, чтобы на 120-герцовом экране поток был
+// тем же, что на 60-герцовом
+function emitShakeSparks(layer, shake, omega, dt) {
+  const speed = Math.abs(omega);
+  // Плашка почти остановилась — брызгать уже нечем
+  if (speed < 0.9) return;
+
+  const power = Math.min(1, speed / shake.peak);
+  shake.budget += shake.rate * Math.pow(power, 1.35) * dt;
+  const count = Math.min(10, Math.floor(shake.budget));
+  if (count <= 0) return;
+  shake.budget -= count;
+
+  const { hw, hh, origin } = shake;
+  for (let i = 0; i < count; i++) {
+    // Точка отрыва — где-то на кромке плашки, включая углы: с углов капли
+    // летят быстрее всего, там радиус больше
+    const side = Math.floor(Math.random() * 4);
+    const along = Math.random() * 2 - 1;
+    let dx;
+    let dy;
+    if (side === 0) {
+      dx = -hw;
+      dy = along * hh;
+    } else if (side === 1) {
+      dx = hw;
+      dy = along * hh;
+    } else if (side === 2) {
+      dx = along * hw;
+      dy = -hh;
+    } else {
+      dx = along * hw;
+      dy = hh;
+    }
+
+    // Плашка повёрнута на angle — значит и точка на ней повёрнута вместе с ней.
+    // Без этого искры вылетали бы из углов, которых на наклонённой плашке нет
+    const cos = Math.cos(shake.angle);
+    const sin = Math.sin(shake.angle);
+    const rx = dx * cos - dy * sin;
+    const ry = dx * sin + dy * cos;
+    dx = rx;
+    dy = ry;
+
+    // v = ω × r: скорость точки вращающегося тела, направлена по касательной —
+    // то есть туда, куда в этот момент идёт кромка
+    let vx = -omega * dy;
+    let vy = omega * dx;
+
+    // Чуть наружу: настоящие капли отрываются не строго по касательной,
+    // иначе брызги липли бы к плашке и летели вдоль неё
+    const radius = Math.hypot(dx, dy) || 1;
+    const outward = Math.hypot(vx, vy) * 0.5;
+    vx += (dx / radius) * outward;
+    vy += (dy / radius) * outward;
+
+    // Капля срывается со скоростью самой кромки; небольшой разброс оставляем,
+    // чтобы сноп не выглядел механическим. Коэффициент держим около единицы:
+    // если сделать искру медленной, она не оторвётся, а сразу просядет вниз
+    // под гравитацией и полетит вдоль плашки вместо того, чтобы брызнуть
+    const jitter = 1.15 + Math.random() * 0.45;
+    vx *= jitter;
+    vy *= jitter;
+
+    const color = LOGO_SPARK_COLORS[Math.floor(Math.random() * LOGO_SPARK_COLORS.length)];
+    layer.flakes.push(
+      makeLogoSpark(color, origin.x + dx, origin.y + dy, vx, vy, dx, dy)
+    );
+  }
+}
+
+function runLogoSparkFrame(layer, timestamp) {
+  if (logoSparkLayer !== layer) return;
+  const { ctx, dpr } = layer;
+  if (!layer.last) layer.last = timestamp;
+  // Ограничиваем шаг, чтобы после сворачивания вкладки искры не «телепортировались»
+  const dt = Math.min((timestamp - layer.last) / 1000, 0.05);
+  layer.last = timestamp;
+
+  const width = layer.canvas.width / dpr;
+  const height = layer.canvas.height / dpr;
+  ctx.clearRect(0, 0, width, height);
+
+  // --- Отряхивание ---------------------------------------------------------
+  const shake = layer.shake;
+  if (shake) {
+    const t = (timestamp - shake.startedAt) / 1000;
+    if (t < LOGO_SHAKE_MS / 1000) {
+      const { angle, omega } = logoShakeAt(t);
+      shake.el.style.transform = `rotate(${((angle * 180) / Math.PI).toFixed(2)}deg)`;
+      shake.angle = angle;
+      emitShakeSparks(layer, shake, omega, dt);
+      // Чем резче качок, тем ярче светится плашка
+      const power = Math.min(1, Math.abs(omega) / shake.peak);
+      layer.glow = Math.max(layer.glow, 0.25 + 0.75 * power);
+    } else {
+      // Отряхивание закончилось: возвращаем плашку ровно в исходное положение
+      shake.el.style.transform = "";
+      shake.el.classList.remove("is-shaking");
+      layer.shake = null;
+    }
+  }
+
+  // Свечение вокруг плашки
+  if (layer.glow > 0) {
+    if (!layer.shake) layer.glow = Math.max(0, layer.glow - dt * 2.4);
+    const gx = shake ? shake.origin.x : layer.glowX || 0;
+    const gy = shake ? shake.origin.y : layer.glowY || 0;
+    if (layer.shake) {
+      layer.glowX = gx;
+      layer.glowY = gy;
+    }
+    const radius = 46 + (1 - layer.glow) * 26;
+    const gradient = ctx.createRadialGradient(gx, gy, 0, gx, gy, radius);
+    gradient.addColorStop(0, `rgba(255, 248, 190, ${0.34 * layer.glow})`);
+    gradient.addColorStop(0.45, `rgba(196, 181, 253, ${0.2 * layer.glow})`);
+    gradient.addColorStop(1, "rgba(124, 92, 255, 0)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(gx, gy, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- Искры ---------------------------------------------------------------
+  // Гравитация тянет вниз, трение тормозит, жизнь тает. Трение считаем через
+  // dt, иначе на 120 Гц искры тормозили бы вдвое быстрее, чем на 60
+  const gravity = 460;
+  const drag = Math.pow(0.968, dt * 60);
+  for (let i = layer.flakes.length - 1; i >= 0; i--) {
+    const f = layer.flakes[i];
+    f.age += dt;
+    if (f.age >= f.life) {
+      layer.flakes.splice(i, 1);
+      continue;
+    }
+    f.vy += gravity * dt;
+    f.vx *= drag;
+    f.vy *= drag;
+    f.x += f.vx * dt;
+    f.y += f.vy * dt;
+
+    const left = 1 - f.age / f.life;
+    const alpha = Math.max(0, left * left);
+    const size = Math.max(0.35, f.size * (0.45 + left * 0.8));
+    const { r, g, b } = f.color;
+
+    // Мягкий ореол — искра светится, а не выглядит точкой
+    const halo = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, size * 2.5);
+    halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.22 * alpha})`);
+    halo.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, size * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ядро искры
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Звёздочка: короткие лучики крестом
+    if (f.starred) {
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.spin + f.age * 2.4);
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.85})`;
+      ctx.lineWidth = Math.max(0.4, size * 0.42);
+      ctx.beginPath();
+      ctx.moveTo(-size * 3.1, 0);
+      ctx.lineTo(size * 3.1, 0);
+      ctx.moveTo(0, -size * 3.1);
+      ctx.lineTo(0, size * 3.1);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Догоняющий шлейф — капля «летит», а не висит
+    if (size > 0.85 && f.age < f.life * 0.55) {
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.34})`;
+      ctx.lineWidth = size * 0.6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(f.x, f.y);
+      ctx.lineTo(f.x - f.vx * 0.03, f.y - f.vy * 0.03);
+      ctx.stroke();
+    }
+  }
+
+  // Эффект закончен, когда плашка встала и догорели последние искры
+  if (!layer.shake && layer.flakes.length === 0 && layer.glow <= 0) {
+    disposeLogoSparkLayer(layer);
+    return;
+  }
+  layer.frame = requestAnimationFrame((t) => runLogoSparkFrame(layer, t));
+}
+
+// Подготовка слоя: пересчёт позиции логотипа, общий для отряхивания и вспышки
+function prepareLogoLayer(logoEl, rect) {
+  if (!logoEl.isConnected) return null;
+
+  // Плашка ещё не разложена (скрыта, display:none, шрифты не догрузились):
+  // rect нулевой, и брызги полетели бы из левого верхнего угла экрана.
+  // Лучше тихо ничего не делать, чем показать эффект не там
+  if (!rect || rect.width < 4 || rect.height < 4) return null;
+
+  const viewportTop = window.scrollY || 0;
+  const centerY = rect.top + rect.height / 2;
+  // Плашка уехала за экран (страница прокручена вниз) — холст не нужен
+  if (centerY < -30 || centerY > (window.innerHeight || 0) + 30) {
+    disposeLogoSparkLayer(logoSparkLayer);
+    return null;
+  }
+
+  // Переиспользуем слой, если предыдущий ещё жив — повторный клик не плодит
+  // холсты, а просто добавляет искр
+  let layer = logoSparkLayer;
+  if (!layer) {
+    layer = startLogoSparkLayer();
+    if (!layer) return null;
+    logoSparkLayer = layer;
+  }
+
+  // Пересчитываем от текущей прокрутки: слой мог остаться от прошлого клика,
+  // а страницу между нажатиями успели прокрутить
+  layer.top = Math.max(0, Math.round(viewportTop));
+  layer.canvas.style.top = `${layer.top}px`;
+  return layer;
+}
+
+// «Уменьшить движение»: плашка не трясётся, но искры всё равно вылетают —
+// ровным снопом во все стороны, чтобы нажатие не осталось без ответа
+function puffLogo(logoEl, rect) {
+  const layer = prepareLogoLayer(logoEl, rect);
+  if (!layer) return;
+
+  // Вспышка плашки: в CSS для is-shaking при «уменьшить движение» остаётся
+  // только logoPressGlow, без качков
+  logoEl.classList.add("is-shaking");
+  clearTimeout(layer.puffTimer);
+  layer.puffTimer = window.setTimeout(() => {
+    logoEl.classList.remove("is-shaking");
+  }, 520);
+
+  const origin = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2 - layer.top,
+  };
+  layer.glowX = origin.x;
+  layer.glowY = origin.y;
+  layer.glow = 0.85;
+
+  const count = logoSparkBudget();
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const force = 90 + Math.random() * 130;
+    const color = LOGO_SPARK_COLORS[Math.floor(Math.random() * LOGO_SPARK_COLORS.length)];
+    layer.flakes.push(
+      makeLogoSpark(
+        color,
+        origin.x,
+        origin.y,
+        Math.cos(angle) * force,
+        Math.sin(angle) * force,
+        0,
+        0
+      )
+    );
+  }
+
+  if (layer.frame) cancelAnimationFrame(layer.frame);
+  layer.last = 0;
+  layer.frame = requestAnimationFrame((t) => runLogoSparkFrame(layer, t));
+}
+
+// Основной вход: нажали на логотип
+function shakeLogo(logoEl) {
+  const rect = logoEl.getBoundingClientRect();
+
+  if (prefersReducedMotion()) {
+    puffLogo(logoEl, rect);
+    return;
+  }
+
+  const layer = prepareLogoLayer(logoEl, rect);
+  if (!layer) return;
+
+  const origin = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2 - layer.top,
+  };
+
+  // Повторное нажатие запускает отряхивание заново, не дожидаясь конца:
+  // плашка «передумывает» и начинает новый качок с полной амплитуды
+  layer.shake = {
+    el: logoEl,
+    startedAt: logoNow(),
+    origin,
+    hw: rect.width / 2,
+    hh: rect.height / 2,
+    peak: Math.abs(logoShakeAt(0).omega),
+    rate: logoSparkBudget() * 22,
+    budget: 0,
+    angle: 0, // текущий угол плашки — точка отрыва лежит на повёрнутой кромке
+  };
+  logoEl.classList.add("is-shaking");
+
+  // Всегда ставим свежий кадр: старый отменяем. Так повторный клик не может
+  // оставить слой без анимации, если предыдущий кадр не выполнился
+  if (layer.frame) cancelAnimationFrame(layer.frame);
+  layer.last = 0;
+  layer.frame = requestAnimationFrame((t) => runLogoSparkFrame(layer, t));
+}
+
+function initLogoBurst() {
+  const logoEl = document.getElementById("brandLogo");
+  if (!logoEl) return;
+
+  logoEl.addEventListener("click", () => shakeLogo(logoEl));
+
+  // Холст разложен по размеру окна: поменяли размер — закрываем слой, чтобы
+  // искры не поехали по неправильным координатам
+  window.addEventListener("resize", () => {
+    if (logoSparkLayer) disposeLogoSparkLayer(logoSparkLayer);
+  });
+}
+
+// ============================================================================
 // Установка как приложение и обновление установленной версии
 // Зачем: на iPhone установленное приложение открывает сохранённую копию
 // страницы и само не подтягивает новый код. Service worker даёт контроль
@@ -5358,6 +5832,7 @@ if (IS_STANDALONE()) {
 
 // Старт приложения
 initMediaSessionHandlers();
+initLogoBurst();
 initSnowfall();
 initVisualizer();
 // Восстанавливаем место после обновления и только потом грузим список:
