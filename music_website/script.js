@@ -8,6 +8,10 @@ const GENRES = {
   deephouse: { label: "ДипХаус", icon: "⚡", folder: "tracks/deephouse" },
   ruspop: { label: "Русская Поп-музыка", icon: "🎤", folder: "tracks/ruspop" },
   other: { label: "Разное", icon: "♫", folder: "tracks/other" },
+  // Музыка наших гостей: раздел наполняет владелец — гости присылают песни,
+  // владелец загружает их через «Добавить трек». Отдельный ключ нужен, чтобы
+  // лайки, комментарии и избранное работали так же, как в обычных жанрах.
+  guests: { label: "Музыка наших гостей", icon: "🎁", folder: "tracks/guests" },
 };
 
 // Настройки репозитория GitHub для автообнаружения песен на GitHub Pages
@@ -3030,6 +3034,8 @@ function genreViewLabel(key) {
 // ============================================================================
 
 const GENRE_TILE_ORDER = ["chanson", "disco", "discodacha", "deephouse", "ruspop", "other"];
+// «Музыка наших гостей» показывается отдельной широкой плиткой под сеткой
+const GUEST_GENRE = "guests";
 
 function isTilesMode() {
   return state.tiles;
@@ -3039,6 +3045,7 @@ function isTilesMode() {
 function genreCounts() {
   const counts = { all: state.tracks.length, favorites: 0 };
   for (const key of GENRE_TILE_ORDER) counts[key] = 0;
+  counts[GUEST_GENRE] = 0;
   for (const t of state.tracks) {
     if (counts[t.genre] !== undefined) counts[t.genre]++;
   }
@@ -3063,7 +3070,9 @@ function renderGenreTiles() {
   if (!genreTiles) return;
   const counts = genreCounts();
 
-  const signature = GENRE_TILE_ORDER.map((k) => counts[k]).join("|") + "|" + counts.all + "|" + counts.favorites;
+  const signature =
+    GENRE_TILE_ORDER.map((k) => counts[k]).join("|") +
+    "|" + counts.all + "|" + counts.favorites + "|" + counts[GUEST_GENRE];
   if (signature === genreTilesSignature && genreTiles.childElementCount > 0) return;
   genreTilesSignature = signature;
 
@@ -3098,9 +3107,25 @@ function renderGenreTiles() {
       </button>`;
   }).join("");
 
+  const guestCount = counts[GUEST_GENRE] || 0;
+  const guestsHtml = `
+    <button type="button" class="genre-tile genre-tile-guests" data-tile-genre="${GUEST_GENRE}"
+      aria-label="${escapeHtml(GENRES[GUEST_GENRE].label)}: ${guestCount} ${pluralSongs(guestCount)}">
+      <span class="genre-tile-guests-icon" aria-hidden="true">${GENRES[GUEST_GENRE].icon}</span>
+      <span class="genre-tile-guests-body">
+        <span class="genre-tile-label">${escapeHtml(GENRES[GUEST_GENRE].label)}</span>
+        <span class="genre-tile-guests-note">Песни, которые прислали друзья</span>
+      </span>
+      <span class="genre-tile-guests-count">
+        <span class="genre-tile-count">${guestCount}</span>
+        <span class="genre-tile-unit">${pluralSongs(guestCount)}</span>
+      </span>
+    </button>`;
+
   genreTiles.innerHTML = `
     <div class="genre-tiles-wide">${wideHtml}</div>
     <div class="genre-tiles-grid">${tilesHtml}</div>
+    ${guestsHtml}
   `;
 }
 
@@ -3234,6 +3259,10 @@ function renderTracks() {
     if (state.genre === "favorites") {
       emptyTitle.textContent = "В избранном пока нет треков";
       emptyDesc.textContent = "Нажмите на сердечко ♥ на любой карточке, чтобы добавить трек в избранное.";
+    } else if (state.genre === GUEST_GENRE) {
+      emptyTitle.textContent = "Здесь пока тихо";
+      emptyDesc.textContent =
+        "Сюда попадают песни, которые присылают друзья. Пришлите свою — и она появится в этом разделе.";
     } else {
       emptyTitle.textContent = "Пока нет треков";
       emptyDesc.textContent = "Выберите другой жанр или загляните позже — музыка скоро появится.";
@@ -3350,7 +3379,11 @@ function renderTracks() {
           <div class="track-head-row" data-action="toggle" data-id="${escapeHtml(track.id)}">
             <div class="track-info">
               <h3 class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</h3>
-              <p class="track-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
+              <p class="track-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}${
+                track.genre === GUEST_GENRE
+                  ? '<span class="guest-badge" title="Песню прислал гость">гость</span>'
+                  : ""
+              }</p>
             </div>
           </div>
 
@@ -4176,6 +4209,7 @@ function syncGithubUploadLink() {
 
 function openUploadModal() {
   uploadModal.classList.remove("hidden");
+  // В списке жанров ящика загрузки есть все разделы, включая гостевой
   if (GENRES[state.genre]) {
     uploadGenre.value = state.genre;
   }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Генератор списка треков music_website/tracks/tracks.json.
-Сканирует папки tracks/chanson, disco, discodacha, deephouse, ruspop, other,
+Сканирует папки tracks/chanson, disco, discodacha, deephouse, ruspop, other, guests,
 подтягивает обложки
 и метаданные из tracks/metadata.json.
 """
@@ -16,7 +16,7 @@ TRACKS_DIR = BASE_DIR / "tracks"
 METADATA_FILE = TRACKS_DIR / "metadata.json"
 INDEX_FILE = TRACKS_DIR / "tracks.json"
 
-GENRES = ("chanson", "disco", "discodacha", "deephouse", "ruspop", "other")
+GENRES = ("chanson", "disco", "discodacha", "deephouse", "ruspop", "other", "guests")
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".opus", ".webm"}
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".svg", ".gif")
 

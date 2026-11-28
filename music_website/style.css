@@ -25,6 +25,8 @@
   --grad-deephouse: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
   --grad-ruspop: linear-gradient(135deg, #e11d48 0%, #fb923c 100%);
   --grad-other: linear-gradient(135deg, #059669 0%, #14b8a6 100%);
+  /* Музыка наших гостей — тёплое золото с янтарным отливом */
+  --grad-guests: linear-gradient(135deg, #b45309 0%, #facc15 100%);
 
   /* Палитра живого переливающегося фона (по умолчанию) */
   --aurora-1: #7c3aed;
@@ -53,6 +55,13 @@ body[data-theme="discodacha"] {
   --aurora-2: #facc15;
   --aurora-3: #fb7185;
   --aurora-4: #fdba74;
+}
+
+body[data-theme="guests"] {
+  --aurora-1: #b45309;
+  --aurora-2: #facc15;
+  --aurora-3: #f97316;
+  --aurora-4: #fde68a;
 }
 
 body[data-theme="deephouse"] {
@@ -514,6 +523,7 @@ body.music-playing .aurora-photo {
 .dot-deephouse { background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
 .dot-ruspop { background: #fb7185; box-shadow: 0 0 10px #fb7185; }
 .dot-other { background: #34d399; box-shadow: 0 0 10px #34d399; }
+.dot-guests { background: #facc15; box-shadow: 0 0 10px #facc15; }
 
 
 /* Панель плейлистов */
@@ -756,6 +766,74 @@ body.music-playing .aurora-photo {
   color: var(--rose);
 }
 
+/* --- Музыка наших гостей: отдельная широкая плитка под сеткой жанров ---
+   Золотая рамка и подпись отличают раздел от обычных жанров. */
+.genre-tile-guests {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(250, 204, 21, 0.42);
+  background: linear-gradient(135deg, rgba(44, 30, 12, 0.72), rgba(12, 12, 24, 0.72));
+}
+
+.genre-tile-guests:hover {
+  border-color: rgba(250, 204, 21, 0.78);
+  background: linear-gradient(135deg, rgba(58, 40, 14, 0.82), rgba(16, 16, 30, 0.82));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 22px rgba(250, 204, 21, 0.16);
+}
+
+.genre-tile-guests-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.9), rgba(234, 88, 12, 0.9));
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.genre-tile-guests-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.genre-tile-guests-note {
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: #c4b6e8;
+}
+
+.genre-tile-guests-count {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Метка «гость» рядом с исполнителем в карточке */
+.guest-badge {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 /* --- Липкая кнопка «Назад к жанрам» ---
    Держится под шапкой, пока открыт список песен: человек всегда видит,
    как вернуться, даже на двадцатой песне. */
@@ -916,6 +994,7 @@ body.music-playing .aurora-photo {
 .cover-deephouse { background: var(--grad-deephouse); }
 .cover-ruspop { background: var(--grad-ruspop); }
 .cover-other { background: var(--grad-other); }
+.cover-guests { background: var(--grad-guests); }
 
 .cover-img {
   position: absolute;
@@ -3108,7 +3187,30 @@ body.music-playing .aurora-photo {
   }
 }
 
+@media (max-width: 420px) {
+  .genre-tile-guests {
+    padding: 13px 14px;
+  }
+
+  .genre-tile-guests-note {
+    font-size: 0.7rem;
+  }
+
+  .genre-tile-guests-icon {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 @media (max-width: 360px) {
+  .genre-tile-guests-body {
+    max-width: 168px;
+  }
+
+  .genre-tile-guests-note {
+    display: none;
+  }
+
   .genre-tile {
     min-height: 86px;
     padding: 12px 11px 10px;
