@@ -189,6 +189,11 @@ body.music-playing .aurora-photo {
   background: rgba(8, 10, 18, 0.86);
   backdrop-filter: blur(22px);
   border-bottom: 1px solid var(--border);
+  /* В установленном приложении и в полноэкранном режиме Safari шапка иначе
+     заезжает под «чёлку» и статус-бар: viewport-fit=cover уже включён,
+     значит место под них надо освободить самим. В обычном браузере
+     safe-area-inset-top равен нулю, поэтому ничего не меняется. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .header-inner {
@@ -2470,7 +2475,8 @@ body.music-playing .aurora-photo {
   }
 
   .player-bar {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* системный отступ снизу (жестовая полоска iPhone) + запас под плеером */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   }
 
   .player-inner {
@@ -2498,8 +2504,21 @@ body.music-playing .aurora-photo {
     min-height: 38px;
   }
 
+  /* Раньше ползунок скрывался целиком: на iPhone audio.volume всё равно
+     не работал. Теперь громкость идёт через мастер-гейн и работает везде,
+     поэтому на мобильных оставляем компактный ползунок с кнопкой звука. */
   .volume-wrap {
-    display: none;
+    display: flex;
+    width: 100%;
+    max-width: 240px;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .volume-wrap .volume-bar {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 160px;
   }
 
   .cover-mini-btn {
@@ -2507,7 +2526,8 @@ body.music-playing .aurora-photo {
   }
 
   body {
-    padding-bottom: 185px;
+    /* плеер + вернувшийся ползунок громкости */
+    padding-bottom: 205px;
   }
 }
 
@@ -2714,7 +2734,7 @@ body.music-playing .aurora-photo {
   }
 
   body {
-    padding-bottom: 215px;
+    padding-bottom: 235px;
   }
 }
 

@@ -4948,9 +4948,141 @@ function initSnowfall() {
   requestAnimationFrame(tick);
 }
 
+
+// ============================================================================
+// Установка как приложение и обновление установленной версии
+// Зачем: на iPhone установленное приложение открывает сохранённую копию
+// страницы и само не подтягивает новый код. Service worker даёт контроль
+// над кэшем: оболочка кэшируется, а новая версия ставится при запуске.
+// ============================================================================
+
+// Установлено ли приложение (ярлык на домашнем экране)
+const IS_STANDALONE = () => {
+  try {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      window.navigator.standalone === true
+    );
+  } catch {
+    return false;
+  }
+};
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  // На file:// service worker не работает вовсе.
+  // На localhost он тоже мешает: кэширует оболочку, и правки в CSS/JS
+  // приходится «пробивать» жёсткой перезагрузкой. Поэтому только реальный хост.
+  if (!/^https?:$/.test(location.protocol)) return;
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
+
+  let refreshing = false;
+  // Было ли приложение под контролем service worker до этой регистрации
+  const hadController = Boolean(navigator.serviceWorker.controller);
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Новая версия заняла место старой. Перезагружаем один раз и только
+    // если приложение уже было под контролем — иначе это первый запуск.
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    location.reload();
+  });
+
+  navigator.serviceWorker
+    .register("sw.js", { scope: "./" })
+    .then((registration) => {
+      // Проверяем обновления при каждом запуске, а не раз в сутки
+      registration.update().catch(() => {});
+
+      registration.addEventListener("updatefound", () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+            showToast("Новая версия загружена — перезапустите приложение");
+          }
+        });
+      });
+
+      // И вернувшись в приложение из фона тоже смотрим, не вышло ли обновление
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) registration.update().catch(() => {});
+      });
+    })
+    .catch(() => {
+      // Без service worker сайт работает как обычная страница
+    });
+}
+
+// --- Приглашение установить приложение (Android / Chrome / Edge) ---
+let installPromptEvent = null;
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  // Свой баннер вместо автоматического: показываем аккуратную кнопку в шапке
+  event.preventDefault();
+  installPromptEvent = event;
+  document.getElementById("openInstallBtn")?.classList.remove("hidden");
+  document.getElementById("installHeaderBtn")?.classList.remove("hidden");
+});
+
+function hideInstallButtons() {
+  document.getElementById("openInstallBtn")?.classList.add("hidden");
+  document.getElementById("installHeaderBtn")?.classList.add("hidden");
+}
+
+// Инструкция для тех, у кого нет системного приглашения (в первую очередь iPhone)
+function showIosInstallHint() {
+  if (IS_IOS) {
+    showToast(
+      "Нажмите «Поделиться» внизу Safari → «На экран Домой». Приложение появится на рабочем столе."
+    );
+    return;
+  }
+  showToast("Откройте меню браузера и выберите «Установить приложение»");
+}
+
+async function promptInstall() {
+  if (!installPromptEvent) {
+    showIosInstallHint();
+    return;
+  }
+  installPromptEvent.prompt();
+  try {
+    const { outcome } = await installPromptEvent.userChoice;
+    if (outcome === "accepted") showToast("Приложение установлено — ищите иконку на рабочем столе");
+  } catch {
+    // человек закрыл окно — ничего не делаем
+  }
+  installPromptEvent = null;
+  hideInstallButtons();
+}
+
+window.addEventListener("appinstalled", () => {
+  installPromptEvent = null;
+  hideInstallButtons();
+  showToast("Готово: «НейроДоза» установлена");
+});
+
+document.getElementById("installHeaderBtn")?.addEventListener("click", promptInstall);
+document.getElementById("openInstallBtn")?.addEventListener("click", promptInstall);
+
+// Если приложение уже открыто как установленное — кнопки установки не нужны
+if (IS_STANDALONE()) {
+  window.addEventListener("beforeinstallprompt", hideInstallButtons);
+  document.addEventListener("DOMContentLoaded", hideInstallButtons);
+  // Оно и так полноэкранное: кнопка «на весь экран» только мешает
+  document.getElementById("fullscreenBtn")?.classList.add("hidden");
+} else if (IS_IOS) {
+  // На iPhone системного приглашения не бывает — показываем кнопку сразу,
+  // по нажатию она объяснит путь через «Поделиться»
+  document.getElementById("openInstallBtn")?.classList.remove("hidden");
+}
+
 // Старт приложения
 initMediaSessionHandlers();
 initSnowfall();
 initVisualizer();
 loadTracksFromServer(false);
 startSocialSync();
+registerServiceWorker();
