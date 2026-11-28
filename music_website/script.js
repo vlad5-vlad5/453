@@ -232,6 +232,7 @@ const eqBassSlider = document.getElementById("eqBassSlider");
 const eqMidSlider = document.getElementById("eqMidSlider");
 const eqTrebleSlider = document.getElementById("eqTrebleSlider");
 const eqVolumeSlider = document.getElementById("eqVolumeSlider");
+const eqIosNote = document.getElementById("eqIosNote");
 const eqBassVal = document.getElementById("eqBassVal");
 const eqMidVal = document.getElementById("eqMidVal");
 const eqTrebleVal = document.getElementById("eqTrebleVal");
@@ -256,6 +257,10 @@ function showToast(message) {
 // --- Аудиодвижок: Бас-буст, Объёмный звук 3D, 3-полосный эквалайзер и лимитер ---
 let audioEngine = null;
 let vizRunning = false;
+
+// Выбранная громкость (0…1). Храним отдельно от audio.volume: когда звук идёт
+// через Web Audio, уровень задаёт мастер-гейн, а элемент всегда стоит на 100%.
+let appVolume = 1;
 
 function isEqActive() {
   const { bassBoost, surround, bass, mid, treble } = state.eq;
@@ -349,6 +354,16 @@ function ensureAudioEngine() {
     compressor.attack.value = 0.005;
     compressor.release.value = 0.15;
 
+    // 6. Мастер-громкость. На iPhone/iPad Safari не применяет audio.volume:
+    // значение записывается, но на звук не влияет. GainNode в Web Audio
+    // работает везде, поэтому общий уровень держим здесь, а audio.volume
+    // остаётся резервным путём, если Web Audio недоступен.
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = audio.muted ? 0 : appVolume;
+    // Уровень теперь задаёт гейн. Громкость самого элемента ставим на 100%,
+    // иначе она применится дважды и звук станет тише, чем выбран на ползунке.
+    audio.volume = 1;
+
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.45;
@@ -390,9 +405,10 @@ function ensureAudioEngine() {
     convolver.connect(surroundReverbGain);
     surroundReverbGain.connect(compressor);
 
-    // Выход
+    // Выход: лимитер → анализатор (для цветомузыки) → мастер-громкость → колонки
     compressor.connect(analyser);
-    analyser.connect(ctx.destination);
+    analyser.connect(masterGain);
+    masterGain.connect(ctx.destination);
     // Параллельная ветка только для анализа ударов (в колонки не идёт)
     compressor.connect(beatAnalyser);
 
@@ -411,6 +427,7 @@ function ensureAudioEngine() {
       beatAnalyser,
       beatData,
       compressor,
+      masterGain,
     };
 
     if (ctx.state === "suspended") {
@@ -431,6 +448,10 @@ function ensureSpectrumAnalyser() {
     ensureAudioEngine();
   }
   if (!audioEngine) return null;
+
+  // Движок мог появиться уже после того, как человек выставил громкость:
+  // подхватываем текущий уровень, иначе мастер-гейн стартует со 100%
+  applyMasterVolume(appVolume);
 
   if (audioEngine.ctx.state === "suspended") {
     audioEngine.ctx.resume().catch(() => {});
@@ -526,7 +547,7 @@ function syncEqUI() {
     });
   }
   if (eqVolumeSlider && eqVolumeVal) {
-    const vol = audio.muted ? 0 : audio.volume;
+    const vol = audio.muted ? 0 : appVolume;
     eqVolumeSlider.value = String(vol);
     eqVolumeVal.textContent = `${Math.round(vol * 100)}%`;
   }
@@ -4406,7 +4427,10 @@ repeatBtn.addEventListener("click", () => {
   repeatBtn.classList.toggle("active", state.isRepeat);
 });
 
-audio.volume = Number(volumeBar.value);
+// Пока звуковой движок не создан, громкость задаёт сам элемент.
+// После создания движка уровень полностью переходит к мастер-гейну.
+appVolume = Math.max(0, Math.min(1, Number(volumeBar.value) || 1));
+audio.volume = appVolume;
 
 audio.addEventListener("loadedmetadata", () => {
   durationTimeEl.textContent = formatTime(audio.duration);
@@ -4477,15 +4501,40 @@ progressBar.addEventListener("input", () => {
 });
 
 function syncVolumeIcons() {
-  const muted = audio.muted || audio.volume === 0;
+  const muted = audio.muted || appVolume === 0;
   muteBtn.querySelector(".icon-vol").classList.toggle("hidden", muted);
   muteBtn.querySelector(".icon-mute").classList.toggle("hidden", !muted);
 }
 
+// iOS/iPadOS (все браузеры там на WebKit) не применяют audio.volume:
+// свойство принимает значение, но громкость задают только кнопки устройства.
+// Поэтому уровень звука ведёт мастер-гейн Web Audio, а audio.volume служит
+// резервом для случая, когда Web Audio недоступен.
+const IS_IOS =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+function applyMasterVolume(clamped) {
+  const engine = audioEngine;
+  if (!engine?.masterGain) {
+    // Web Audio недоступен — работает обычная громкость элемента
+    audio.volume = clamped;
+    return;
+  }
+  // Звук идёт через граф: громкость задаёт только гейн, элемент — на 100%
+  audio.volume = 1;
+  engine.masterGain.gain.setTargetAtTime(
+    audio.muted ? 0 : clamped,
+    engine.ctx.currentTime,
+    0.02
+  );
+}
+
 function setAppVolume(val) {
   const clamped = Math.max(0, Math.min(1, Number(val)));
-  audio.volume = clamped;
+  appVolume = clamped;
   audio.muted = clamped === 0;
+  applyMasterVolume(clamped);
   volumeBar.value = String(clamped);
   if (eqVolumeSlider && eqVolumeVal) {
     eqVolumeSlider.value = String(clamped);
@@ -4498,6 +4547,8 @@ volumeBar.addEventListener("input", () => setAppVolume(volumeBar.value));
 
 muteBtn.addEventListener("click", () => {
   audio.muted = !audio.muted;
+  // Гейн и muted работают на всех платформах — держим их в одном состоянии
+  applyMasterVolume(audio.muted ? 0 : appVolume);
   syncVolumeIcons();
   syncEqUI();
 });
@@ -4505,6 +4556,8 @@ muteBtn.addEventListener("click", () => {
 // --- Модалка настроек звука (Бас-буст, Объёмный звук 3D, Эквалайзер) ---
 function openEqModal() {
   syncEqUI();
+  // Подсказка про громкость устройства нужна только на iPhone/iPad
+  eqIosNote?.classList.toggle("hidden", !IS_IOS);
   eqModal.classList.remove("hidden");
 }
 
