@@ -2214,6 +2214,10 @@ body.music-playing .aurora-photo {
 
 .eq-modal-card {
   max-width: 480px;
+  /* Сноски добавили высоты: на невысоких телефонах модалка прокручивается,
+     а не обрезается вместе с кнопками «Сбросить / Готово» */
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .eq-subtitle {
@@ -2270,6 +2274,31 @@ body.music-playing .aurora-photo {
   font-size: 0.72rem;
   color: var(--text-muted);
   line-height: 1.25;
+}
+
+/* Пояснение к переключателю: эффект делает звук плотнее, но чуть тише.
+   Мелким шрифтом — это подсказка, а не второй заголовок. */
+.eq-toggle-note {
+  margin-top: 4px;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Сноски внизу модалки звука */
+.eq-footnote {
+  margin: 0 0 12px;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.eq-footnote-ios {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.22);
+  color: rgba(226, 232, 240, 0.86);
 }
 
 .eq-switch {

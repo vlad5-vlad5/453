@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261205a" />
+  <link rel="stylesheet" href="style.css?v=20261212a" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -442,6 +442,11 @@
           <div class="eq-toggle-info">
             <span class="eq-toggle-title">Бас-буст</span>
             <span class="eq-toggle-desc">Глубокие и плотные низы</span>
+            <span class="eq-toggle-note">
+              Звук становится плотнее, но чуть тише: лимитер приглушает пики,
+              чтобы бас не хрипел. В динамике телефона баса почти не слышно —
+              там лучше выключить.
+            </span>
           </div>
           <span class="eq-switch" aria-hidden="true"></span>
         </button>
@@ -499,6 +504,20 @@
           <input type="range" id="eqVolumeSlider" min="0" max="1" step="0.01" value="1" />
         </label>
       </div>
+
+      <p class="eq-footnote">
+        Если после включения эффектов звук кажется тише — это нормально:
+        лимитер сдерживает громкие пики, чтобы не было хрипа. Кнопка «Сбросить»
+        возвращает исходную громкость.
+      </p>
+
+      <!-- Показывается только на iPhone/iPad: там ползунок громкости
+           управляет звуком сайта, но не системной громкостью -->
+      <p class="eq-footnote eq-footnote-ios hidden" id="eqIosNote">
+        На iPhone и iPad громкость сайта задаётся этим ползунком, а общая
+        громкость — кнопками на боку устройства. Если тихо — сначала добавьте
+        кнопками.
+      </p>
 
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary btn-sm" id="resetEqBtn">Сбросить</button>
@@ -672,6 +691,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261205a"></script>
+  <script src="script.js?v=20261212a"></script>
 </body>
 </html>
