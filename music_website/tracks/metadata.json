@@ -112,5 +112,9 @@
   "music_website/tracks/ruspop/На репите [sunodownloaderpro] (1).mp3": {
     "title": "На репите (1)",
     "artist": "Niletoo"
+  },
+  "music_website/tracks/ruspop/На репите [sunodownloaderpro].mp3": {
+    "title": "На репите",
+    "artist": "Niletoo"
   }
 }
