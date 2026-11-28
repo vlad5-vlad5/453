@@ -205,6 +205,8 @@ const ownerPanel = document.getElementById("ownerPanel");
 const closeOwnerPanelBtn = document.getElementById("closeOwnerPanelBtn");
 const ownerList = document.getElementById("ownerList");
 const ownerSyncStatus = document.getElementById("ownerSyncStatus");
+const ownerSyncNamesBtn = document.getElementById("ownerSyncNamesBtn");
+const ownerSyncNamesHint = document.getElementById("ownerSyncNamesHint");
 const ownerRefreshBtn = document.getElementById("ownerRefreshBtn");
 const ownerTracksCount = document.getElementById("ownerTracksCount");
 const ownerLikesCount = document.getElementById("ownerLikesCount");
@@ -1700,6 +1702,12 @@ async function mergeNewTracksFromGitHub() {
   );
 
   if (added > 0) {
+    // Названия из metadata.json и для только что найденных файлов
+    try {
+      await applyMetadataOverrides(state.tracks);
+    } catch {
+      // не критично
+    }
     renderAll();
   }
 }
@@ -2040,6 +2048,7 @@ ownerPanel?.addEventListener("click", (e) => {
   if (e.target === ownerPanel) closeOwnerPanel();
 });
 ownerRefreshBtn?.addEventListener("click", () => refreshOwnerPanel());
+ownerSyncNamesBtn?.addEventListener("click", () => syncAllNames());
 
 document.querySelectorAll(".owner-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -2296,6 +2305,79 @@ function findMetadataKey(meta, track) {
   return candidates.find(Boolean) || "";
 }
 
+// --- Названия из metadata.json ---
+// tracks.json может отставать: раньше переименование писало только
+// в metadata.json, и новые названия не доезжали до других устройств.
+
+// Кэш соответствия «путь трека → название из metadata.json».
+// Живёт до перезагрузки страницы: файл меняем только мы сами, а читать его
+// заново на каждый автоперескан незачем.
+let metadataOverridesCache = null;
+
+// Ключ без префикса music_website/ и без зависимости от формы юникода
+function metadataKey(value) {
+  const key = trackPathKey(String(value || ""));
+  return key.normalize ? key.normalize("NFC") : key;
+}
+
+async function loadMetadataOverrides(force = false) {
+  if (metadataOverridesCache && !force) return metadataOverridesCache;
+  try {
+    // На GitHub Pages файл публичный — читаем напрямую, без токена
+    const res = await fetch(`tracks/metadata.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const parsed = await res.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const map = new Map();
+    for (const [path, entry] of Object.entries(parsed)) {
+      if (!entry || typeof entry !== "object") continue;
+      map.set(metadataKey(path), entry);
+    }
+    metadataOverridesCache = map;
+    return map;
+  } catch {
+    // сети нет — работаем на данных tracks.json
+    return null;
+  }
+}
+
+// Применяет одно название/исполнителя к треку. Возвращает true, если что-то
+// поменялось. Используется и при загрузке списка, и после автоскана папок.
+function applyMetadataEntryToTrack(track, entry) {
+  if (!track || !entry) return false;
+  let touched = false;
+  if (entry.title && entry.title !== track.title) {
+    track.title = entry.title;
+    touched = true;
+  }
+  if (entry.artist && entry.artist !== track.artist) {
+    track.artist = entry.artist;
+    touched = true;
+  }
+  if (entry.cover && !track.cover) {
+    track.cover = entry.cover;
+    touched = true;
+  }
+  return touched;
+}
+
+// Применяет названия и исполнителей из metadata.json к уже загруженному списку.
+// Нужно потому, что tracks.json мог отстать: раньше переименование писало
+// только в metadata.json, и новые названия не доезжали до других устройств.
+// Возвращает количество исправленных записей.
+async function applyMetadataOverrides(tracks, force = false) {
+  if (!Array.isArray(tracks) || tracks.length === 0) return 0;
+  const byKey = await loadMetadataOverrides(force);
+  if (!byKey || byKey.size === 0) return 0;
+
+  let fixed = 0;
+  for (const track of tracks) {
+    const entry = byKey.get(metadataKey(track.src || track.id)) || byKey.get(metadataKey(track.id));
+    if (applyMetadataEntryToTrack(track, entry)) fixed++;
+  }
+  return fixed;
+}
+
 async function renameTrackEverywhere(track, title, artist) {
   if (state.serverMode) {
     const res = await fetch("/api/rename", {
@@ -2307,7 +2389,8 @@ async function renameTrackEverywhere(track, title, artist) {
       const msg = await res.json().catch(() => ({}));
       throw new Error(msg.error || "Не удалось сохранить название на сервере");
     }
-    return;
+    metadataOverridesCache = null;
+    return { indexUpdated: true };
   }
 
   if (!getGithubToken()) {
@@ -2330,6 +2413,21 @@ async function renameTrackEverywhere(track, title, artist) {
   setRenameProgress("Сохраняем на GitHub…");
   const ok = await ghWriteMetadata(json, sha, `Rename "${track.title}" to "${title}"`);
   if (!ok) throw new Error("GitHub не принял изменение. Попробуйте ещё раз.");
+
+  // Метку кэша сбрасываем: metadata.json только что изменился
+  metadataOverridesCache = null;
+
+  // Второй шаг: то же название — в общий список, иначе его увидят только
+  // на этом устройстве (телефон и друзья читают tracks.json).
+  setRenameProgress("Обновляем название для всех…");
+  try {
+    const indexUpdated = await ghUpdateTrackInIndex(track, title, artist);
+    return { indexUpdated };
+  } catch (err) {
+    // Название уже в metadata.json — не откатываем, но честно сообщаем
+    // вызывающему коду, что общий список не обновился.
+    return { indexUpdated: false, error: err };
+  }
 }
 
 // --- GitHub API: получить/удалить файл по пути в репозитории ---
@@ -2485,6 +2583,72 @@ function trackPathKey(value) {
   return key.normalize ? key.normalize("NFC") : key;
 }
 
+// Обновляет название и исполнителя в tracks/tracks.json.
+// Без этого переименование видел только тот браузер, где его сделали:
+// сайт берёт названия именно из tracks.json, а metadata.json он не читает.
+async function ghUpdateTrackInIndex(track, title, artist) {
+  const targets = new Set(
+    [track.id, track.src, track.fallbackSrc]
+      .filter(Boolean)
+      .map((v) => trackPathKey(v))
+  );
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const info = await ghGetFile(TRACKS_INDEX_PATH);
+    if (!info || !info.content) return false;
+
+    let json;
+    try {
+      json = JSON.parse(decodeGithubContent(info.content));
+    } catch {
+      return false;
+    }
+    if (!Array.isArray(json.tracks)) return false;
+
+    let changed = false;
+    for (const entry of json.tracks) {
+      const keys = [entry.id, entry.src].filter(Boolean).map((v) => trackPathKey(v));
+      if (!keys.some((k) => targets.has(k))) continue;
+      entry.title = title;
+      if (artist) entry.artist = artist;
+      changed = true;
+    }
+    // Записи может не быть (трек пришёл автосканом папки) — тогда создаём её
+    if (!changed) {
+      const relSrc = normalizeRepoPath(track.src || track.id);
+      if (!relSrc) return false;
+      json.tracks.push({
+        id: relSrc,
+        title,
+        artist: artist || track.artist || "Моя коллекция",
+        genre: track.genre || "other",
+        src: relSrc,
+        cover: track.cover || null,
+        duration: track.duration || "--:--",
+      });
+      changed = true;
+    }
+
+    const content = encodeGithubContent(JSON.stringify({ tracks: json.tracks }, null, 2) + "\n");
+    const res = await fetch(ghContentsUrl(TRACKS_INDEX_PATH), {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Rename "${track.title}" to "${title}" in tracks index`,
+        content,
+        sha: info.sha,
+        branch: GITHUB_BRANCH,
+      }),
+    });
+
+    if (res.ok) return true;
+    // 409 — файл успели изменить. Перечитываем sha и пробуем ещё раз.
+    if (res.status === 409 && attempt === 0) continue;
+    return false;
+  }
+  return false;
+}
+
 function decodeGithubContent(content) {
   const binary = atob(String(content).replace(/\s/g, ""));
   try {
@@ -2545,6 +2709,213 @@ async function ghDeleteTrackFromIndex(track) {
   return false;
 }
 
+// --- Массовая сверка названий: metadata.json → tracks.json ---
+// Нужна, если раньше переименования писались только в metadata.json и список
+// tracks.json отстал. Один коммит — и все устройства видят новые названия.
+async function ghSyncAllNamesFromMetadata() {
+  const [indexInfo, metaInfo] = await Promise.all([
+    ghGetFile(TRACKS_INDEX_PATH),
+    ghGetFile(METADATA_PATH),
+  ]);
+  if (!metaInfo || !metaInfo.content) {
+    return { updated: 0, created: 0, changed: false };
+  }
+  if (!indexInfo || !indexInfo.content) {
+    const err = new Error("Не удалось прочитать tracks.json");
+    err.status = 404;
+    throw err;
+  }
+
+  const meta = JSON.parse(decodeGithubContent(metaInfo.content));
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    return { updated: 0, created: 0, changed: false };
+  }
+
+  const byKey = new Map();
+  // Оригинальные ключи metadata.json нужны, чтобы создавать записи
+  // с настоящим путём файла: регистр букв важен для GitHub Pages.
+  const metaItems = [];
+  for (const [path, entry] of Object.entries(meta)) {
+    if (!entry || typeof entry !== "object") continue;
+    const key = metadataKey(path);
+    byKey.set(key, entry);
+    metaItems.push({ key, path, entry });
+  }
+
+  let json;
+  try {
+    json = JSON.parse(decodeGithubContent(indexInfo.content));
+  } catch {
+    throw new Error("tracks.json повреждён — синхронизация отменена.");
+  }
+  if (!Array.isArray(json.tracks)) {
+    throw new Error("tracks.json в неожиданном формате — синхронизация отменена.");
+  }
+
+  let updated = 0;
+  const seen = new Set();
+  for (const entry of json.tracks) {
+    if (!entry || typeof entry !== "object") continue;
+    const key = metadataKey(entry.src || entry.id);
+    const metaEntry = byKey.get(key) || byKey.get(metadataKey(entry.id));
+    if (!metaEntry) continue;
+    seen.add(key);
+    let touched = false;
+    if (metaEntry.title && metaEntry.title !== entry.title) {
+      entry.title = metaEntry.title;
+      touched = true;
+    }
+    if (metaEntry.artist && metaEntry.artist !== entry.artist) {
+      entry.artist = metaEntry.artist;
+      touched = true;
+    }
+    if (metaEntry.cover && !entry.cover) {
+      entry.cover = metaEntry.cover;
+      touched = true;
+    }
+    if (touched) updated++;
+  }
+
+  // Треки, которых в списке ещё нет (например, недавно добавленный гость),
+  // но название для них уже задано в metadata.json.
+  let created = 0;
+  const missing = metaItems.filter(({ key, path, entry }) => {
+    if (seen.has(key) || !entry.title) return false;
+    const rel = normalizeRepoPath(path).replace(/^music_website\//, "");
+    return Boolean(rel) && AUDIO_EXT_RE.test(rel);
+  });
+  await Promise.all(
+    missing.map(async ({ path, entry }) => {
+      const rel = normalizeRepoPath(path).replace(/^music_website\//, "");
+      // Добавляем только реально существующий файл: иначе в списке появится
+      // «мёртвая» песня, которая не загрузится.
+      let exists = false;
+      try {
+        const info = await ghGetFile(`music_website/${rel}`);
+        exists = Boolean(info && info.sha);
+      } catch {
+        exists = false;
+      }
+      if (!exists) return;
+      const genreMatch = /^tracks\/([^/]+)\//.exec(rel);
+      json.tracks.push({
+        id: rel,
+        title: entry.title,
+        artist: entry.artist || "Моя коллекция",
+        genre: genreMatch && GENRES[genreMatch[1]] ? genreMatch[1] : "other",
+        src: rel,
+        cover: entry.cover || null,
+        duration: entry.duration || "--:--",
+      });
+      created++;
+    })
+  );
+
+  if (updated === 0 && created === 0) {
+    return { updated: 0, created: 0, changed: false };
+  }
+
+  const content = encodeGithubContent(JSON.stringify({ tracks: json.tracks }, null, 2) + "\n");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(ghContentsUrl(TRACKS_INDEX_PATH), {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: `Sync track titles from metadata (${updated} updated, ${created} added)`,
+        content,
+        sha: indexInfo.sha,
+        branch: GITHUB_BRANCH,
+      }),
+    });
+    if (res.ok) return { updated, created, changed: true };
+    // 409 — файл успели изменить: перечитываем sha и пробуем ещё раз
+    if (res.status === 409 && attempt === 0) {
+      const fresh = await ghGetFile(TRACKS_INDEX_PATH);
+      if (fresh?.sha) {
+        indexInfo.sha = fresh.sha;
+        continue;
+      }
+    }
+    const err = new Error(`GitHub ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return { updated, created, changed: false };
+}
+
+function setSyncNamesHint(text, kind = "") {
+  if (!ownerSyncNamesHint) return;
+  ownerSyncNamesHint.textContent = text;
+  ownerSyncNamesHint.classList.toggle("is-warn", kind === "warn");
+  ownerSyncNamesHint.classList.toggle("is-ok", kind === "ok");
+}
+
+const SYNC_NAMES_DEFAULT_HINT =
+  "Если песня переименована на компьютере, а на телефоне старое название — нажмите сюда.";
+
+// Кнопка «Применить названия» в панели владельца
+async function syncAllNames() {
+  if (!ownerSyncNamesBtn) return;
+  if (ownerSyncNamesBtn.disabled) return;
+
+  // Локальный сервер сам подставляет метаданные при сканировании папок
+  if (state.serverMode) {
+    setSyncNamesHint("Локальный сервер подставляет новые названия сам — обновляем список…");
+    await loadTracksFromServer(true);
+    setSyncNamesHint("Названия обновлены из metadata.json.", "ok");
+    return;
+  }
+
+  if (!getGithubToken()) {
+    setSyncNamesHint(
+      "Нужен токен GitHub: вставьте его ниже в поле токена и нажмите «Сохранить».",
+      "warn"
+    );
+    return;
+  }
+
+  ownerSyncNamesBtn.disabled = true;
+  const label = ownerSyncNamesBtn.textContent;
+  ownerSyncNamesBtn.textContent = "Применяем…";
+  setSyncNamesHint("Читаем названия из metadata.json…");
+
+  try {
+    const result = await ghSyncAllNamesFromMetadata();
+
+    // Перечитываем metadata.json заново и применяем к тому, что на экране
+    await applyMetadataOverrides(state.tracks, true);
+    renderAll();
+
+    if (!result.changed) {
+      setSyncNamesHint("Все названия уже совпадают — менять нечего.", "ok");
+    } else {
+      const parts = [];
+      if (result.updated > 0) parts.push(`исправлено ${result.updated}`);
+      if (result.created > 0) parts.push(`добавлено ${result.created}`);
+      setSyncNamesHint(
+        `Готово: ${parts.join(", ")}. Новые названия увидят все устройства через минуту.`,
+        "ok"
+      );
+      showToast("Названия применены для всех устройств");
+    }
+  } catch (err) {
+    if (err?.status === 401 || err?.status === 403) {
+      setSyncNamesHint(
+        "GitHub не принял токен или у него нет прав на запись. Проверьте токен ниже.",
+        "warn"
+      );
+    } else {
+      setSyncNamesHint(
+        `Не удалось применить названия (${err?.status || "сеть"}). Попробуйте ещё раз.`,
+        "warn"
+      );
+    }
+  } finally {
+    ownerSyncNamesBtn.disabled = false;
+    ownerSyncNamesBtn.textContent = label;
+  }
+}
+
 // --- Обработчики окна переименования ---
 document.getElementById("closeRenameTrackBtn")?.addEventListener("click", closeRenameTrackModal);
 document.getElementById("cancelRenameTrackBtn")?.addEventListener("click", closeRenameTrackModal);
@@ -2585,7 +2956,8 @@ renameTrackForm?.addEventListener("submit", async (e) => {
   setRenameProgress("Сохраняем…");
 
   try {
-    await renameTrackEverywhere(track, title, artist);
+    const result = await renameTrackEverywhere(track, title, artist);
+    const indexUpdated = result?.indexUpdated !== false;
 
     // Обновляем и список на странице, и открытый плеер
     track.title = title;
@@ -2597,9 +2969,17 @@ renameTrackForm?.addEventListener("submit", async (e) => {
       document.title = `${title} — НейроДоза`;
     }
 
-    setRenameProgress("Готово — название сохранено.", "ok");
-    showToast(`Переименовано: «${title}»`);
-    setTimeout(() => closeRenameTrackModal(), 900);
+    if (indexUpdated) {
+      setRenameProgress("Готово — название сохранено для всех устройств.", "ok");
+      showToast(`Переименовано: «${title}»`);
+    } else {
+      setRenameProgress(
+        "Название сохранено здесь. Чтобы его увидели телефон и друзья, нажмите «Применить названия» в панели владельца.",
+        "ok"
+      );
+      showToast("Название сохранено — нужна кнопка «Применить названия»");
+    }
+    setTimeout(() => closeRenameTrackModal(), indexUpdated ? 900 : 2600);
   } catch (err) {
     console.error(err);
     setRenameProgress(err?.message || "Не удалось переименовать песню.", "error");
@@ -2828,6 +3208,17 @@ async function loadTracksFromServer(notify = false) {
       }
     } catch {
       // Оставляем FALLBACK_TRACKS
+    }
+
+    // Названия из metadata.json главнее: переименование пишет именно туда.
+    // Так исправляются и записи, где tracks.json отстал.
+    try {
+      const fixed = await applyMetadataOverrides(state.tracks);
+      if (fixed > 0) {
+        console.info(`[НейроДоза] Названия обновлены из metadata.json: ${fixed}`);
+      }
+    } catch {
+      // не критично: показываем названия из tracks.json
     }
 
     renderAll();

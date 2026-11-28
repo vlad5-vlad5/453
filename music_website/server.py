@@ -13,6 +13,7 @@ import mimetypes
 import os
 import re
 import time
+import unicodedata
 import urllib.parse
 import uuid
 import wave
@@ -38,6 +39,37 @@ def load_metadata() -> dict:
         return json.loads(METADATA_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def normalize_lookup(value: str) -> str:
+    """Ключ для сравнения путей: NFC, прямые слэши, нижний регистр."""
+    return unicodedata.normalize("NFC", str(value or "").replace("\\", "/")).lower()
+
+
+def metadata_key_candidates(rel_path: str) -> list[str]:
+    """Возможные ключи трека в metadata.json.
+
+    В файле исторически встречаются оба вида: «music_website/tracks/...»
+    (так пишет сайт с GitHub Pages) и «tracks/...». Если искать только один,
+    переименования «теряются»: название есть в файле, но сервер его не видит.
+    """
+    rel = str(rel_path or "").replace("\\", "/").lstrip("/")
+    if rel.startswith("music_website/"):
+        rel = rel[len("music_website/"):]
+    return [f"music_website/{rel}", rel]
+
+
+def find_metadata_key(meta: dict, rel_path: str) -> str | None:
+    """Ключ в metadata.json для пути трека — в любой из двух форм записи."""
+    for key in metadata_key_candidates(rel_path):
+        if key in meta:
+            return key
+    # Точного совпадения нет — сравниваем без учёта регистра, слэшей и NFC/NFD
+    wanted = [normalize_lookup(k) for k in metadata_key_candidates(rel_path)]
+    for key in meta:
+        if normalize_lookup(key) in wanted:
+            return key
+    return None
 
 
 def save_metadata(data: dict) -> None:
@@ -153,7 +185,7 @@ def scan_tracks() -> list[dict]:
         )
         for audio_path in files:
             rel_path = audio_path.relative_to(BASE_DIR).as_posix()
-            entry = meta.get(rel_path, {})
+            entry = meta.get(find_metadata_key(meta, rel_path) or "", {})
             inferred_artist, inferred_title = parse_name(audio_path.stem)
 
             cover = entry.get("cover")
@@ -413,7 +445,11 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
 
         # Чистим метаданные и пересобираем индекс
         meta = load_metadata()
-        removed_keys = [k for k in meta if k == rel or k.endswith("/" + candidate.name)]
+        removed_keys = [
+            k
+            for k in meta
+            if normalize_lookup(k) in {normalize_lookup(c) for c in metadata_key_candidates(rel)}
+        ]
         for key in removed_keys:
             meta.pop(key, None)
         if removed_keys:
@@ -537,9 +573,11 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
         rel_cover = cover_path.relative_to(BASE_DIR).as_posix()
 
         meta = load_metadata()
-        entry = meta.get(track_id, {})
+        existing_key = find_metadata_key(meta, track_id)
+        key = existing_key or metadata_key_candidates(track_id)[0]
+        entry = dict(meta.get(key, {}))
         entry["cover"] = rel_cover
-        meta[track_id] = entry
+        meta[key] = entry
         save_metadata(meta)
         sync_tracks_index()
 
@@ -576,13 +614,15 @@ class MusicRequestHandler(SimpleHTTPRequestHandler):
 
         rel = target.relative_to(BASE_DIR).as_posix()
         meta = load_metadata()
-        entry = meta.get(rel, {})
+        existing_key = find_metadata_key(meta, rel)
+        key = existing_key or metadata_key_candidates(rel)[0]
+        entry = dict(meta.get(key, {}))
         entry["title"] = title
         if artist:
             entry["artist"] = artist
         else:
             entry.pop("artist", None)
-        meta[rel] = entry
+        meta[key] = entry
         save_metadata(meta)
 
         try:

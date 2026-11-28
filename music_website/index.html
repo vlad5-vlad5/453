@@ -23,7 +23,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261128a" />
+  <link rel="stylesheet" href="style.css?v=20261205a" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -552,6 +552,17 @@
         <button type="button" class="btn btn-secondary btn-sm" id="ownerRefreshBtn">Обновить</button>
       </div>
 
+      <!-- Синхронизация названий: переносит правки из metadata.json в общий
+           список tracks.json, чтобы новое название видели все устройства -->
+      <div class="owner-sync-names">
+        <button type="button" class="btn btn-primary btn-sm" id="ownerSyncNamesBtn">
+          Применить названия
+        </button>
+        <p class="owner-sync-names-hint" id="ownerSyncNamesHint">
+          Если песня переименована на компьютере, а на телефоне старое название — нажмите сюда.
+        </p>
+      </div>
+
       <div class="owner-list" id="ownerList"></div>
 
       <div class="owner-token">
@@ -661,6 +672,6 @@
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261128a"></script>
+  <script src="script.js?v=20261205a"></script>
 </body>
 </html>

@@ -2751,6 +2751,42 @@ body.music-playing .aurora-photo {
   margin-bottom: 12px;
 }
 
+/* Кнопка «Применить названия»: переносит правки названий из metadata.json
+   в общий tracks.json. Видна только в панели владельца. */
+.owner-sync-names {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(129, 140, 248, 0.22);
+}
+
+.owner-sync-names .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.owner-sync-names-hint {
+  flex: 1 1 220px;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.owner-sync-names-hint.is-ok {
+  color: #86efac;
+}
+
+.owner-sync-names-hint.is-warn {
+  color: #fde68a;
+}
+
 .owner-tabs {
   display: inline-flex;
   gap: 4px;
