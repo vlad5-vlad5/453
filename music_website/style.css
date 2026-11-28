@@ -204,6 +204,80 @@ body.music-playing .aurora-photo {
   filter: grayscale(100%) contrast(1.15) brightness(0.98);
 }
 
+/* Постоянный блок установки внизу списка.
+   Намеренно тихий: не спорит с карточками треков, но всегда на месте,
+   поэтому его видно и на первом визите, когда браузер ещё не разрешил
+   установку, и на iPhone, где системного приглашения не бывает вовсе. */
+.install-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 26px 0 8px;
+  padding: 18px 20px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 15px;
+  backdrop-filter: blur(4px);
+}
+
+.install-block-text {
+  min-width: 0;
+}
+
+.install-block-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.install-block-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.install-block-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* На iPhone системного окна нет — блок остаётся подсказкой, кнопка не кричит */
+.install-block.is-hint-only .install-block-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+}
+
+.install-block-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Уже установлено — предлагать нечего */
+.install-block.hidden {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .install-block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .install-block-btn {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
 /* Свет жанра. Палитры --aurora-1..4 объявлены выше для каждого жанра
    (body[data-theme="..."]), но до этого ни к чему не были подключены.
    Четыре пятна лежат между фотографией и виньеткой: фото остаётся
