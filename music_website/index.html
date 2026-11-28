@@ -25,7 +25,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="assets/og-cover.jpg" />
-  <link rel="stylesheet" href="style.css?v=20261226a" />
+  <link rel="stylesheet" href="style.css?v=20261231a" />
 </head>
 <body>
   <!-- Чистый полноэкранный чёрно-белый фон с поющим дуэтом и падающим снегом -->
@@ -732,9 +732,16 @@
   <input type="file" id="changeCoverInput" accept="image/*" hidden />
 
   <!-- Всплывающие уведомления -->
+  <!-- Владельцу: на сайте выпуск новее того, что видят гости.
+       Показывается только при ?admin=1 и только при расхождении. -->
+  <div class="release-debug hidden" id="releaseDebugRow" role="status">
+    <span class="release-debug-icon" aria-hidden="true">●</span>
+    <span id="releaseDebugText"></span>
+  </div>
+
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
   <audio id="audioPlayer" preload="metadata" crossorigin="anonymous" controlsList="nodownload"></audio>
-  <script src="script.js?v=20261226a"></script>
+  <script src="script.js?v=20261231a"></script>
 </body>
 </html>
