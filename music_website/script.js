@@ -4989,6 +4989,13 @@ let swRegistration = null;
 let updateReloading = false;
 let updateBannerShown = false;
 
+// --- Ручной выпуск обновлений (release.json) ---
+// Гости видят ту версию, номер которой стоит в release.json. Пока владелец
+// его не поднял, залитый код лежит на сайте, но никому не показывается.
+let currentRelease = null;      // версия, которую гость видит сейчас
+let availableRelease = null;    // скачана и ждёт выпуска
+let lastCheckedRelease = null;  // что видели на сайте при последней проверке
+
 // Можно ли прямо сейчас незаметно перезагрузить приложение
 function canApplyUpdateSilently() {
   const playing = Boolean(state.isPlaying) && !audio.paused && !audio.ended;
@@ -5011,21 +5018,84 @@ function setUpdateToastApplied() {
 // Гость может применить обновление сам, не дожидаясь паузы.
 function emitUpdateUi() {
   const btn = document.getElementById("updateHeaderBtn");
-  if (!btn) return;
-  const has = Boolean(swRegistration?.waiting);
-  btn.classList.toggle("hidden", !has);
-  if (has) {
-    btn.title = state.isPlaying
-      ? "Обновить приложение (музыка прервётся и продолжится с того же места)"
-      : "Обновить приложение";
+  if (btn) {
+    // Кнопка нужна, когда новый релиз уже скачан и ждёт перезагрузки
+    const has = Boolean(availableRelease);
+    btn.classList.toggle("hidden", !has);
+    if (has) {
+      btn.title = state.isPlaying
+        ? "Обновить приложение (музыка прервётся и продолжится с того же места)"
+        : "Обновить приложение";
+    }
   }
+
+  // Подсказка владельцу: залито на сайт, но ещё не выпущено
+  emitReleaseDebug();
+}
+
+// Владелец (?admin=1) видит, что задеплоено, а что показывает он сам.
+// Гостям эта плашка не нужна и не показывается.
+function emitReleaseDebug() {
+  const row = document.getElementById("releaseDebugRow");
+  const text = document.getElementById("releaseDebugText");
+  if (!row || !text) return;
+
+  const showOwner = IS_ADMIN || state.serverMode;
+  const mismatch =
+    Boolean(lastCheckedRelease) &&
+    Boolean(currentRelease) &&
+    lastCheckedRelease !== currentRelease;
+
+  row.classList.toggle("hidden", !showOwner || !mismatch);
+  if (!mismatch) return;
+
+  if (availableRelease) {
+    text.textContent = `На сайте выпуск «${lastCheckedRelease}», у вас «${currentRelease}» — скачан и готов к применению.`;
+  } else {
+    text.textContent = `На сайте выпуск «${lastCheckedRelease}», у вас «${currentRelease}» — выкачиваем…`;
+  }
+}
+
+// Просим service worker переключиться на новый релиз и перезагружаемся
+function askServiceWorkerToApply() {
+  const sw = navigator.serviceWorker;
+  if (!sw) return Promise.resolve(false);
+
+  const target = sw.controller || sw.active;
+  if (!target) return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      resolve(ok);
+    };
+    const onMessage = (event) => {
+      const data = event.data;
+      if (data && typeof data === "object" && data.type === "RELEASE_APPLIED") {
+        sw.removeEventListener("message", onMessage);
+        finish(true);
+      }
+    };
+    sw.addEventListener("message", onMessage);
+    try {
+      target.postMessage({ type: "APPLY_RELEASE" });
+    } catch {
+      finish(false);
+    }
+    // Если SW не ответил — не висим, попробуем просто перезагрузиться
+    setTimeout(() => {
+      sw.removeEventListener("message", onMessage);
+      finish(false);
+    }, 2500);
+  });
 }
 
 // Перезагружаемся в новую версию, сохранив, где гость находился
 function applyUpdateNow() {
   if (updateReloading) return;
-  const waiting = swRegistration?.waiting;
-  if (!waiting) return;
+  if (!availableRelease) return;
   updateReloading = true;
 
   try {
@@ -5043,20 +5113,17 @@ function applyUpdateNow() {
   }
 
   setUpdateToastApplied();
-  waiting.postMessage("SKIP_WAITING");
 
-  // Страховка: если controllerchange не придёт в течение 4 секунд,
-  // перезагружаемся сами, чтобы обновление не зависло навсегда.
-  setTimeout(() => {
-    if (!updateReloading) return;
-    location.reload();
-  }, 4000);
+  askServiceWorkerToApply().then(() => {
+    // Небольшая пауза, чтобы SW успел записать маркер версии
+    setTimeout(() => location.reload(), 250);
+  });
 }
 
 // Автоматическое применение в безопасный момент
 function tryApplyUpdateSilently() {
   if (updateReloading) return;
-  if (!swRegistration?.waiting) return;
+  if (!availableRelease) return;
   if (!canApplyUpdateSilently()) return;
   applyUpdateNow();
 }
@@ -5118,70 +5185,112 @@ function registerServiceWorker() {
   if (!/^https?:$/.test(location.protocol)) return;
   if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
 
-  // Было ли приложение под контролем service worker до этой регистрации.
-  // На самом первом запуске контроллера нет — там перезагружаться не нужно.
-  const hadController = Boolean(navigator.serviceWorker.controller);
+  // Ответ service worker на запрос «какой релиз выпущен?»
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    const data = event.data;
+    if (!data || typeof data !== "object") return;
+
+    if (data.type === "RELEASE_STATUS") {
+      if (data.current) currentRelease = data.current;
+      if (data.available) availableRelease = data.available;
+      emitUpdateUi();
+      return;
+    }
+
+    if (data.type === "UPDATE_READY") {
+      // SW скачал новую версию: она ждёт, когда её применят
+      availableRelease = data.release || null;
+      emitUpdateUi();
+      if (!updateBannerShown && availableRelease) {
+        updateBannerShown = true;
+        showToast("Вышло обновление — применим, как только поставите паузу");
+      }
+      tryApplyUpdateSilently();
+    }
+  });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!updateReloading) return;
-    // Новая версия заняла место старой. Перезагружаемся один раз.
-    location.reload();
+    // Новый service worker занял место старого
+    if (updateReloading) {
+      location.reload();
+    }
   });
+
+  // Спрашиваем у service worker, не выпущен ли новый релиз
+  function checkRelease() {
+    const sw = navigator.serviceWorker;
+    const target = sw.controller || sw.active;
+    if (!target) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        resolve(value);
+      };
+      const onMessage = (event) => {
+        const data = event.data;
+        if (!data || typeof data !== "object" || data.type !== "RELEASE_STATUS") return;
+        sw.removeEventListener("message", onMessage);
+        finish(data);
+      };
+      sw.addEventListener("message", onMessage);
+      try {
+        target.postMessage({ type: "CHECK_RELEASE" });
+      } catch {
+        finish(null);
+      }
+      setTimeout(() => {
+        sw.removeEventListener("message", onMessage);
+        finish(null);
+      }, 6000);
+    });
+  }
+
+  async function pollRelease() {
+    const status = await checkRelease();
+    if (!status) return;
+    if (status.current) currentRelease = status.current;
+    if (status.available) availableRelease = status.available;
+    // «Что сейчас опубликовано на сайте» SW возвращает в поле deployed
+    if (status.deployed) lastCheckedRelease = status.deployed;
+    emitUpdateUi();
+    tryApplyUpdateSilently();
+  }
+
+  // Проверяем релиз при запуске, при возврате в приложение и раз в 5 минут.
+  // Это лёгкий запрос release.json — музыку и трафик не трогает.
+  pollRelease();
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) pollRelease();
+  });
+  setInterval(() => {
+    if (!document.hidden) pollRelease();
+  }, 5 * 60 * 1000);
 
   navigator.serviceWorker
     .register("sw.js", { scope: "./" })
-    .then((registration) => {
-      swRegistration = registration;
-
-      const markWaiting = () => {
-        if (registration.waiting && hadController) {
-          // Тост предупреждает: обновимся, как только будет пауза
-          showUpdateToast();
-          // Кнопка в шапке — способ применить обновление вручную
-          emitUpdateUi();
-          // Если сейчас ничего не играет — обновляемся сразу и незаметно
-          tryApplyUpdateSilently();
-        }
-      };
-
-      // Новая версия уже ждёт (например, гость давно на сайте)
-      markWaiting();
-      emitUpdateUi();
-
-      registration.addEventListener("updatefound", () => {
-        const installing = registration.installing;
-        if (!installing) return;
-        installing.addEventListener("statechange", () => {
-          if (installing.state === "installed") markWaiting();
-        });
-      });
-
-      // Проверяем обновления при запуске и при возврате в приложение
-      const checkForUpdate = () => registration.update().catch(() => {});
-      checkForUpdate();
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) return;
-        checkForUpdate().then(() => setTimeout(markWaiting, 300));
-        // Вернулись в приложение — если музыка уже не играет, можно обновиться
-        setTimeout(tryApplyUpdateSilently, 800);
-      });
-
-      // Безопасные моменты, когда перезагрузка никого не потревожит
-      audio.addEventListener("pause", () => setTimeout(tryApplyUpdateSilently, 400));
-      audio.addEventListener("play", emitUpdateUi);
-      document.getElementById("updateHeaderBtn")?.addEventListener("click", () => {
-        if (!swRegistration?.waiting) return;
-        // Гость сам попросил — применяем, даже если музыка играет:
-        // позиция сохранится и вернётся после перезагрузки
-        applyUpdateNow();
-      });
-      audio.addEventListener("ended", () => setTimeout(tryApplyUpdateSilently, 1200));
-      window.addEventListener("online", () => setTimeout(tryApplyUpdateSilently, 600));
+    .then(() => {
+      // После регистрации SW уже может отвечать на запросы
+      setTimeout(pollRelease, 500);
     })
     .catch(() => {
       // Без service worker сайт работает как обычная страница
     });
+
+  // Безопасные моменты, когда перезагрузка никого не потревожит
+  audio.addEventListener("pause", () => setTimeout(tryApplyUpdateSilently, 400));
+  audio.addEventListener("play", emitUpdateUi);
+  audio.addEventListener("ended", () => setTimeout(tryApplyUpdateSilently, 1200));
+  window.addEventListener("online", () => setTimeout(() => pollRelease(), 600));
+  document.getElementById("updateHeaderBtn")?.addEventListener("click", () => {
+    if (!availableRelease) return;
+    // Гость сам попросил — применяем, даже если музыка играет:
+    // позиция сохранится и вернётся после перезагрузки
+    applyUpdateNow();
+  });
 }
+
 
 // --- Приглашение установить приложение (Android / Chrome / Edge) ---
 let installPromptEvent = null;
