@@ -2,7 +2,7 @@
   "name": "НейроДоза",
   "short_name": "НейроДоза",
   "description": "НейроДоза — заряди свой мозг музыкой: треки по жанрам — Шансон, ЕвроДиско, ДискоДача, ДипХаус, Русская Поп-музыка и Разное",
-  "start_url": "./index.html",
+  "start_url": "./index.html?src=pwa",
   "display": "standalone",
   "background_color": "#070912",
   "theme_color": "#070912",
@@ -21,10 +21,27 @@
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "id": "./index.html",
+  "scope": "./",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "categories": [
+    "music",
+    "entertainment"
   ]
 }
