@@ -8,11 +8,11 @@
  * 3. Музыка и обложки в кэш не кладутся: файлы большие, а слушать их всё
  *    равно можно только с интернетом.
  *
- * ВАЖНО: при изменении strategy.js/index.html/style.css меняйте CACHE_VERSION,
+ * ВАЖНО: при изменении index.html/style.css/script.js меняйте CACHE_VERSION,
  * иначе у установленных приложений останется старая копия.
  */
 
-const CACHE_VERSION = "neurodoza-v20261219";
+const CACHE_VERSION = "neurodoza-v20261226";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 
 // Минимальная оболочка: без неё приложение не запустится
@@ -45,7 +45,11 @@ self.addEventListener("install", (event) => {
           )
         )
       )
-      .then(() => self.skipWaiting())
+      // ВАЖНО: здесь намеренно НЕТ skipWaiting(). Если он есть, новая версия
+      // сразу вытесняет старую, у всех открытых страниц меняется контроллер
+      // и — если их перезагрузить — у гостя обрывается песня на середине.
+      // Вместо этого новая версия ждёт (waiting), пока страница не решит:
+      // «сейчас safe обновиться». Решение принимает script.js.
   );
 });
 
@@ -60,7 +64,17 @@ self.addEventListener("activate", (event) => {
             .map((key) => caches.delete(key))
         )
       )
-      .then(() => self.clients.claim())
+      .then(async () => {
+        // claim() берёт под контроль страницы без контроллера — это первый
+        // запуск, там обновлять нечего и рвать нечего. Если же страницы уже
+        // под старой версией, оставляем их в покое: они сами решат, когда
+        // переключаться (иначе гарантирован обрыв музыки).
+        const windows = await self.clients.matchAll({ type: "window" });
+        const uncontrolled = windows.filter((client) => !client.controller);
+        if (uncontrolled.length > 0) {
+          await self.clients.claim();
+        }
+      })
   );
 });
 
@@ -102,7 +116,9 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(networkFirst(request));
 });
 
-// Сообщение от страницы: «немедленно активируйся» (кнопка «Обновить»)
+// Сообщение от страницы: «переключайся на новую версию».
+// Страница присылает его только тогда, когда безопасно: пауза, конец трека,
+// или гость сам нажал «Обновить».
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") {
     self.skipWaiting();
